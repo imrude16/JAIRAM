@@ -1,0 +1,100 @@
+/* styles/footer-animations.css */
+/* Footer transitions and animations */
+.footer-link {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.footer-link::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: currentColor;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.footer-link:hover::after {
+  width: 100%;
+}
+
+/* Social icon animations */
+.social-icon {
+  transform: translateZ(0);
+  will-change: transform, background-color;
+  backface-visibility: hidden;
+}
+
+.social-icon:hover {
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Newsletter form animations */
+.newsletter-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Loading spinner */
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade in animation for messages */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-enter {
+  animation: fade-in-up 0.3s ease-out forwards;
+}
+
+/* Optimize for mobile */
+@media (max-width: 768px) {
+  .footer-link::after {
+    display: none;
+  }
+
+  .footer-link:hover {
+    transform: translateX(4px);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .footer-link,
+  .social-icon,
+  .newsletter-input,
+  .spinner {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .footer-link:hover {
+    transform: none;
+  }
+
+  .social-icon:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
