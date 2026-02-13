@@ -523,10 +523,6 @@ const EditorialBoard = () => {
       role: "Web & Data Security Administration",
       members: [
         {
-          name: "Arpit Kumar Tiwari",
-          degree: "B.Tech (Computer Science & Engineering)",
-        },
-        {
           name: "Vatsala Shukla",
           degree:
             "B.Tech (Computer Science with Specialization in Artificial Intelligence & Machine Learning)",

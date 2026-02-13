@@ -124,9 +124,9 @@ const ManuscriptLoginPage = () => {
               >
                 <option value="">Select role</option>
                 <option value="author">Author</option>
-                <option value="reviewer">Reviewer</option>
-                <option value="editor">Editor</option>
-                <option value="chief-editor">Chief Editor</option>
+                <option value="reviewer">Editor</option>
+                <option value="editor">Reviewer</option>
+                <option value="chief-editor">Technical Reviewer</option>
               </select>
             </div>
 
