@@ -992,7 +992,7 @@ const SubmitManuscript = () => {
                   <label className="block text-sm font-semibold text-gray-700">
                     Figures <span className="text-gray-400">(Max 6)</span>
                     <p className="text-xs text-gray-500 mt-2">
-                      Word files only · Max 6 files
+                      Max 6 figures
                     </p>
                   </label>
 
@@ -1016,16 +1016,17 @@ const SubmitManuscript = () => {
                         <input
                           type="file"
                           multiple
-                          accept=".doc,.docx"
+                        accept=".doc,.docx,.jpg,.jpeg,.png"
+
                           className="hidden"
                           onChange={(e) => {
                             const selected = Array.from(e.target.files || []);
                             const isInvalid = selected.some(
-                              (f) => !f.name.match(/\.(doc|docx)$/i),
+                              (f) => !f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i),
                             );
                             if (isInvalid)
                               return alert(
-                                "Only Word files allowed for Figures.",
+                                "Only Word and image files are allowed for Figures.",
                               );
                             if (files.images.length + selected.length > 6)
                               return alert("Max 6 figures allowed.");
@@ -1045,7 +1046,7 @@ const SubmitManuscript = () => {
                   <label className="block text-sm font-semibold text-gray-700">
                     Tables <span className="text-gray-400">(Max 8)</span>
                     <p className="text-xs text-gray-500 mt-2">
-                      Word files only · Max 8 files
+                      Max 8 Tables
                     </p>
                   </label>
 
@@ -1070,16 +1071,17 @@ const SubmitManuscript = () => {
                         <input
                           type="file"
                           multiple
-                          accept=".doc,.docx"
+                          accept=".doc,.docx,.jpg,.jpeg,.png"
+
                           className="hidden"
                           onChange={(e) => {
                             const selected = Array.from(e.target.files || []);
                             const isInvalid = selected.some(
-                              (f) => !f.name.match(/\.(doc|docx)$/i),
+                              (f) => !f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i),
                             );
                             if (isInvalid)
                               return alert(
-                                "Only Word files allowed for Tables.",
+                                "Only Word and image files are allowed for Tables.",
                               );
 
                             // Check against limit 8
@@ -1135,7 +1137,7 @@ const SubmitManuscript = () => {
                     <li>
                       • All uploads must be <strong>Word (.doc, .docx)</strong>
                     </li>
-                    <li>• Max 6 Figures / Max 8 Tables</li>
+                    <li>• Figures & Tables must be in <strong>.doc,.docx,.jpg,.jpeg,.png</strong></li>
                   </ul>
                 </div>
               </div>
