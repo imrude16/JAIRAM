@@ -135,11 +135,11 @@ function App() {
         <Route
           path="/submit"
           element={
-            <Layout>
+            
               <PageTransition>
                 <SubmitPage />
               </PageTransition>
-            </Layout>
+           
           }
         />
 
