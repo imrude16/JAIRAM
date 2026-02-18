@@ -1562,7 +1562,7 @@ const SubmitManuscript = () => {
           <div className="inline-flex items-center gap-3 bg-white rounded-2xl px-6 py-3 shadow-sm border border-[#d1dde8] mb-5">
             <FlaskConical className="w-5 h-5 text-[#2d7d6b]" />
             <span className="text-sm font-bold text-[#1a6b8a] uppercase tracking-widest">
-              Journal Of Advance And Integrated Research And Management
+              Journal-Of-Advanced-And-Integrated-Research-In-Acute-Medicine
             </span>
             <Stethoscope className="w-5 h-5 text-[#1a6b8a]" />
           </div>
