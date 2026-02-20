@@ -6,6 +6,7 @@ const RegisterForm = () => {
     lastName: "",
     email: "",
     password: "",
+    confirmPassword: "",
     profession: "",
     otherProfession: "",
     speciality: "",
@@ -28,7 +29,6 @@ const RegisterForm = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   // Text-only (letters + spaces)
   const allowOnlyText = (e) => {
@@ -55,7 +55,6 @@ const RegisterForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
     if (!form.agree1) {
       alert("Please accept Terms & Conditions");
@@ -73,50 +72,15 @@ const RegisterForm = () => {
         return;
       }
     }
+    if (form.password !== form.confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
 
     setLoading(true);
 
-    const finalProfession =
-      form.profession === "Other" ? form.otherProfession : form.profession;
-    const finalSpeciality =
-      form.speciality === "Other" ? form.otherSpeciality : form.speciality;
-    const finalCountry =
-      form.country === "Other" ? form.otherCountry : form.country;
-    const finalPhoneCode =
-      form.phoneCode === "Other" ? form.otherPhoneCode : form.phoneCode;
-
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/auth/signUp`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firstName: form.firstName,
-            lastName: form.lastName,
-            email: form.email,
-            password: form.password,
-            profession: finalProfession,
-            speciality: finalSpeciality,
-            department: form.department,
-            institution: form.institution,
-            orcid: form.orcid,
-            address: form.address,
-            country: finalCountry,
-            state: form.state,
-            city: form.city,
-            postalCode: form.postalCode,
-            phoneCode: finalPhoneCode,
-            mobile: form.mobile,
-          }),
-        },
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
+      await new Promise((resolve) => setTimeout(resolve, 500)); // fake loading
 
       alert("Account created successfully. Please verify OTP.");
       window.location.hash = "#/auth/verify-otp";
@@ -127,6 +91,7 @@ const RegisterForm = () => {
         email: "",
         password: "",
         profession: "",
+        confirmPassword: "",
         otherProfession: "",
         speciality: "",
         otherSpeciality: "",
@@ -146,7 +111,7 @@ const RegisterForm = () => {
         agree2: false,
       });
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      alert("Something went wrong on frontend. Please check your form.");
     } finally {
       setLoading(false);
     }
@@ -242,7 +207,7 @@ const RegisterForm = () => {
                     value={form.password}
                     onChange={handleChange}
                     pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$"
-                    title="Minimum 8 characters, at least 1 letter and 1 number"
+                    title="Minimum 8 Letters, at least 1 Special Character and 1 number"
                     className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
                   />
@@ -354,7 +319,6 @@ const RegisterForm = () => {
                   </button>
                 </div>
               </div>
-
 
               {/* Profession */}
               <div>
@@ -519,11 +483,8 @@ const RegisterForm = () => {
               {/* ORCID */}
               <div>
                 <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
-                  ORCID{" "}
-                  <span className="text-gray-500 text-xs font-normal">
-                    (Optional)
-                  </span>
-                </label>
+                      ORCID <span className="text-red-500">*</span>
+                    </label>
                 <input
                   name="orcid"
                   placeholder="0000-0000-0000-0000"
@@ -532,6 +493,7 @@ const RegisterForm = () => {
                   pattern="\d{4}-\d{4}-\d{4}-\d{4}"
                   title="Format: 0000-0000-0000-0000"
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
+                  required
                 />
               </div>
 
@@ -681,7 +643,7 @@ const RegisterForm = () => {
                     <input
                       type="tel"
                       name="mobile"
-                      placeholder="e.g. +44 7700 900123"
+                      placeholder="e.g. 9876543210"
                       value={form.mobile}
                       onChange={allowOnlyNumbers}
                       inputMode="numeric"
@@ -720,10 +682,6 @@ const RegisterForm = () => {
               >
                 {loading ? "Registering..." : "Register"}
               </button>
-
-              {error && (
-                <p className="text-red-500 text-center text-sm mt-2">{error}</p>
-              )}
 
               {/* Login Link */}
               <div className="text-center mt-6 sm:mt-8 pt-6 border-t-2 border-gray-200">

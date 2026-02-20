@@ -11,33 +11,17 @@ const LoginForm = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/auth/logIn`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        },
-      );
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
+      if (!email || !password) {
+        throw new Error("Email and password are required");
       }
 
-      // Store JWT token (you can later move this to context)
-      localStorage.setItem("token", data.token);
+      alert("Login successful");
 
-      // Clear form
       setEmail("");
       setPassword("");
-
-      alert("Login successful");
     } catch (err) {
       setError(err.message || "Invalid credentials");
     } finally {
