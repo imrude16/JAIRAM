@@ -126,7 +126,7 @@ const ManuscriptLoginPage = () => {
                 <option value="author">Author</option>
                 <option value="reviewer">Editor</option>
                 <option value="editor">Reviewer</option>
-                <option value="chief-editor">Technical Reviewer</option>
+                <option value="chief-editor">Technical Editor</option>
               </select>
             </div>
 
