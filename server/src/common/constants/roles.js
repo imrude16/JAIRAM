@@ -1,0 +1,9 @@
+const ROLES = {
+    USER: "USER",
+    REVIEWER: "REVIEWER",
+    ADMIN: "ADMIN",
+    EDITOR: "EDITOR",
+    TECHNICAL_REVIEWER: "TECHNICAL_REVIEWER"
+};
+
+export { ROLES };
