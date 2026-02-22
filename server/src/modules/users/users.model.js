@@ -46,18 +46,51 @@ const userSchema = new Schema(
         },
 
         // ========== PROFESSIONAL INFORMATION ==========
-        profession: {
+        profession: {  // EDIT 
             type: String,
-            enum: {
-                values: ["DOCTOR", "RESEARCHER", "STUDENT", "OTHER"],
-                message: "{VALUE} is not a valid profession",
-            },
+            enum: [
+                "Physician (MD)",
+                "Physician (DO)",
+                "Physician Resident / Fellow",
+                "Student, Medical School",
+                "Administrator",
+                "PA",
+                "Nurse Practitioner",
+                "Nursing Advance Practice",
+                "Nursing, RN",
+                "Nursing, LPN",
+                "Allied Health Professional",
+                "Other"
+            ],
             required: [true, "Profession is required"],
         },
-        primarySpecialty: {
+        otherProfession: {
             type: String,
+            trim: true
+        },
+        primarySpecialty: { //EDIT
+            type: String,
+            enum: [
+                "Addiction Medicine", "Allergy & Immunology",
+                "Anesthesiology/Pain Medicine", "Behavioral Health/Psychology",
+                "Cardiology", "Critical Care", "Dermatology",
+                "Emergency Medicine", "Endocrinology", "Epidemiology",
+                "Gastroenterology", "General Medicine", "Genetics", "Geriatric",
+                "Hematology", "Infectious Disease", "Nephrology",
+                "Neurology", "Neurosurgery", "Nursing (General)",
+                "Nutrition", "Obstetrics & Gynecology", "Oncology",
+                "Ophthalmology/Optometry", "Orthopaedics", "Pathology",
+                "Pediatrics", "Pharmacology", "Physical Medicine & Rehabilitation",
+                "Psychiatry w/Addiction)", "Public Health", "Pulmonary",
+                "Radiology", "Rheumatology", "Surgery (General)",
+                "Trauma", "Urology", "Other"
+            ],
             required: [true, "Primary specialty is required"],
-            trim: true,
+        },
+
+        otherPrimarySpecialty: {
+            type: String,
+            trim: true
         },
         institution: {
             type: String,
@@ -66,6 +99,11 @@ const userSchema = new Schema(
         },
         department: {
             type: String,
+            trim: true,
+        },
+        orcid: {
+            type: String,
+            required: [true, "ORCID is required"],
             trim: true,
         },
 

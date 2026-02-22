@@ -1,130 +1,195 @@
-import { useState } from "react";
+// Wired to POST /api/users/register
+// On success: pendingEmail saved to Zustand store → navigates to /auth/verify-otp
+// Real-time email check: GET /api/users/check-email
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { registerUser, checkEmailAvailability } from "../../services/authService";
+import useAuthStore from "../../store/authStore";
 
+// ── Tiny debounce hook ─────────────────────────────────────────────────────────
+const useDebounce = (value, delay = 600) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const allowOnlyText = (setter) => (e) =>
+  setter(e.target.value.replace(/[^A-Za-z .'-]/g, ""));
+
+const allowOnlyNumbers = (setter) => (e) =>
+  setter(e.target.value.replace(/\D/g, ""));
+
+// ── Component ──────────────────────────────────────────────────────────────────
 const RegisterForm = () => {
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    profession: "",
-    otherProfession: "",
-    speciality: "",
-    otherSpeciality: "",
-    department: "",
-    institution: "",
-    orcid: "",
-    address: "",
-    country: "",
-    otherCountry: "",
-    state: "",
-    city: "",
-    postalCode: "",
-    phoneCode: "",
-    otherPhoneCode: "",
-    mobile: "",
-    agree1: false,
-    agree2: false,
-  });
+  const navigate = useNavigate();
+  const { setPendingEmail } = useAuthStore();
 
+  // Personal
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailAvailable, setEmailAvailable] = useState(null); // null | true | false
+  const [emailChecking, setEmailChecking] = useState(false);
+
+  // Credentials
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Professional
+  const [profession, setProfession] = useState("");
+  const [otherProfession, setOtherProfession] = useState("");
+  const [speciality, setSpeciality] = useState("");
+  const [otherSpeciality, setOtherSpeciality] = useState("");
+  const [department, setDepartment] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [orcid, setOrcid] = useState("");
+
+  // Address
+  const [address, setAddress] = useState("");
+  const [country, setCountry] = useState("");
+  const [otherCountry, setOtherCountry] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [otherPhoneCode, setOtherPhoneCode] = useState("");
+  const [mobile, setMobile] = useState("");
+
+  // Agreement
+  const [agree1, setAgree1] = useState(false);
+
   const [loading, setLoading] = useState(false);
 
-  // Text-only (letters + spaces)
-  const allowOnlyText = (e) => {
-    const { name, value } = e.target;
-    const clean = value.replace(/[^A-Za-z .'-]/g, "");
-    setForm((prev) => ({ ...prev, [name]: clean }));
+  // ── Real-time email availability check ──────────────────────────────────────
+  const debouncedEmail = useDebounce(email, 700);
+
+  useEffect(() => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!debouncedEmail || !emailRegex.test(debouncedEmail)) {
+      setEmailAvailable(null);
+      return;
+    }
+    let cancelled = false;
+    setEmailChecking(true);
+    checkEmailAvailability(debouncedEmail).then(({ available }) => {
+      if (!cancelled) setEmailAvailable(available);
+    }).finally(() => {
+      if (!cancelled) setEmailChecking(false);
+    });
+    return () => { cancelled = true; };
+  }, [debouncedEmail]);
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+  const validate = () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("First and last name are required."); return false;
+    }
+    if (!email.trim()) {
+      toast.error("Email is required."); return false;
+    }
+    if (emailAvailable === false) {
+      toast.error("This email is already registered. Please log in."); return false;
+    }
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters."); return false;
+    }
+    if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+      toast.error("Password must contain at least one letter and one number."); return false;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match."); return false;
+    }
+    if (!agree1) {
+      toast.error("Please accept the Terms & Conditions."); return false;
+    }
+    if (country === "India") {
+      if (!/^[6-9]\d{9}$/.test(mobile)) {
+        toast.error("Indian mobile number must be 10 digits starting with 6–9."); return false;
+      }
+      if (!/^[1-9]\d{5}$/.test(postalCode)) {
+        toast.error("Indian PIN code must be 6 digits."); return false;
+      }
+    }
+    return true;
   };
 
-  const allowOnlyNumbers = (e) => {
-    const { name, value } = e.target;
-    const clean = value.replace(/\D/g, "");
-    setForm((prev) => ({ ...prev, [name]: clean }));
-  };
-
-  const allowPhoneCode = (e) => {
-    const { name, value } = e.target;
-    const clean = value.replace(/[^0-9+]/g, "");
-    setForm((prev) => ({ ...prev, [name]: clean }));
-  };
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm({ ...form, [name]: type === "checkbox" ? checked : value });
-  };
-
+  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
 
-    if (!form.agree1) {
-      alert("Please accept Terms & Conditions");
-      return;
-    }
+    const payload = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      confirmPassword,
 
-    // India-specific validation (without changing dropdowns)
-    if (form.country === "India") {
-      if (!/^[6-9]\d{9}$/.test(form.mobile)) {
-        alert("Indian mobile number must be 10 digits and start with 6-9");
-        return;
-      }
-      if (!/^[1-9]\d{5}$/.test(form.postalCode)) {
-        alert("Indian PIN code must be 6 digits");
-        return;
-      }
-    }
-    if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
+      // Profession
+      profession,
+      otherProfession:
+        profession === "Other" ? otherProfession.trim() : "",
+
+      // Primary Specialty
+      primarySpecialty: speciality,
+      otherPrimarySpecialty:
+        speciality === "Other" ? otherSpeciality.trim() : "",
+
+      department: department.trim(),
+      institution: institution.trim(),
+      orcid: orcid.trim(),
+
+      // Contact
+      phoneCode: phoneCode === "Other" ? otherPhoneCode : phoneCode,
+      mobileNumber: mobile.trim(),
+
+      // Address (FIXED STRUCTURE)
+      address: {
+        street: address.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        country: country === "Other" ? otherCountry : country,
+        postalCode: postalCode.trim(),
+      },
+
+      // Terms (FIXED NAMING)
+      termsAccepted: agree1,
+    };
 
     setLoading(true);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500)); // fake loading
-
-      alert("Account created successfully. Please verify OTP.");
-      window.location.hash = "#/auth/verify-otp";
-
-      setForm({
-        firstName: "",
-        lastName: "",
-        email: "",
-        password: "",
-        profession: "",
-        confirmPassword: "",
-        otherProfession: "",
-        speciality: "",
-        otherSpeciality: "",
-        department: "",
-        institution: "",
-        orcid: "",
-        address: "",
-        country: "",
-        otherCountry: "",
-        state: "",
-        city: "",
-        postalCode: "",
-        phoneCode: "",
-        otherPhoneCode: "",
-        mobile: "",
-        agree1: false,
-        agree2: false,
-      });
-    } catch {
-      alert("Something went wrong on frontend. Please check your form.");
+      await registerUser(payload);
+      setPendingEmail(email.trim().toLowerCase());
+      toast.success("Account created! Please verify your email.");
+      navigate("/auth/verify-otp");
+    } catch (err) {
+      toast.error(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Email status indicator ──────────────────────────────────────────────────
+  const EmailStatus = () => {
+    if (emailChecking) return <p className="mt-1 text-xs text-gray-400">Checking availability…</p>;
+    if (emailAvailable === true) return <p className="mt-1 text-xs text-green-600">✓ Email is available</p>;
+    if (emailAvailable === false) return <p className="mt-1 text-xs text-red-600">✗ Email already registered</p>;
+    return null;
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-linear-to-br from-white via-green-50/20 to-white py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-10">
-          <div className="inline-block mb-4">
-            <div className="bg-linear-to-r from-green-800 to-green-800 w-16 h-1 mx-auto rounded-full"></div>
-          </div>
+          <div className="bg-linear-to-r from-green-800 to-green-800 w-16 h-1 mx-auto rounded-full mb-4" />
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-800 mb-3">
             Create Your Account
           </h2>
@@ -140,8 +205,10 @@ const RegisterForm = () => {
               Registration Information
             </h3>
           </div>
+
           <div className="p-6 sm:p-8 md:p-10">
             <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-7">
+
               {/* First + Last name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
@@ -149,15 +216,13 @@ const RegisterForm = () => {
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    name="firstName"
                     type="text"
                     placeholder="First Name"
-                    value={form.firstName}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-z .'\-]+$"
-                    title="Only letters, spaces, apostrophes, and hyphens allowed"
+                    value={firstName}
+                    onChange={allowOnlyText(setFirstName)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -165,15 +230,13 @@ const RegisterForm = () => {
                     Last Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    name="lastName"
                     type="text"
                     placeholder="Last Name"
-                    value={form.lastName}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-z .'\-]+$"
-                    title="Only letters, spaces, apostrophes, and hyphens allowed"
+                    value={lastName}
+                    onChange={allowOnlyText(setLastName)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -184,14 +247,23 @@ const RegisterForm = () => {
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
-                  name="email"
                   type="email"
                   placeholder="Email address"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailAvailable(null);
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base ${emailAvailable === false
+                      ? "border-red-400 focus:ring-red-400"
+                      : emailAvailable === true
+                        ? "border-green-400 focus:ring-green-400"
+                        : "border-gray-200 focus:ring-green-500 focus:border-green-500"
+                    }`}
                   required
+                  disabled={loading}
                 />
+                <EmailStatus />
               </div>
 
               {/* Password */}
@@ -201,123 +273,53 @@ const RegisterForm = () => {
                 </label>
                 <div className="relative">
                   <input
-                    name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={handleChange}
-                    pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$"
-                    title="Minimum 8 Letters, at least 1 Special Character and 1 number"
+                    placeholder="Minimum 8 characters, 1 letter + 1 number"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 focus:outline-none transition-colors duration-200 p-1"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 p-1"
                   >
                     {showPassword ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                       </svg>
                     )}
                   </button>
                 </div>
               </div>
+
+              {/* Confirm Password */}
               <div>
                 <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
                   Confirm Password <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    name="confirmPassword"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$"
-                    title="Minimum 8 characters, at least 1 letter and 1 number"
-                    className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 focus:outline-none transition-colors duration-200 p-1"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showPassword ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base ${confirmPassword && confirmPassword !== password
+                      ? "border-red-400 focus:ring-red-400"
+                      : "border-gray-200 focus:ring-green-500 focus:border-green-500"
+                    }`}
+                  required
+                  disabled={loading}
+                />
+                {confirmPassword && confirmPassword !== password && (
+                  <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+                )}
               </div>
 
               {/* Profession */}
@@ -326,11 +328,11 @@ const RegisterForm = () => {
                   Profession <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="profession"
-                  value={form.profession}
-                  onChange={handleChange}
+                  value={profession}
+                  onChange={(e) => setProfession(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 text-sm sm:text-base"
                   required
+                  disabled={loading}
                 >
                   <option value="">Choose your profession</option>
                   <option>Physician (MD)</option>
@@ -346,16 +348,14 @@ const RegisterForm = () => {
                   <option>Allied Health Professional</option>
                   <option>Other</option>
                 </select>
-                {form.profession === "Other" && (
+                {profession === "Other" && (
                   <input
-                    name="otherProfession"
                     placeholder="Please specify your profession"
-                    value={form.otherProfession}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-zÀ-ÿ0-9 .,'\-]{2,50}$"
-                    title="2–50 characters. Letters, numbers, spaces allowed."
-                    className="mt-3 w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 animate-in fade-in slide-in-from-top-2"
+                    value={otherProfession}
+                    onChange={allowOnlyText(setOtherProfession)}
+                    className="mt-3 w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
+                    disabled={loading}
                   />
                 )}
               </div>
@@ -366,82 +366,42 @@ const RegisterForm = () => {
                   Primary Speciality <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="speciality"
-                  value={form.speciality}
-                  onChange={handleChange}
+                  value={speciality}
+                  onChange={(e) => setSpeciality(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 text-sm sm:text-base"
                   required
+                  disabled={loading}
                 >
                   <option value="">Choose your primary speciality</option>
-                  <option>Addiction Medicine</option>
-                  <option>Allergy & Immunology</option>
-                  <option>Alternative/Chinese Medicine</option>
-                  <option>Anesthesiology/Pain Medicine</option>
-                  <option>Behavioral Health/Psychology</option>
-                  <option>Biomedicine</option>
-                  <option>Cardiology</option>
-                  <option>Critical Care</option>
-                  <option>Dermatology</option>
-                  <option>Education</option>
-                  <option>Emergency Medicine</option>
-                  <option>Endocrinology</option>
-                  <option>Epidemiology</option>
-                  <option>Forensic Science</option>
-                  <option>Gastroenterology</option>
-                  <option>General Medicine</option>
-                  <option>Genetics</option>
-                  <option>Geriatric</option>
-                  <option>Health Technology</option>
-                  <option>Healthcare Management</option>
-                  <option>Healthcare Quality</option>
-                  <option>Hematology</option>
-                  <option>Hospital Administration</option>
-                  <option>Infectious Disease</option>
-                  <option>Leadership</option>
-                  <option>Nephrology</option>
-                  <option>Neurology</option>
-                  <option>Neurosurgery</option>
-                  <option>Nursing (General)</option>
-                  <option>Nursing (Speciality)</option>
-                  <option>Nursing Management</option>
-                  <option>Nursing Management and Administration</option>
-                  <option>Nursing—Advanced Practice</option>
-                  <option>Nutrition</option>
-                  <option>Obstetrics & Gynecology</option>
-                  <option>Oncology</option>
-                  <option>Ophthalmology/Optometry</option>
-                  <option>Orthopaedics</option>
-                  <option>Otolaryngology</option>
-                  <option>Pathology</option>
-                  <option>Pediatrics</option>
-                  <option>Pharmacology</option>
+                  <option>Addiction Medicine</option><option>Allergy & Immunology</option>
+                  <option>Anesthesiology/Pain Medicine</option><option>Behavioral Health/Psychology</option>
+                  <option>Cardiology</option><option>Critical Care</option>
+                  <option>Dermatology</option><option>Emergency Medicine</option>
+                  <option>Endocrinology</option><option>Epidemiology</option>
+                  <option>Gastroenterology</option><option>General Medicine</option>
+                  <option>Genetics</option><option>Geriatric</option>
+                  <option>Hematology</option><option>Infectious Disease</option>
+                  <option>Nephrology</option><option>Neurology</option>
+                  <option>Neurosurgery</option><option>Nursing (General)</option>
+                  <option>Nutrition</option><option>Obstetrics & Gynecology</option>
+                  <option>Oncology</option><option>Ophthalmology/Optometry</option>
+                  <option>Orthopaedics</option><option>Pathology</option>
+                  <option>Pediatrics</option><option>Pharmacology</option>
                   <option>Physical Medicine & Rehabilitation</option>
-                  <option>Physical Therapy</option>
-                  <option>Plastic Surgery</option>
-                  <option>Psychiatry w/Addiction</option>
-                  <option>Public Health</option>
-                  <option>Pulmonary</option>
-                  <option>Radiology</option>
-                  <option>Rheumatology</option>
-                  <option>Speech Language & Hearing</option>
-                  <option>Sports Medicine</option>
-                  <option>Surgery (General)</option>
-                  <option>Surgery (Speciality)</option>
-                  <option>Transplantation</option>
-                  <option>Trauma</option>
-                  <option>Urology</option>
+                  <option>Psychiatry w/Addiction</option><option>Public Health</option>
+                  <option>Pulmonary</option><option>Radiology</option>
+                  <option>Rheumatology</option><option>Surgery (General)</option>
+                  <option>Trauma</option><option>Urology</option>
                   <option>Other</option>
                 </select>
-                {form.speciality === "Other" && (
+                {speciality === "Other" && (
                   <input
-                    name="otherSpeciality"
                     placeholder="Please specify your speciality"
-                    value={form.otherSpeciality}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-zÀ-ÿ0-9 .,'\-]{2,50}$"
-                    title="2–50 characters allowed"
-                    className="mt-3 w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 animate-in fade-in slide-in-from-top-2"
+                    value={otherSpeciality}
+                    onChange={allowOnlyText(setOtherSpeciality)}
+                    className="mt-3 w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
+                    disabled={loading}
                   />
                 )}
               </div>
@@ -453,14 +413,12 @@ const RegisterForm = () => {
                     Department <span className="text-red-500">*</span>
                   </label>
                   <input
-                    name="department"
                     placeholder="Enter Department"
-                    value={form.department}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-zÀ-ÿ0-9 .,'\-]{2,50}$"
-                    title="2–50 characters allowed"
+                    value={department}
+                    onChange={allowOnlyText(setDepartment)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -468,14 +426,12 @@ const RegisterForm = () => {
                     Institution <span className="text-red-500">*</span>
                   </label>
                   <input
-                    name="institution"
                     placeholder="Enter Institution"
-                    value={form.institution}
-                    onChange={allowOnlyText}
-                    pattern="^[A-Za-zÀ-ÿ0-9 .,'\-]{2,50}$"
-                    title="2–50 characters allowed"
+                    value={institution}
+                    onChange={allowOnlyText(setInstitution)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -483,56 +439,52 @@ const RegisterForm = () => {
               {/* ORCID */}
               <div>
                 <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
-                      ORCID <span className="text-red-500">*</span>
-                    </label>
+                  ORCID <span className="text-red-500">*</span>
+                </label>
                 <input
-                  name="orcid"
                   placeholder="0000-0000-0000-0000"
-                  value={form.orcid}
-                  onChange={handleChange}
+                  value={orcid}
+                  onChange={(e) => setOrcid(e.target.value)}
                   pattern="\d{4}-\d{4}-\d{4}-\d{4}"
                   title="Format: 0000-0000-0000-0000"
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                   required
+                  disabled={loading}
                 />
               </div>
 
               {/* Primary Address Section */}
               <div className="bg-linear-to-br from-green-50 to-green-100/50 rounded-xl p-5 sm:p-6 mt-6 border-2 border-green-200/50">
                 <div className="flex items-center mb-5">
-                  <div className="bg-blue-600 w-1 h-6 rounded-full mr-3"></div>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-                    Primary Address
-                  </h3>
+                  <div className="bg-blue-600 w-1 h-6 rounded-full mr-3" />
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">Primary Address</h3>
                 </div>
 
                 {/* Address */}
                 <div className="mb-4 sm:mb-5">
-                  <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
-                    Address
-                  </label>
+                  <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">Address</label>
                   <textarea
-                    name="address"
                     placeholder="Enter Address"
-                    value={form.address}
-                    onChange={handleChange}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none text-sm sm:text-base"
+                    disabled={loading}
                   />
                 </div>
 
-                {/* Country/Region + State + City */}
+                {/* Country / State / City */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-4 sm:mb-5">
                   <div>
                     <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
                       Country or Region <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="country"
-                      value={form.country}
-                      onChange={handleChange}
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 text-sm sm:text-base"
                       required
+                      disabled={loading}
                     >
                       <option value="">Select</option>
                       <option>United States</option>
@@ -542,33 +494,25 @@ const RegisterForm = () => {
                       <option>Australia</option>
                       <option>Other</option>
                     </select>
-                    {form.country === "Other" && (
+                    {country === "Other" && (
                       <input
-                        name="otherCountry"
-                        type="text"
                         placeholder="Enter Country"
-                        value={form.otherCountry}
-                        onChange={allowOnlyText}
-                        pattern="^[A-Za-z .'\-]+$"
-                        title="Only letters allowed"
+                        value={otherCountry}
+                        onChange={allowOnlyText(setOtherCountry)}
                         className="mt-2 w-full px-4 py-3 border-2 border-blue-300 rounded-lg"
                         required
+                        disabled={loading}
                       />
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
-                      State
-                    </label>
+                    <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">State</label>
                     <input
-                      name="state"
-                      type="text"
                       placeholder="Enter State"
-                      value={form.state}
-                      onChange={allowOnlyText}
-                      pattern="^[A-Za-z .'\-]+$"
-                      title="Only letters allowed"
+                      value={state}
+                      onChange={allowOnlyText(setState)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
+                      disabled={loading}
                     />
                   </div>
                   <div>
@@ -576,125 +520,124 @@ const RegisterForm = () => {
                       City <span className="text-red-500">*</span>
                     </label>
                     <input
-                      name="city"
-                      type="text"
                       placeholder="Enter City"
-                      value={form.city}
-                      onChange={allowOnlyText}
-                      pattern="^[A-Za-z .'\-]+$"
-                      title="Only letters allowed"
+                      value={city}
+                      onChange={allowOnlyText(setCity)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
+                      required
+                      disabled={loading}
                     />
                   </div>
                 </div>
 
-                {/* Postal Code + Phone + Code + Mobile */}
+                {/* Postal / Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                   <div>
                     <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
                       Postal Code <span className="text-red-500">*</span>
                     </label>
                     <input
-                      name="postalCode"
-                      type="text"
                       placeholder="Postal / ZIP Code"
-                      value={form.postalCode}
-                      onChange={allowOnlyNumbers}
-                      pattern="^[1-9][0-9]{5}$"
-                      title="Indian PIN code must be 6 digits"
+                      value={postalCode}
+                      onChange={allowOnlyNumbers(setPostalCode)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                       required
+                      disabled={loading}
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
-                      Phonecode <span className="text-red-500">*</span>
+                      Phone Code <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="phoneCode"
-                      value={form.phoneCode}
-                      onChange={handleChange}
+                      value={phoneCode}
+                      onChange={(e) => setPhoneCode(e.target.value)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 text-sm sm:text-base"
                       required
+                      disabled={loading}
                     >
                       <option value="">Select</option>
-                      <option>+1</option>
-                      <option>+44</option>
-                      <option>+91</option>
-                      <option>+61</option>
+                      <option>+1</option><option>+44</option>
+                      <option>+91</option><option>+61</option>
                       <option>Other</option>
                     </select>
-                    {form.phoneCode === "Other" && (
+                    {phoneCode === "Other" && (
                       <input
-                        name="otherPhoneCode"
                         placeholder="e.g. +880"
-                        value={form.otherPhoneCode}
-                        onChange={allowPhoneCode}
+                        value={otherPhoneCode}
+                        onChange={(e) => setOtherPhoneCode(e.target.value.replace(/[^0-9+]/g, ""))}
                         className="mt-2 w-full px-4 py-3 border-2 border-blue-300 rounded-lg"
                         required
+                        disabled={loading}
                       />
                     )}
                   </div>
-                  <div>
+                  <div className="lg:col-span-2">
                     <label className="block text-sm sm:text-base font-semibold text-gray-700 mb-2">
                       Mobile Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
-                      name="mobile"
                       placeholder="e.g. 9876543210"
-                      value={form.mobile}
-                      onChange={allowOnlyNumbers}
-                      inputMode="numeric"
-                      pattern="^[6-9][0-9]{9}$"
-                      title="Indian mobile number must be 10 digits and start with 6-9"
+                      value={mobile}
+                      onChange={allowOnlyNumbers(setMobile)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-sm sm:text-base"
                       required
+                      disabled={loading}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Terms and Conditions */}
+              {/* Terms */}
               <div className="mt-6 sm:mt-8">
                 <div className="flex items-start bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                   <input
                     type="checkbox"
-                    name="agree1"
-                    checked={form.agree1}
-                    onChange={handleChange}
-                    className="mt-1 h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500 focus:ring-2 cursor-pointer"
+                    checked={agree1}
+                    onChange={(e) => setAgree1(e.target.checked)}
+                    className="mt-1 h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
                     required
+                    disabled={loading}
                   />
                   <label className="ml-3 text-sm sm:text-base text-gray-700 cursor-pointer">
-                    By selecting, I Agree to the Terms and Conditions.{" "}
+                    By selecting, I agree to the Terms and Conditions.{" "}
                     <span className="text-red-500">*</span>
                   </label>
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-linear-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-lg disabled:opacity-60"
+                disabled={loading || emailAvailable === false}
+                className="w-full bg-linear-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-lg font-semibold text-lg transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {loading ? "Registering..." : "Register"}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Registering…
+                  </span>
+                ) : "Register"}
               </button>
 
               {/* Login Link */}
               <div className="text-center mt-6 sm:mt-8 pt-6 border-t-2 border-gray-200">
                 <p className="text-sm sm:text-base text-gray-600">
                   Already have an account?{" "}
-                  <a
-                    href="#/auth/login"
+                  <button
+                    type="button"
+                    onClick={() => navigate("/auth/login")}
                     className="text-blue-600 hover:text-blue-700 font-semibold underline transition-colors duration-200"
                   >
                     Log in
-                  </a>
+                  </button>
                 </p>
               </div>
+
             </form>
           </div>
         </div>

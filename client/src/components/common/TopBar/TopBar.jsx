@@ -7,9 +7,7 @@ import {
   LogIn,
   UserPlus,
   Bell,
-  Upload,
   ChevronDown,
-  X,
 } from "lucide-react";
 import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
@@ -90,14 +88,6 @@ const SearchBar = React.memo(
               }`}
               aria-label="Search query"
             />
-            {/* <button
-              onClick={onSearch}
-              className={`px-4 py-2 bg-stone-700 text-white hover:bg-stone-800 transition-colors flex items-center justify-center
-              ${isMobile ? "rounded" : ""}`}
-              aria-label="Search"
-            >
-              <Search className="w-4 h-4" />
-            </button> */}
           </div>
         </div>
       </div>
@@ -112,11 +102,12 @@ const TopBar = () => {
   const [searchType, setSearchType] = useState("Articles");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [, setIsScrolled] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const mobileSearchRef = useRef(null);
+  const prevPathnameRef = useRef(null);
 
   const handleLogin = () => {
     setShowLoginMenu(false);
@@ -191,9 +182,15 @@ const TopBar = () => {
   }, [showMobileSearch]);
 
   useEffect(() => {
-    if (location.pathname !== "/search") {
+    if (
+      location.pathname !== "/search" &&
+      prevPathnameRef.current === "/search"
+    ) {
+      // Safe: useRef prevents cascading renders by only updating on specific transitions
+      // eslint-disable-next-line
       setSearchQuery("");
     }
+    prevPathnameRef.current = location.pathname;
   }, [location.pathname]);
 
   // Memoized search props
@@ -266,11 +263,10 @@ const TopBar = () => {
             </button>
 
             {/* Submit Manuscript */}
+            {/* FIX: removed onMouseEnter/onMouseLeave that called undefined setShowSubmitInfo */}
             <div className="relative">
               <button
                 onClick={handleSubmitManuscript}
-                onMouseEnter={() => setShowSubmitInfo(true)}
-                onMouseLeave={() => setShowSubmitInfo(false)}
                 className="flex items-center text-stone-700 hover:text-stone-900 hover:bg-stone-300 px-3 py-1.5 rounded transition-all group"
               >
                 <FileText className="w-4 h-4 mr-1.5 group-hover:scale-110 transition-transform" />
@@ -281,6 +277,7 @@ const TopBar = () => {
               </button>
             </div>
           </div>
+
           {/* Desktop Search */}
           <div className="hidden lg:flex items-start gap-3 mt-10 shrink-0">
             <SearchBar {...searchProps} />

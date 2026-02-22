@@ -1,4 +1,3 @@
-import React from "react";
 import {
   HashRouter as Router,
   Routes,
@@ -7,6 +6,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { Toaster } from "react-hot-toast"; 
 import Header from "./components/layout/Header/Header";
 import Footer from "./components/layout/Footer/Footer";
 import HomePage from "./pages/HomePage/HomePage";
@@ -135,11 +135,9 @@ function App() {
         <Route
           path="/submit"
           element={
-            
-              <PageTransition>
-                <SubmitPage />
-              </PageTransition>
-           
+            <PageTransition>
+              <SubmitPage />
+            </PageTransition>
           }
         />
 
@@ -298,6 +296,16 @@ function App() {
 export default function AppWrapper() {
   return (
     <Router>
+      {/* ADDED: Toaster must live inside Router so toast() works anywhere in the app */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: { fontFamily: "inherit", fontSize: "0.9rem" },
+          success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+          error: { iconTheme: { primary: "#dc2626", secondary: "#fff" } },
+        }}
+      />
       <App />
     </Router>
   );

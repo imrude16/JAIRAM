@@ -1,47 +1,49 @@
+// Wired to POST /api/users/login
+// On success: token + user saved to Zustand store → navigates to "/"
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { loginUser } from "../../services/authService";
+import useAuthStore from "../../store/authStore";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
+  const { login } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      toast.error("Email and password are required.");
+      return;
+    }
+
     setLoading(true);
-    setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      if (!email || !password) {
-        throw new Error("Email and password are required");
-      }
-
-      alert("Login successful");
-
-      setEmail("");
-      setPassword("");
+      const { token, user } = await loginUser({ email, password });
+      login(token, user);
+      toast.success("Welcome back!");
+      navigate("/");
     } catch (err) {
-      setError(err.message || "Invalid credentials");
+      toast.error(err.message || "Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgotPassword = () => {
-    alert("Password reset feature coming soon");
+    // Placeholder — hook up a real reset flow when the endpoint is ready
+    toast("Password reset coming soon.", { icon: "ℹ️" });
   };
 
   return (
     <div className="mt-4 mb-8 p-8 w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-5 text-left">
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
         {/* Email */}
         <div>
           <label className="block text-xl font-semibold text-slate-700 mb-2">
@@ -54,6 +56,7 @@ const LoginForm = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
 
@@ -79,48 +82,29 @@ const LoginForm = () => {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              title="Minimum 8 characters, at least 1 letter and 1 number"
               required
+              disabled={loading}
             />
 
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
+                /* Eye-open icon */
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
               ) : (
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                  />
+                /* Eye-closed icon */
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                 </svg>
               )}
             </button>
@@ -134,10 +118,21 @@ const LoginForm = () => {
           className={`w-full py-4 rounded-md font-semibold text-lg text-white transition ${
             loading
               ? "bg-slate-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
           }`}
         >
-          {loading ? "Signing in..." : "Continue"}
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Signing in…
+            </span>
+          ) : (
+            "Continue"
+          )}
         </button>
       </form>
     </div>

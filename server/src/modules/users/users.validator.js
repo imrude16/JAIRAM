@@ -156,25 +156,60 @@ export const registerUserSchema = {
             }),
 
         // ========== PROFESSIONAL INFORMATION ==========
-        profession: Joi.string()
-            .valid("DOCTOR", "RESEARCHER", "STUDENT", "OTHER")
+        profession: Joi.string() //EDIT
+            .valid(
+                "Physician (MD)",
+                "Physician (DO)",
+                "Physician Resident / Fellow",
+                "Student, Medical School",
+                "Administrator",
+                "PA",
+                "Nurse Practitioner",
+                "Nursing Advance Practice",
+                "Nursing, RN",
+                "Nursing, LPN",
+                "Allied Health Professional",
+                "Other"
+            )
+            .required(),
+
+        otherProfession: Joi.when("profession", {
+            is: "Other",
+            then: Joi.string().trim().min(2).max(100).required(),
+            otherwise: Joi.optional().allow("")
+        }),
+
+        primarySpecialty: Joi.string() // EDIT
+            .valid(
+                "Addiction Medicine", "Allergy & Immunology",
+                "Anesthesiology/Pain Medicine", "Behavioral Health/Psychology",
+                "Cardiology", "Critical Care", "Dermatology",
+                "Emergency Medicine", "Endocrinology", "Epidemiology",
+                "Gastroenterology", "General Medicine", "Genetics", "Geriatric",
+                "Hematology", "Infectious Disease", "Nephrology",
+                "Neurology", "Neurosurgery", "Nursing (General)",
+                "Nutrition", "Obstetrics & Gynecology", "Oncology",
+                "Ophthalmology/Optometry", "Orthopaedics", "Pathology",
+                "Pediatrics", "Pharmacology", "Physical Medicine & Rehabilitation",
+                "Psychiatry w/Addiction", "Public Health", "Pulmonary",
+                "Radiology", "Rheumatology", "Surgery (General)",
+                "Trauma", "Urology", "Other"
+            )
             .required()
             .messages({
-                "any.only": "Please select a valid profession: DOCTOR, RESEARCHER, STUDENT, or OTHER",
-                "any.required": "Profession is required",
+                "any.only": "Please select a valid primary specialty",
+                "any.required": "Primary specialty is required"
             }),
 
-        primarySpecialty: Joi.string()
-            .trim()
-            .min(2)                      // CHANGE: added min length (was missing)
-            .max(100)                    // CHANGE: added max length (was missing)
-            .required()
-            .messages({
-                "any.required": "Primary specialty is required",
-                "string.min": "Primary specialty must be at least 2 characters",
-                "string.max": "Primary specialty cannot exceed 100 characters",
-                "string.empty": "Primary specialty cannot be empty",
-            }),
+        otherPrimarySpecialty: Joi.when("primarySpecialty", {
+            is: "Other",
+            then: Joi.string().trim().min(2).max(100).required()
+                .messages({
+                    "any.required": "Please specify your primary specialty",
+                    "string.empty": "Please specify your primary specialty"
+                }),
+            otherwise: Joi.optional().allow("")
+        }),
 
         institution: Joi.string()
             .trim()
@@ -195,6 +230,14 @@ export const registerUserSchema = {
             .allow("")
             .messages({
                 "string.max": "Department name cannot exceed 100 characters",
+            }),
+
+        orcid: Joi.string()
+            .pattern(/^\d{4}-\d{4}-\d{4}-\d{4}$/)
+            .required()
+            .messages({
+                "string.pattern.base": "ORCID must be in format 0000-0000-0000-0000",
+                "any.required": "ORCID is required"
             }),
 
         // ========== CONTACT INFORMATION ==========
