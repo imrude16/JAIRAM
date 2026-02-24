@@ -89,25 +89,76 @@ Email:`;
 const PolicyModal = ({ isOpen, onClose, title, subtitle, headerColor, content }) => {
   if (!isOpen) return null;
 
-  // Headings are lines wrapped in __...:__ markers
+  // Heading rules (tracked by a counter across the whole document):
+  //   1st __...__ line → centered + underlined + bold  (document title)
+  //   2nd __...__ line → centered + bold, no underline  (journal name)
+  //   3rd+ __...__ lines → left-aligned + bold          (section sub-headings)
   const renderContent = (text) => {
+    let headingCount = 0;
+
     return text.split("\n\n").map((para, i) => {
       const lines = para.split("\n");
       const renderedLines = lines.map((line, j) => {
         const headingMatch = line.match(/^__(.+)__$/);
         if (headingMatch) {
+          headingCount += 1;
+          const nth = headingCount;
+
+          if (nth === 1) {
+            // 1st heading: centered, underlined, bold
+            return (
+              <span
+                key={j}
+                style={{
+                  display: "block",
+                  fontWeight: "700",
+                  textDecoration: "underline",
+                  textAlign: "center",
+                }}
+              >
+                {headingMatch[1]}
+              </span>
+            );
+          }
+
+          if (nth === 2) {
+            // 2nd heading: centered, bold, no underline
+            return (
+              <span
+                key={j}
+                style={{
+                  display: "block",
+                  fontWeight: "700",
+                  textAlign: "center",
+                }}
+              >
+                {headingMatch[1]}
+              </span>
+            );
+          }
+
+          // 3rd+ headings: left-aligned, bold, underlined (section sub-headings)
           return (
-            <span key={j} style={{ display: "block", fontWeight: "700", textDecoration: "underline" }}>
+            <span
+              key={j}
+              style={{
+                display: "block",
+                fontWeight: "700",
+                textDecoration: "underline",
+              }}
+            >
               {headingMatch[1]}
             </span>
           );
         }
+
         return (
           <span key={j} style={{ display: "block" }}>
             {line}
           </span>
         );
       });
+
       return (
         <p key={i} className="text-sm text-gray-700 leading-relaxed text-left">
           {renderedLines}

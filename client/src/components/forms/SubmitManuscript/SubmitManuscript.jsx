@@ -50,6 +50,9 @@ I/we give the rights to the corresponding author to make necessary changes as pe
 
 The article will be published under the terms of the latest Creative Commons Attribution 4.0 International License(CC BY 4.0), unless the journal notifies the author otherwise in writing. Under this license, it is permissible to download and share the work provided it is properly cited. The work cannot be changed in any way or used commercially without permission from the journal. Authors mandated to distribute their work under the CC BY license can request the appropriate form from the Editorial Office.`;
 
+// All questions show Yes / No / N/A
+const QUESTION_NO_NA = new Set();
+
 const CHECKLIST_SECTIONS = [
   {
     title: "Originality & Authorship",
@@ -129,29 +132,12 @@ const TOTAL_CHECKLIST = CHECKLIST_SECTIONS.reduce(
 /* ─────────────────────────────────────────────────────────
    API SERVICE LAYER — backend not yet connected
 ───────────────────────────────────────────────────────── */
-
-/**
- * Search registered users by a free-text query.
- * TODO: Replace with real API call once backend is ready.
- */
 const searchRegisteredUsers = async (query, excludeEmails = []) => {
-  // TODO: replace with real API call, e.g.:
-  // const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-  // const data = await res.json();
-  // return data.filter(u => !excludeEmails.includes(u.email));
-  return []; // returns empty until backend is connected
+  return [];
 };
 
-/**
- * Search co-authors by name, email, or phone.
- * TODO: Replace with real API call once backend is ready.
- */
 const searchCoAuthors = async (query, excludeEmails = []) => {
-  // TODO: replace with real API call, e.g.:
-  // const res = await fetch(`/api/coauthors/search?q=${encodeURIComponent(query)}`);
-  // const data = await res.json();
-  // return data.filter(u => !excludeEmails.includes(u.email));
-  return []; // returns empty until backend is connected
+  return [];
 };
 
 const onlyNumbers = (e) => {
@@ -380,6 +366,7 @@ const DeclarationBlock = ({
   const sectionHasUnanswered =
     checklistSubmitAttempted && sectionAnswered < section.questions.length;
   const Icon = section.icon;
+
   return (
     <div
       className={`rounded-2xl border-2 overflow-hidden transition-all shadow-sm ${sectionHasUnanswered ? "border-red-300" : "border-[#c8d5e4]"}`}
@@ -406,32 +393,49 @@ const DeclarationBlock = ({
           {sectionAnswered}/{section.questions.length} Answered
         </span>
       </div>
-      <div
-        className="grid items-center bg-gray-50 border-b border-[#c8d5e4] px-7 py-3"
-        style={{ gridTemplateColumns: "2.5rem 1fr 8rem" }}
-      >
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
-          No.
-        </span>
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
-          Declaration
-        </span>
-        <div className="grid grid-cols-3 gap-1">
-          {["Yes", "No", "N/A"].map((h) => (
-            <span
-              key={h}
-              className="text-xs font-bold text-gray-400 uppercase tracking-wider text-center"
-            >
-              {h}
+
+      {/* Determine column headers dynamically */}
+      {(() => {
+        const anyNoNA = section.questions.some(
+          (_, i) => QUESTION_NO_NA.has(baseIdx + i)
+        );
+        const anyWithNA = section.questions.some(
+          (_, i) => !QUESTION_NO_NA.has(baseIdx + i)
+        );
+        // If the section has mixed questions, we still show all 3 cols but hide per-row
+        return (
+          <div
+            className="grid items-center bg-gray-50 border-b border-[#c8d5e4] px-7 py-3"
+            style={{ gridTemplateColumns: "2.5rem 1fr 8rem" }}
+          >
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
+              No.
             </span>
-          ))}
-        </div>
-      </div>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
+              Declaration
+            </span>
+            <div className="grid grid-cols-3 gap-1">
+              {["Yes", "No", "N/A"].map((h) => (
+                <span
+                  key={h}
+                  className="text-xs font-bold text-gray-400 uppercase tracking-wider text-center"
+                >
+                  {h}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="divide-y divide-gray-100">
         {section.questions.map((declaration, qIdx) => {
           const flatIdx = baseIdx + qIdx;
+          const noNA = QUESTION_NO_NA.has(flatIdx);
+          const options = noNA ? ["Yes", "No"] : ["Yes", "No", "Not Applicable"];
           const isAnswered = !!checklistAnswers[flatIdx];
           const isUnanswered = checklistSubmitAttempted && !isAnswered;
+
           return (
             <div
               key={qIdx}
@@ -456,32 +460,40 @@ const DeclarationBlock = ({
                   </p>
                 )}
               </div>
+              {/* Radio cells — always 3 columns; N/A cell hidden when noNA */}
               <div className="grid grid-cols-3 gap-1 pt-0.5">
-                {["Yes", "No", "Not Applicable"].map((option) => (
-                  <div key={option} className="flex justify-center">
-                    <input
-                      type="radio"
-                      name={`checklist-${flatIdx}`}
-                      value={option}
-                      checked={checklistAnswers[flatIdx] === option}
-                      onChange={() => {
-                        const u = [...checklistAnswers];
-                        u[flatIdx] = option;
-                        setChecklistAnswers(u);
-                        if (errors.checklist)
-                          setErrors((p) => ({ ...p, checklist: "" }));
-                        if (checklistSubmitAttempted && u.every(Boolean))
-                          setChecklistSubmitAttempted(false);
-                      }}
-                      style={{
-                        accentColor: c.accentColor,
-                        width: 16,
-                        height: 16,
-                        cursor: "pointer",
-                      }}
-                    />
-                  </div>
-                ))}
+                {["Yes", "No", "Not Applicable"].map((option) => {
+                  const isNAOption = option === "Not Applicable";
+                  if (isNAOption && noNA) {
+                    // Render invisible placeholder to preserve grid layout
+                    return <div key={option} />;
+                  }
+                  return (
+                    <div key={option} className="flex justify-center">
+                      <input
+                        type="radio"
+                        name={`checklist-${flatIdx}`}
+                        value={option}
+                        checked={checklistAnswers[flatIdx] === option}
+                        onChange={() => {
+                          const u = [...checklistAnswers];
+                          u[flatIdx] = option;
+                          setChecklistAnswers(u);
+                          if (errors.checklist)
+                            setErrors((p) => ({ ...p, checklist: "" }));
+                          if (checklistSubmitAttempted && u.every(Boolean))
+                            setChecklistSubmitAttempted(false);
+                        }}
+                        style={{
+                          accentColor: c.accentColor,
+                          width: 16,
+                          height: 16,
+                          cursor: "pointer",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -1282,7 +1294,9 @@ const CoAuthorSearchBox = ({ onSelect, existingEmails }) => {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
 
   return (
@@ -1316,7 +1330,8 @@ const CoAuthorSearchBox = ({ onSelect, existingEmails }) => {
               className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-[#e8eef6] transition text-left border-b border-gray-100 last:border-0"
             >
               <div className="w-9 h-9 rounded-full bg-[#0f3460] text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                {(user.firstName || "?")[0]}{(user.lastName || "?")[0]}
+                {(user.firstName || "?")[0]}
+                {(user.lastName || "?")[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-gray-800">
@@ -1325,7 +1340,9 @@ const CoAuthorSearchBox = ({ onSelect, existingEmails }) => {
                 <p className="text-xs text-[#0f3460] font-medium">
                   {user.department} · {user.country}
                 </p>
-                <p className="text-xs text-gray-400 truncate">{user.email} {user.phone ? `· ${user.phone}` : ""}</p>
+                <p className="text-xs text-gray-400 truncate">
+                  {user.email} {user.phone ? `· ${user.phone}` : ""}
+                </p>
               </div>
               <span className="text-xs bg-[#e8eef6] text-[#0f3460] border border-[#b8cfe0] px-2 py-1 rounded-lg font-semibold shrink-0 mt-1">
                 Select
@@ -1334,11 +1351,14 @@ const CoAuthorSearchBox = ({ onSelect, existingEmails }) => {
           ))}
         </div>
       )}
-      {focused && !loading && query.trim().length >= 2 && results.length === 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border-2 border-[#c8d5e4] rounded-xl shadow-lg z-20 px-4 py-3 text-sm text-gray-500">
-          No registered co-authors found. Fill in the details manually below.
-        </div>
-      )}
+      {focused &&
+        !loading &&
+        query.trim().length >= 2 &&
+        results.length === 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border-2 border-[#c8d5e4] rounded-xl shadow-lg z-20 px-4 py-3 text-sm text-gray-500">
+            No registered co-authors found. Fill in the details manually below.
+          </div>
+        )}
     </div>
   );
 };
@@ -1453,32 +1473,36 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
             ))}
           </select>
         </div>
-        {fields.map(({ key, label, type, placeholder, numeric, maxLength, required }) => (
-          <div key={key}>
-            <FieldLabel required={required}>{label}</FieldLabel>
-            <input
-              type={type}
-              value={draft[key] || ""}
-              onKeyDown={numeric ? onlyNumbers : undefined}
-              maxLength={maxLength || undefined}
-              onChange={(e) =>
-                setDraft((p) => ({
-                  ...p,
-                  [key]: numeric
-                    ? e.target.value.replace(/\D/g, "").slice(0, maxLength || undefined)
-                    : e.target.value,
-                }))
-              }
-              placeholder={placeholder}
-              className="w-full border-2 border-[#c8d5e4] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f3460] transition-all bg-white"
-            />
-            {key === "phone" && (
-              <p className="text-xs text-gray-400 mt-1">
-                {(draft[key] || "").length} / 10 digits
-              </p>
-            )}
-          </div>
-        ))}
+        {fields.map(
+          ({ key, label, type, placeholder, numeric, maxLength, required }) => (
+            <div key={key}>
+              <FieldLabel required={required}>{label}</FieldLabel>
+              <input
+                type={type}
+                value={draft[key] || ""}
+                onKeyDown={numeric ? onlyNumbers : undefined}
+                maxLength={maxLength || undefined}
+                onChange={(e) =>
+                  setDraft((p) => ({
+                    ...p,
+                    [key]: numeric
+                      ? e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, maxLength || undefined)
+                      : e.target.value,
+                  }))
+                }
+                placeholder={placeholder}
+                className="w-full border-2 border-[#c8d5e4] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f3460] transition-all bg-white"
+              />
+              {key === "phone" && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {(draft[key] || "").length} / 10 digits
+                </p>
+              )}
+            </div>
+          ),
+        )}
       </div>
       <div className="flex justify-end gap-3 pt-2 border-t border-[#c8d5e4]">
         <button
@@ -1767,7 +1791,8 @@ const SubmitManuscript = () => {
     React.useState(false);
   const [copyrightFormAccepted, setCopyrightFormAccepted] =
     React.useState(false);
-  const [copeAccepted, setCopeAccepted] = React.useState(false);
+  // Replaced COPE with submission declaration checkbox
+  const [submissionDeclared, setSubmissionDeclared] = React.useState(false);
   const [authorDraft, setAuthorDraft] = React.useState({
     title: "Dr.",
     firstName: "",
@@ -1886,13 +1911,12 @@ const SubmitManuscript = () => {
       if (!checklistAnswers.every((v) => v !== null))
         e.checklist =
           "Please answer all checklist questions before proceeding.";
-      if (!copeAccepted)
-        e.cope = "You must confirm COPE compliance to proceed.";
+      if (!submissionDeclared)
+        e.submissionDeclared = "You must read and confirm the submission declaration to proceed.";
     } else if (step === 1) {
       if (!files.coverLetter) e.coverLetter = "Cover letter is required.";
       if (!files.blindManuscript)
         e.blindManuscript = "Blind manuscript is required.";
-      // figures, tables, and supplements are now optional — no validation
     } else if (step === 2) {
       if (!formData.articleType) e.articleType = "Please select article type";
       if (!formData.title) e.title = "Title is required";
@@ -2005,7 +2029,7 @@ const SubmitManuscript = () => {
         tables: [],
         supplements: null,
       });
-      setCopeAccepted(false);
+      setSubmissionDeclared(false);
       setChecklistAnswers(Array(TOTAL_CHECKLIST).fill(null));
       setChecklistSubmitAttempted(false);
       setAuthors([]);
@@ -2172,54 +2196,137 @@ const SubmitManuscript = () => {
                     </div>
                   )}
 
-                  {/* COPE */}
+                  {/* ── SUBMISSION DECLARATION (replaces COPE checkbox) ── */}
                   <div className="rounded-2xl border-2 border-[#c8d5e4] overflow-hidden shadow-sm">
+                    {/* Header */}
                     <div className="flex items-center gap-3 px-7 py-5 bg-[#e8eef6] border-b-2 border-[#b8cfe0]">
                       <Shield className="w-5 h-5 text-[#0f3460] shrink-0" />
                       <h3 className="text-sm font-bold uppercase tracking-wider text-[#0f3460] text-left">
-                        COPE Publication Ethics Compliance Certification
+                        Submission Declaration
                       </h3>
                     </div>
-                    <div className="px-7 py-6 space-y-4 bg-white">
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={copeAccepted}
-                          onChange={(e) => {
-                            setCopeAccepted(e.target.checked);
-                            if (errors.cope)
-                              setErrors((p) => ({ ...p, cope: "" }));
-                          }}
-                          className="mt-0.5 w-4 h-4 rounded cursor-pointer shrink-0 accent-[#0f3460]"
-                        />
-                        <span className="text-sm text-gray-700 leading-relaxed text-left">
-                          I confirm full compliance with COPE standards.{" "}
-                          <span className="text-red-500 font-bold">*</span>
-                        </span>
-                      </label>
-                      {copeAccepted && (
-                        <div className="ml-7 bg-[#e8eef6] border border-[#b8cfe0] rounded-xl px-6 py-5">
-                          <p className="text-xs font-bold text-[#0f3460] uppercase tracking-widest mb-3 text-left">
-                            I hereby certify that:
+
+                    {/* Declaration content box */}
+                    <div className="px-7 py-6 bg-white space-y-6">
+                      {/* Official declaration document */}
+                      <div className="border border-[#c8d5e4] rounded-xl overflow-hidden bg-[#f7f9fc]">
+                        {/* Document header */}
+                        <div className="px-8 py-6 border-b border-[#c8d5e4] text-center bg-white">
+                          <h4
+                            className="text-base font-black text-gray-900 uppercase tracking-widest"
+                            style={{ textDecoration: "underline" }}
+                          >
+                            DISCLAIMER
+                          </h4>
+                        </div>
+
+                        {/* Document body */}
+                        <div className="px-8 py-6 space-y-4">
+                          <p
+                            className="text-sm font-bold text-gray-900 text-left"
+                            style={{ textDecoration: "underline" }}
+                          >
+                            I HEREBY CERTIFY THAT:
                           </p>
+
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
-                            The submitted manuscript complies with the ethical
-                            principles and best practice guidelines of the
-                            Committee on Publication Ethics (COPE). The work
-                            does not involve plagiarism, duplicate submission,
-                            image manipulation, data fabrication, or
-                            falsification. All conflicts of interest and funding
-                            disclosures have been transparently declared. In the
-                            event of post-publication concerns, the authors
-                            agree to cooperate fully with editorial
-                            investigations as per COPE guidelines. The authors
-                            acknowledge that any proven violation of publication
-                            ethics may result in manuscript rejection,
-                            retraction, or notification to relevant authorities.
+                            By submitting a manuscript to{" "}
+                            <span className="font-bold text-[#0f3460] italic">
+                              Journal of Advanced & Integrated Research in Acute Medicine
+                            </span>{" "}
+                            (JAIRAM), the corresponding author, on behalf of all
+                            co-authors, certifies that the work is original, has not
+                            been published previously, and is not under consideration
+                            elsewhere except as disclosed in the cover letter.
+                          </p>
+
+                          <p className="text-sm text-gray-700 leading-relaxed text-left">
+                            All listed authors have made substantial intellectual
+                            contributions to the conception, design, analysis, or
+                            interpretation of data, have participated in drafting or
+                            critically revising the manuscript, have approved the
+                            final version, and agree to take public responsibility
+                            for its content in accordance with ICMJE authorship
+                            criteria. The authors affirm that all data presented are
+                            accurate, complete, and have not been published
+                            separately. Upon request, authors agree to provide raw
+                            data or additional information for editorial review.
+                          </p>
+
+                          <p className="text-sm text-gray-700 leading-relaxed text-left">
+                            All conflicts of interest and sources of funding have
+                            been fully disclosed. The manuscript complies with the
+                            ethical standards of the Committee on Publication Ethics
+                            (COPE). It does not involve plagiarism, duplicate
+                            publication, data fabrication, falsification, or
+                            unethical research practices.
+                          </p>
+
+                          <p className="text-sm text-gray-700 leading-relaxed text-left">
+                            Where applicable, appropriate Institutional Ethics
+                            Committee (IEC/IRB/IAEC) approvals and written informed
+                            consent from participants have been obtained, and
+                            confidentiality standards have been strictly maintained.
+                          </p>
+
+                          <p className="text-sm text-gray-700 leading-relaxed text-left">
+                            Upon acceptance for publication, the authors agree to
+                            transfer exclusive copyright ownership of the work to
+                            JAIRAM, including rights to reproduce, distribute,
+                            archive, translate, and publish the article in any print
+                            or electronic format. The corresponding author acts as
+                            the guarantor of the manuscript and confirms that all
+                            contributors have authorized submission and necessary
+                            editorial correspondence.
+                          </p>
+
+                          <p className="text-sm font-semibold text-gray-800 leading-relaxed text-left border-t border-[#c8d5e4] pt-4 mt-4">
+                            Submission of a manuscript to JAIRAM constitutes
+                            agreement with the above declarations.
                           </p>
                         </div>
+                      </div>
+
+                      {/* Confirm checkbox */}
+                      <div
+                        className={`border rounded-xl px-6 py-5 transition-all ${
+                          submissionDeclared
+                            ? "bg-[#e8eef6] border-[#0f3460]"
+                            : errors.submissionDeclared
+                            ? "bg-red-50 border-red-300"
+                            : "bg-[#f7f9fc] border-[#c8d5e4]"
+                        }`}
+                      >
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={submissionDeclared}
+                            onChange={(e) => {
+                              setSubmissionDeclared(e.target.checked);
+                              if (errors.submissionDeclared)
+                                setErrors((p) => ({
+                                  ...p,
+                                  submissionDeclared: "",
+                                }));
+                            }}
+                            className="mt-0.5 w-4 h-4 rounded cursor-pointer shrink-0 accent-[#0f3460]"
+                          />
+                          <span className="text-sm text-gray-700 leading-relaxed text-left">
+                            <span className="text-red-500 font-bold">* </span>
+                            Read the entire submission declaration and click confirm,
+                            if you wish to continue with the submission.
+                            {submissionDeclared && (
+                              <span className="ml-2 text-[#0f3460] font-semibold">
+                                ✓ Confirmed
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      </div>
+
+                      {errors.submissionDeclared && (
+                        <ErrorMsg msg={errors.submissionDeclared} />
                       )}
-                      {errors.cope && <ErrorMsg msg={errors.cope} />}
                     </div>
                   </div>
                 </div>
@@ -2577,7 +2684,6 @@ const SubmitManuscript = () => {
                       ))}
                     </div>
                   </div>
-
                   <div>
                     <FieldLabel required>Keywords</FieldLabel>
                     <KeywordsTagInput
