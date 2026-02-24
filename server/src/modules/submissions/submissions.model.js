@@ -10,9 +10,6 @@ import { Schema, model } from "mongoose";
  * - Co-authors: user ref (null until registration if outside)
  * - isCorresponding flag on author + co-authors  
  * - Updated status flow (DRAFT → SUBMITTED → UNDER_REVIEW → ...)
- * - Removed currentCycle (goes to Submission_Cycle schema)
- * - Removed DECISION & NOTES (goes to Submission_Cycle schema)
- * - Removed SOFT DELETE (no deletion allowed)
  * - Added paymentStatus (changed by editor)
  * - Suggested reviewers: same pattern as co-authors
  * ════════════════════════════════════════════════════════════════
