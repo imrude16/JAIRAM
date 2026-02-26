@@ -54,5 +54,4 @@ const MinimalHeader = () => {
     </header>
   );
 };
-
 export default MinimalHeader;

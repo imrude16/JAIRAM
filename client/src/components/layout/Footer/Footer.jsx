@@ -104,7 +104,7 @@ const FooterLinkSection = React.memo(({ section }) => {
   return (
     <div>
       <div className="flex items-center gap-2 mb-4">
-        <section.icon className="w-5 h-5 text-teal-400" />
+        <section.icon className="w-5 h-5 text-blue-400" />
         <h4 className="font-semibold text-base text-white">{section.title}</h4>
       </div>
       <ul className="space-y-2.5">
@@ -112,9 +112,9 @@ const FooterLinkSection = React.memo(({ section }) => {
           <li key={idx}>
             <button
               onClick={() => handleClick(link.path)}
-              className="text-gray-300 hover:text-teal-400 transition-colors text-sm flex items-center gap-1.5 group"
+              className="text-gray-300 hover:text-blue-400 transition-colors text-sm flex items-center gap-1.5 group"
             >
-              <span className="w-1 h-1 bg-gray-500 rounded-full group-hover:bg-teal-400 transition-colors"></span>
+              <span className="w-1 h-1 bg-blue-500 rounded-full group-hover:bg-blue-400 transition-colors"></span>
               <span>{link.label}</span>
             </button>
           </li>
@@ -168,9 +168,9 @@ const NewsletterSection = React.memo(() => {
   );
 
   return (
-    <div className="bg-linear-to-br from-teal-900/20 to-blue-900/20 p-6 rounded-lg border border-teal-800/30">
+    <div className="bg-linear-to-br from-blue-900/20 to-blue-900/20 p-6 rounded-lg border border-blue-800/30">
       <div className="flex items-center gap-2 mb-3">
-        <Send className="w-5 h-5 text-teal-400" />
+        <Send className="w-5 h-5 text-blue-400" />
         <h4 className="font-semibold text-white">Newsletter Subscription</h4>
       </div>
       <p className="text-gray-300 text-sm mb-4">
@@ -183,13 +183,13 @@ const NewsletterSection = React.memo(() => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            className="flex-1 px-4 py-2.5 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+            className="flex-1 px-4 py-2.5 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             disabled={status === "loading"}
           />
           <button
             type="submit"
             disabled={status === "loading"}
-            className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
           >
             {status === "loading" ? (
               <>
@@ -254,7 +254,7 @@ const ContactInfo = React.memo(() => {
   );
 
   return (
-    <div className="lg:col-span-2">
+    <div className="lg:col-span-3">
       <div className="flex items-start gap-5 mb-6">
         <div className="max-w-35 md:max-w-45 lg:max-w-55">
           <img
@@ -284,10 +284,10 @@ const ContactInfo = React.memo(() => {
           <a
             key={index}
             href={item.href}
-            className="flex items-center gap-3 text-gray-300 hover:text-teal-400 transition-all duration-200 group p-3 rounded-lg hover:bg-gray-800/50"
+            className="flex items-center gap-3 text-gray-300 hover:text-blue-400 transition-all duration-200 group p-3 rounded-lg hover:bg-gray-800/50"
             aria-label={item.label}
           >
-            <div className="bg-gray-800 p-2 rounded-lg group-hover:bg-teal-900/50 transition-colors">
+            <div className="bg-blue-800 p-2 rounded-lg group-hover:bg-blue-900/50 transition-colors">
               <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
             </div>
             <span className="text-sm">{item.text}</span>
@@ -339,17 +339,16 @@ const BottomBar = React.memo(() => {
   }, []);
 
   return (
-    <div className="bg-gray-950/50">
+    <div className="bg-blue-950/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-center md:text-left">
             <p className="text-sm text-gray-400">
               &copy; {new Date().getFullYear()} Journal of Advanced & Integrated
               Research in Acute Medicine (JAIRAM).Published by Nexus Biomedical
-              Research Foundation Trust,Lucknow,India.
-              <br />
-              Articles are published under the Creative Commons Attribution 4.0
-              International License(CC BY 4.0)
+              Research Foundation Trust,Lucknow,India. Articles are published
+              under the Creative Commons Attribution 4.0 International
+              License(CC BY 4.0)
             </p>
           </div>
 
@@ -358,7 +357,7 @@ const BottomBar = React.memo(() => {
               <button
                 key={idx}
                 onClick={() => handleClick(link.path)}
-                className="text-sm text-gray-400 hover:text-teal-400 transition-colors duration-200"
+                className="text-sm text-gray-400 hover:text-blue-400 transition-colors duration-200"
               >
                 {link.label}
               </button>
@@ -376,15 +375,16 @@ const Footer = () => {
   const navigate = useNavigate();
   return (
     <footer
-      className="bg-linear-to-b from-gray-900 to-gray-950 text-white"
+      className="bg-linear-to-b from-blue-900 to-gray-700 text-white"
       role="contentinfo"
     >
       {/* Main Footer Content */}
       <div className="max-w-10xl mx-auto px-5 sm:px-6 lg:px-10 py-15">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-10 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-5 lg:gap-10 mb-12">
           {/* About & Contact Section - Takes 2 columns */}
           <ContactInfo />
 
+  
           {/* Footer Links Sections - Each takes 1 column */}
           {FOOTER_SECTIONS.map((section, index) => (
             <FooterLinkSection key={index} section={section} />

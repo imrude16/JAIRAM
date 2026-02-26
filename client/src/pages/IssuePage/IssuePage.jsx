@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Calendar,
   FileText,
@@ -115,6 +116,18 @@ const Button = ({
 };
 
 const IssuesPage = () => {
+  const navigate = useNavigate();
+
+  const handleSubmitManuscript = () => {
+    const token = localStorage.getItem("token");
+    // 👆 Later this will come from backend login
+
+    if (token) {
+      navigate("/submit"); // logged in → submit page
+    } else {
+      navigate("/manuscript-login"); // not logged in → manuscript login
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [viewMode, setViewMode] = useState("grid");
@@ -123,76 +136,6 @@ const IssuesPage = () => {
   const allIssues = [
     {
       id: 1,
-      volume: "Volume 15",
-      issue: "Issue 4",
-      year: 2025,
-      month: "December",
-      cover:
-        "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=300&h=400&fit=crop",
-      articles: 12,
-      published: "December 15, 2024",
-      pages: "245-380",
-      status: "current",
-      doi: "10.1234/journal.2024.15.4",
-    },
-    {
-      id: 2,
-      volume: "Volume 15",
-      issue: "Issue 3",
-      year: 2025,
-      month: "September",
-      cover:
-        "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=300&h=400&fit=crop",
-      articles: 10,
-      published: "September 20, 2025",
-      pages: "145-244",
-      status: "published",
-      doi: "10.1234/journal.2024.15.3",
-    },
-    {
-      id: 3,
-      volume: "Volume 15",
-      issue: "Issue 2",
-      year: 2025,
-      month: "June",
-      cover:
-        "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=300&h=400&fit=crop",
-      articles: 11,
-      published: "June 10, 2025",
-      pages: "65-144",
-      status: "published",
-      doi: "10.1234/journal.2024.15.2",
-    },
-    {
-      id: 4,
-      volume: "Volume 15",
-      issue: "Issue 1",
-      year: 2025,
-      month: "March",
-      cover:
-        "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=300&h=400&fit=crop",
-      articles: 9,
-      published: "March 5, 2025",
-      pages: "1-64",
-      status: "published",
-      doi: "10.1234/journal.2024.15.1",
-    },
-    {
-      id: 5,
-      volume: "Volume 14",
-      issue: "Issue 4",
-      year: 2025,
-      month: "December",
-      cover:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop",
-      articles: 13,
-      published: "December 12, 2025",
-      pages: "320-480",
-      status: "published",
-      doi: "10.1234/journal.2023.14.4",
-    },
-    {
-      id: 6,
       volume: "Volume 14",
       issue: "Issue 3",
       year: 2026,
@@ -447,28 +390,19 @@ const IssuesPage = () => {
               Browse by Year
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {[...Array(2)].map((_, i) => {
-                const year = 2026 - i;
-                const hasIssues = allIssues.some(
-                  (issue) => issue.year === year,
-                );
-                return (
-                  <button
-                    key={year}
-                    onClick={() => setSelectedYear(year.toString())}
-                    disabled={!hasIssues}
-                    className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                      selectedYear === year.toString()
-                        ? "bg-blue-600 text-white shadow-md"
-                        : hasIssues
-                          ? "bg-white text-gray-700 hover:bg-blue-50 hover:shadow-md border border-gray-200"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    {year}
-                  </button>
-                );
-              })}
+              {years.map((year) => (
+                <button
+                  key={year}
+                  onClick={() => setSelectedYear(year.toString())}
+                  className={`px-4 py-3 rounded-lg font-semibold transition-all ${
+                    selectedYear === year.toString()
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-white text-gray-700 hover:bg-blue-50 hover:shadow-md border border-gray-200"
+                  }`}
+                >
+                  {year}
+                </button>
+              ))}
             </div>
           </Card>
         </div>
@@ -478,13 +412,17 @@ const IssuesPage = () => {
           <Card hover className="text-center">
             <FileText className="w-12 h-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Submit Article
+              Submit Manucript
             </h3>
             <p className="text-gray-600 text-sm mb-4">
               Share your research with our community
             </p>
-            <Button variant="outline" size="sm">
-              Learn More
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSubmitManuscript}
+            >
+              Submit
             </Button>
           </Card>
           <Card hover className="text-center">
@@ -495,9 +433,16 @@ const IssuesPage = () => {
             <p className="text-gray-600 text-sm mb-4">
               Author guidelines and submission format
             </p>
-            <Button variant="outline" size="sm">
-              Download PDF
-            </Button>
+            <a
+              href="/assets/Author_Guidelines_and_Submission_Format.pdf"
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" size="sm">
+                Download PDF
+              </Button>
+            </a>
           </Card>
           <Card hover className="text-center">
             <Calendar className="w-12 h-12 text-blue-600 mx-auto mb-4" />

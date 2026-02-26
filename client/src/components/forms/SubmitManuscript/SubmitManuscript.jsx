@@ -51,7 +51,7 @@ I/we give the rights to the corresponding author to make necessary changes as pe
 The article will be published under the terms of the latest Creative Commons Attribution 4.0 International License(CC BY 4.0), unless the journal notifies the author otherwise in writing. Under this license, it is permissible to download and share the work provided it is properly cited. The work cannot be changed in any way or used commercially without permission from the journal. Authors mandated to distribute their work under the CC BY license can request the appropriate form from the Editorial Office.`;
 
 // All questions show Yes / No / N/A
-const QUESTION_NO_NA = new Set();
+const QUESTION_NO_NA = new Set([0, 1, 2, 3, 4, 11, 12, 13]);
 
 const CHECKLIST_SECTIONS = [
   {
@@ -396,11 +396,11 @@ const DeclarationBlock = ({
 
       {/* Determine column headers dynamically */}
       {(() => {
-        const anyNoNA = section.questions.some(
-          (_, i) => QUESTION_NO_NA.has(baseIdx + i)
+        const anyNoNA = section.questions.some((_, i) =>
+          QUESTION_NO_NA.has(baseIdx + i),
         );
         const anyWithNA = section.questions.some(
-          (_, i) => !QUESTION_NO_NA.has(baseIdx + i)
+          (_, i) => !QUESTION_NO_NA.has(baseIdx + i),
         );
         // If the section has mixed questions, we still show all 3 cols but hide per-row
         return (
@@ -432,7 +432,9 @@ const DeclarationBlock = ({
         {section.questions.map((declaration, qIdx) => {
           const flatIdx = baseIdx + qIdx;
           const noNA = QUESTION_NO_NA.has(flatIdx);
-          const options = noNA ? ["Yes", "No"] : ["Yes", "No", "Not Applicable"];
+          const options = noNA
+            ? ["Yes", "No"]
+            : ["Yes", "No", "Not Applicable"];
           const isAnswered = !!checklistAnswers[flatIdx];
           const isUnanswered = checklistSubmitAttempted && !isAnswered;
 
@@ -466,7 +468,23 @@ const DeclarationBlock = ({
                   const isNAOption = option === "Not Applicable";
                   if (isNAOption && noNA) {
                     // Render invisible placeholder to preserve grid layout
-                    return <div key={option} />;
+                    return (
+                      <div
+                        key={option}
+                        className="flex justify-center items-center"
+                      >
+                        <div
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: "50%",
+                            border: "2px solid #d1d5db",
+                            backgroundColor: "#f3f4f6",
+                            flexShrink: 0,
+                          }}
+                        />
+                      </div>
+                    );
                   }
                   return (
                     <div key={option} className="flex justify-center">
@@ -1912,7 +1930,8 @@ const SubmitManuscript = () => {
         e.checklist =
           "Please answer all checklist questions before proceeding.";
       if (!submissionDeclared)
-        e.submissionDeclared = "You must read and confirm the submission declaration to proceed.";
+        e.submissionDeclared =
+          "You must read and confirm the submission declaration to proceed.";
     } else if (step === 1) {
       if (!files.coverLetter) e.coverLetter = "Cover letter is required.";
       if (!files.blindManuscript)
@@ -2232,52 +2251,57 @@ const SubmitManuscript = () => {
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
                             By submitting a manuscript to{" "}
                             <span className="font-bold text-[#0f3460] italic">
-                              Journal of Advanced & Integrated Research in Acute Medicine
+                              Journal of Advanced & Integrated Research in Acute
+                              Medicine
                             </span>{" "}
                             (JAIRAM), the corresponding author, on behalf of all
-                            co-authors, certifies that the work is original, has not
-                            been published previously, and is not under consideration
-                            elsewhere except as disclosed in the cover letter.
+                            co-authors, certifies that the work is original, has
+                            not been published previously, and is not under
+                            consideration elsewhere except as disclosed in the
+                            cover letter.
                           </p>
 
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
-                            All listed authors have made substantial intellectual
-                            contributions to the conception, design, analysis, or
-                            interpretation of data, have participated in drafting or
-                            critically revising the manuscript, have approved the
-                            final version, and agree to take public responsibility
-                            for its content in accordance with ICMJE authorship
-                            criteria. The authors affirm that all data presented are
-                            accurate, complete, and have not been published
-                            separately. Upon request, authors agree to provide raw
-                            data or additional information for editorial review.
+                            All listed authors have made substantial
+                            intellectual contributions to the conception,
+                            design, analysis, or interpretation of data, have
+                            participated in drafting or critically revising the
+                            manuscript, have approved the final version, and
+                            agree to take public responsibility for its content
+                            in accordance with ICMJE authorship criteria. The
+                            authors affirm that all data presented are accurate,
+                            complete, and have not been published separately.
+                            Upon request, authors agree to provide raw data or
+                            additional information for editorial review.
                           </p>
 
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
-                            All conflicts of interest and sources of funding have
-                            been fully disclosed. The manuscript complies with the
-                            ethical standards of the Committee on Publication Ethics
-                            (COPE). It does not involve plagiarism, duplicate
-                            publication, data fabrication, falsification, or
-                            unethical research practices.
+                            All conflicts of interest and sources of funding
+                            have been fully disclosed. The manuscript complies
+                            with the ethical standards of the Committee on
+                            Publication Ethics (COPE). It does not involve
+                            plagiarism, duplicate publication, data fabrication,
+                            falsification, or unethical research practices.
                           </p>
 
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
                             Where applicable, appropriate Institutional Ethics
-                            Committee (IEC/IRB/IAEC) approvals and written informed
-                            consent from participants have been obtained, and
-                            confidentiality standards have been strictly maintained.
+                            Committee (IEC/IRB/IAEC) approvals and written
+                            informed consent from participants have been
+                            obtained, and confidentiality standards have been
+                            strictly maintained.
                           </p>
 
                           <p className="text-sm text-gray-700 leading-relaxed text-left">
-                            Upon acceptance for publication, the authors agree to
-                            transfer exclusive copyright ownership of the work to
-                            JAIRAM, including rights to reproduce, distribute,
-                            archive, translate, and publish the article in any print
-                            or electronic format. The corresponding author acts as
-                            the guarantor of the manuscript and confirms that all
-                            contributors have authorized submission and necessary
-                            editorial correspondence.
+                            Upon acceptance for publication, the authors agree
+                            to transfer exclusive copyright ownership of the
+                            work to JAIRAM, including rights to reproduce,
+                            distribute, archive, translate, and publish the
+                            article in any print or electronic format. The
+                            corresponding author acts as the guarantor of the
+                            manuscript and confirms that all contributors have
+                            authorized submission and necessary editorial
+                            correspondence.
                           </p>
 
                           <p className="text-sm font-semibold text-gray-800 leading-relaxed text-left border-t border-[#c8d5e4] pt-4 mt-4">
@@ -2293,8 +2317,8 @@ const SubmitManuscript = () => {
                           submissionDeclared
                             ? "bg-[#e8eef6] border-[#0f3460]"
                             : errors.submissionDeclared
-                            ? "bg-red-50 border-red-300"
-                            : "bg-[#f7f9fc] border-[#c8d5e4]"
+                              ? "bg-red-50 border-red-300"
+                              : "bg-[#f7f9fc] border-[#c8d5e4]"
                         }`}
                       >
                         <label className="flex items-start gap-3 cursor-pointer">
@@ -2313,8 +2337,9 @@ const SubmitManuscript = () => {
                           />
                           <span className="text-sm text-gray-700 leading-relaxed text-left">
                             <span className="text-red-500 font-bold">* </span>
-                            Read the entire submission declaration and click confirm,
-                            if you wish to continue with the submission.
+                            Read the entire submission declaration and click
+                            confirm, if you wish to continue with the
+                            submission.
                             {submissionDeclared && (
                               <span className="ml-2 text-[#0f3460] font-semibold">
                                 ✓ Confirmed
