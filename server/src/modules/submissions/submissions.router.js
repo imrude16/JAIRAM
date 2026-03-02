@@ -15,22 +15,25 @@ import {
     assignEditorSchema,
     coAuthorConsentSchema,
     listSubmissionsSchema,
-    // NEW IMPORTS:
+    // NEW IMPORTS (Revisions & Decisions):
     submitRevisionSchema,
     editorDecisionSchema,
     technicalEditorDecisionSchema,
     checkCoAuthorConsentSchema,
     checkReviewerMajoritySchema,
+    // NEW IMPORTS (Consent Management):
+    editorApproveConsentOverrideSchema,
 } from "./submissions.validator.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
- * SUBMISSION ROUTES - COMPLETE VERSION WITH REVISIONS
+ * SUBMISSION ROUTES - COMPLETE VERSION WITH CONSENT TRACKING
  * ════════════════════════════════════════════════════════════════
  * 
  * Follows same pattern as users.router.js
  * Proper route ordering (specific before dynamic)
  * + NEW: Routes for revisions and decisions
+ * + NEW: Routes for consent management (cron + editor override)
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -46,15 +49,54 @@ const {
     processCoAuthorConsent,
     moveToReview,
     getSubmissionTimeline,
-    // NEW DESTRUCTURING:
+    // NEW DESTRUCTURING (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
     makeTechnicalEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
+    // NEW DESTRUCTURING (Consent Management):
+    autoRejectExpiredConsents,
+    editorApproveConsentOverride,
 } = submissionController;
 
 const router = Router();
+
+// ════════════════════════════════════════════════════════════════
+// CONSENT MANAGEMENT ROUTES (MUST BE BEFORE DYNAMIC :id ROUTES)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * AUTO-REJECT EXPIRED CONSENTS (CRON JOB ENDPOINT)
+ * 
+ * POST /api/submissions/cron/auto-reject-expired-consents
+ * Headers: X-Cron-Secret: <secret_from_env>
+ * 
+ * Auth: None (protected by cron secret in production)
+ * 
+ * Runs daily at midnight to check for expired consent deadlines
+ * Only processes submissions with consentDeadlineStatus = "ACTIVE"
+ * Sends ONE email per submission when auto-rejecting
+ * 
+ * Performance: Uses indexed query on consentDeadlineStatus
+ * 
+ * Process:
+ * 1. Finds submissions with ACTIVE consent status
+ * 2. Checks if any co-author tokens expired (7 days)
+ * 3. Adds NO_RESPONSE issues for pending co-authors
+ * 4. Changes status to REJECTED
+ * 5. Sends detailed email to author with all issues
+ * 
+ * Example Response:
+ * {
+ *   "processed": 3,
+ *   "submissions": ["JAIRAM-2026-0001", "JAIRAM-2026-0045", ...]
+ * }
+ */
+router.post(
+    "/cron/auto-reject-expired-consents",
+    asyncHandler(autoRejectExpiredConsents)
+);
 
 // ============================================================
 // AUTHOR ROUTES (Authenticated Users)
@@ -220,6 +262,17 @@ router.post(
  * 4. Frontend calls this endpoint with token
  * 5. If ACCEPT + co-author not in database → prompt registration
  * 6. After registration, system links user.id to submission
+ * 
+ * NEW BEHAVIOR (Rejection):
+ * 1. If co-author REJECTS:
+ *    - consentDeadlineStatus changes from ACTIVE → NOTIFIED
+ *    - Issue tracked in consentIssues array (issueType: "REJECTED")
+ *    - Submission status changes to DRAFT
+ *    - Author receives ONE email notification with details
+ *    - 7-day countdown starts for resolution
+ * 2. If not resolved within 7 days:
+ *    - Cron job auto-rejects submission
+ *    - Author receives final notification email
  */
 router.post(
     "/:id/coauthor-consent/:coAuthorId",
@@ -377,6 +430,55 @@ router.post(
     allowRoles(ROLES.EDITOR, ROLES.ADMIN),
     validateRequest(getSubmissionByIdSchema),
     asyncHandler(moveToReview)
+);
+
+/**
+ * EDITOR MANUAL APPROVAL (Override Consent Issues)
+ * 
+ * POST /api/submissions/:id/editor-approve-consent
+ * Headers: Authorization: Bearer <token>
+ * Body: {
+ *   resolutionNote: "Author contacted co-author offline, issue resolved"
+ * }
+ * 
+ * Auth: Required + EDITOR role
+ * 
+ * Use Case:
+ * - Co-author rejected or didn't respond
+ * - Author resolved issue offline (phone call, email)
+ * - Editor manually approves to allow submission to proceed
+ * - Changes consentDeadlineStatus from NOTIFIED → RESOLVED
+ * - Moves submission from DRAFT → SUBMITTED
+ * 
+ * Validation:
+ * - resolutionNote required (min 10 characters)
+ * - Submission must have consent issues (consentDeadlineStatus != "RESOLVED")
+ * - Cannot override if already AUTO_REJECTED
+ * 
+ * Process:
+ * 1. Marks all unresolved issues as resolved
+ * 2. Records editor ID and resolution note in each issue
+ * 3. Updates consentDeadlineStatus to RESOLVED
+ * 4. Moves submission from DRAFT to SUBMITTED
+ * 5. Adds internal note with audit trail
+ * 6. Sends approval email to author
+ * 
+ * Audit Trail:
+ * - Who approved (resolvedBy: editor ObjectId)
+ * - When approved (resolvedAt: Date)
+ * - Why approved (resolutionNote: String)
+ * 
+ * Example Body:
+ * {
+ *   "resolutionNote": "Author provided email correspondence showing Carol agreed to be co-author. Concerns about methodology were addressed via phone call on 2026-03-03."
+ * }
+ */
+router.post(
+    "/:id/editor-approve-consent",
+    requireAuth,
+    allowRoles(ROLES.EDITOR, ROLES.ADMIN),
+    validateRequest(editorApproveConsentOverrideSchema),
+    asyncHandler(editorApproveConsentOverride)
 );
 
 // ════════════════════════════════════════════════════════════════

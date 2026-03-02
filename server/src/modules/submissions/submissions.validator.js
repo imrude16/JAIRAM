@@ -10,6 +10,7 @@ import { validateChecklistResponses, CURRENT_CHECKLIST } from "../../common/cons
  * Validates all UI fields from screenshots
  * Integrates with checklist validation
  * + NEW SCHEMAS FOR REVISIONS AND DECISIONS
+ * + NEW SCHEMA FOR CONSENT MANAGEMENT
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -709,5 +710,32 @@ export const checkCoAuthorConsentSchema = {
 export const checkReviewerMajoritySchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
+    }),
+};
+
+// ════════════════════════════════════════════════════════════════
+// NEW SCHEMAS FOR CONSENT MANAGEMENT
+// ════════════════════════════════════════════════════════════════
+
+// ================================================
+// EDITOR APPROVE CONSENT OVERRIDE SCHEMA
+// ================================================
+
+export const editorApproveConsentOverrideSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+    
+    body: Joi.object({
+        resolutionNote: Joi.string()
+            .trim()
+            .min(10)
+            .max(1000)
+            .required()
+            .messages({
+                "string.min": "Resolution note must be at least 10 characters",
+                "string.max": "Resolution note cannot exceed 1000 characters",
+                "any.required": "Please provide a reason for overriding consent issues",
+            }),
     }),
 };

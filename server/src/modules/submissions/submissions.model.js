@@ -4,10 +4,10 @@ import mongoose from "mongoose";
 
 /**
  * ════════════════════════════════════════════════════════════════
- * SUBMISSION SCHEMA - FINAL UPDATED VERSION
+ * SUBMISSION SCHEMA - FINAL VERSION WITH CONSENT TRACKING
  * ════════════════════════════════════════════════════════════════
  * 
- * UPDATES BASED ON CLARIFICATIONS:
+ * UPDATES:
  * - Author fetched from login email
  * - Co-authors: user ref (null until registration if outside)
  * - isCorresponding flag on author + co-authors  
@@ -16,6 +16,7 @@ import mongoose from "mongoose";
  * - Suggested reviewers: same pattern as co-authors
  * - Revision tracking fields added
  * - Suggested reviewer responses tracking
+ * - CO-AUTHOR CONSENT TRACKING (Production-grade with audit trail)
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -239,11 +240,79 @@ const submissionSchema = new Schema(
             required: [true, "Submitter role type is required"],
             index: true,
         },
-         
+
         // ══════════════════════════════════════════════════════════
-        // REVISION TRACKING FIELDS (NEW)
+        // CO-AUTHOR CONSENT TRACKING (PRODUCTION-GRADE)
         // ══════════════════════════════════════════════════════════
-        
+
+        consentDeadlineStatus: {
+            type: String,
+            enum: {
+                values: [
+                    "ACTIVE",           // Waiting for consents (< 7 days)
+                    "NOTIFIED",         // Author notified about rejection/no-response
+                    "RESOLVED",         // Editor manually approved OR all accepted
+                    "AUTO_REJECTED",    // Cron job auto-rejected after 7 days
+                ],
+                message: "{VALUE} is not a valid consent deadline status",
+            },
+            default: "ACTIVE",
+            index: true,  // CRITICAL for cron job performance!
+        },
+
+        // Track which co-authors have consent issues (for audit trail & emails)
+        consentIssues: [{
+            coAuthorId: {
+                type: Schema.Types.ObjectId,
+                // NOTE: References submission.coAuthors[X]._id (subdocument ID)
+                // This is NOT a ref to User collection
+            },
+            coAuthorEmail: {
+                type: String,
+                required: true,
+                trim: true,
+                // Denormalized from coAuthors array for performance
+                // Allows quick access without searching through array
+            },
+            coAuthorName: {
+                type: String,
+                required: true,
+                trim: true,
+                // Denormalized from coAuthors firstName + lastName
+                // Used for display in emails and audit logs
+            },
+            issueType: {
+                type: String,
+                enum: ["REJECTED", "NO_RESPONSE"],
+                required: true,
+                // REJECTED = co-author actively clicked "Reject" button
+                // NO_RESPONSE = never responded within 7 days
+            },
+            reportedAt: {
+                type: Date,
+                required: true,
+                default: Date.now,
+            },
+
+            // Editor resolution tracking (optional - only if manually resolved)
+            resolvedAt: Date,
+            resolvedBy: {
+                type: Schema.Types.ObjectId,
+                ref: "User",  // Editor who manually approved
+            },
+            resolutionNote: {
+                type: String,
+                trim: true,
+                maxlength: 1000,
+                // OPTIONAL: Editor explains why they approved despite rejection
+                // Example: "Author confirmed offline discussion resolved concerns"
+            },
+        }],
+
+        // ══════════════════════════════════════════════════════════
+        // REVISION TRACKING FIELDS
+        // ══════════════════════════════════════════════════════════
+
         // Link to original submission (for revisions)
         originalSubmissionId: {
             type: Schema.Types.ObjectId,
@@ -622,7 +691,9 @@ submissionSchema.pre("save", async function (next) {
                 "copyrightAgreement",
                 "pdfPreviewConfirmed",
                 "suggestedReviewers",
-                "suggestedReviewerResponses",  // NEW
+                "suggestedReviewerResponses",
+                "consentDeadlineStatus",   // NEW
+                "consentIssues",            // NEW
                 "status",
                 "submittedAt",
                 "currentCycleId",
@@ -640,11 +711,13 @@ submissionSchema.pre("save", async function (next) {
                 "assignedTechnicalEditors",
                 "acceptedAt",
                 "rejectedAt",
+                "consentDeadlineStatus",    // NEW
+                "consentIssues",             // NEW
                 "status",
                 "lastModifiedAt",
                 "updatedAt",
                 "currentCycleId",
-                "revisionStage",  // NEW
+                "revisionStage",
             ];
 
             const allowedFields = isStatusChange
@@ -691,7 +764,7 @@ submissionSchema.pre("save", async function (next) {
             throw new Error("Only one co-author can be corresponding author");
         }
 
-        // NEW: Validate isRevision requires originalSubmissionId
+        // Validate isRevision requires originalSubmissionId
         if (this.isRevision && !this.originalSubmissionId) {
             throw new Error("originalSubmissionId is required for revisions");
         }
@@ -896,12 +969,12 @@ submissionSchema.methods.canUserView = function (userId, userRole) {
 // Check Editor decision count across ALL cycles
 submissionSchema.methods.getEditorDecisionCount = async function () {
     const SubmissionCycle = mongoose.model("SubmissionCycle");
-    
+
     const cycles = await SubmissionCycle.find({
         submissionId: this._id,
         "editorDecision.type": { $in: ["ACCEPT", "REJECT"] }
     });
-    
+
     return {
         totalDecisions: cycles.length,
         decisionsRemaining: 4 - cycles.length,
@@ -912,12 +985,12 @@ submissionSchema.methods.getEditorDecisionCount = async function () {
 // Check if Technical Editor has decided
 submissionSchema.methods.hasTechnicalEditorDecided = async function () {
     const SubmissionCycle = mongoose.model("SubmissionCycle");
-    
+
     const cycle = await SubmissionCycle.findOne({
         submissionId: this._id,
         "technicalEditorReview.decision": { $exists: true }
     });
-    
+
     return {
         hasDecided: !!cycle,
         decision: cycle?.technicalEditorReview?.decision,
@@ -928,12 +1001,12 @@ submissionSchema.methods.hasTechnicalEditorDecided = async function () {
 // Get complete decision history
 submissionSchema.methods.getDecisionHistory = async function () {
     const SubmissionCycle = mongoose.model("SubmissionCycle");
-    
+
     const cycles = await SubmissionCycle.find({ submissionId: this._id })
         .sort({ cycleNumber: 1 })
         .populate("technicalEditorReview.reviewedBy", "firstName lastName")
         .populate("reviewerFeedback.reviewer", "firstName lastName");
-    
+
     return cycles.map(cycle => ({
         cycleNumber: cycle.cycleNumber,
         editorDecision: cycle.editorDecision,
@@ -948,11 +1021,11 @@ submissionSchema.methods.checkCoAuthorConsent = function () {
     if (!this.coAuthors || this.coAuthors.length === 0) {
         return { allAccepted: true, canProceed: true, message: "No co-authors to approve" };
     }
-    
+
     const rejected = this.coAuthors.filter(ca => ca.consentStatus === "REJECTED");
     const pending = this.coAuthors.filter(ca => ca.consentStatus === "PENDING");
     const accepted = this.coAuthors.filter(ca => ca.consentStatus === "ACCEPTED");
-    
+
     if (rejected.length > 0) {
         return {
             allAccepted: false,
@@ -961,7 +1034,7 @@ submissionSchema.methods.checkCoAuthorConsent = function () {
             rejected: rejected.map(ca => ({ name: `${ca.firstName} ${ca.lastName}`, email: ca.email })),
         };
     }
-    
+
     if (pending.length > 0) {
         return {
             allAccepted: false,
@@ -970,7 +1043,7 @@ submissionSchema.methods.checkCoAuthorConsent = function () {
             pending: pending.map(ca => ({ name: `${ca.firstName} ${ca.lastName}`, email: ca.email })),
         };
     }
-    
+
     return {
         allAccepted: true,
         canProceed: true,
@@ -984,17 +1057,17 @@ submissionSchema.methods.checkReviewerMajority = function () {
     const accepted = this.suggestedReviewerResponses.accepted;
     const declined = this.suggestedReviewerResponses.declined;
     const pending = this.suggestedReviewerResponses.pending;
-    
+
     if (total === 0) {
         return {
             majorityMet: false,
             message: "No reviewers suggested",
         };
     }
-    
+
     // Majority rule: More than 50% must accept
     const requiredAcceptances = Math.ceil(total / 2);
-    
+
     if (accepted >= requiredAcceptances) {
         return {
             majorityMet: true,
@@ -1003,10 +1076,10 @@ submissionSchema.methods.checkReviewerMajority = function () {
             total,
         };
     }
-    
+
     // Check if majority is still possible
     const maxPossibleAcceptances = accepted + pending;
-    
+
     if (maxPossibleAcceptances < requiredAcceptances) {
         return {
             majorityMet: false,
@@ -1014,7 +1087,7 @@ submissionSchema.methods.checkReviewerMajority = function () {
             message: `Cannot reach majority: Only ${maxPossibleAcceptances}/${total} can accept, need ${requiredAcceptances}`,
         };
     }
-    
+
     return {
         majorityMet: false,
         message: `Waiting for more responses: ${accepted}/${total} accepted, need ${requiredAcceptances}`,

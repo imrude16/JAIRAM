@@ -4,12 +4,13 @@ import { STATUS_CODES } from "../../common/constants/statusCodes.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
- * SUBMISSION CONTROLLER LAYER - COMPLETE VERSION WITH REVISIONS
+ * SUBMISSION CONTROLLER LAYER - COMPLETE VERSION WITH CONSENT TRACKING
  * ════════════════════════════════════════════════════════════════
  * 
  * Follows same pattern as users.controller.js
  * Handles HTTP requests and responses
  * + NEW: Controllers for revisions and decisions
+ * + NEW: Controllers for consent management (cron + editor override)
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -307,6 +308,44 @@ const checkReviewerMajority = async (req, res) => {
     );
 };
 
+// ════════════════════════════════════════════════════════════════
+// NEW CONTROLLERS FOR CONSENT MANAGEMENT
+// ════════════════════════════════════════════════════════════════
+
+const autoRejectExpiredConsents = async (req, res) => {
+    const result = await submissionService.autoRejectExpiredConsents();
+
+    sendSuccess(
+        res,
+        "Expired consents processed successfully",
+        { 
+            processed: result.processed,
+            submissions: result.submissions 
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const editorApproveConsentOverride = async (req, res) => {
+    const { id } = req.params;
+    const { resolutionNote } = req.body;
+
+    const result = await submissionService.editorApproveConsentOverride(
+        id,
+        req.user.id,
+        resolutionNote
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        { submission: result.submission },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 // ================================================
 // EXPORTS
 // ================================================
@@ -323,10 +362,13 @@ export default {
     processCoAuthorConsent,
     moveToReview,
     getSubmissionTimeline,
-    // NEW EXPORTS:
+    // NEW EXPORTS (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
     makeTechnicalEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
+    // NEW EXPORTS (Consent Management):
+    autoRejectExpiredConsents,
+    editorApproveConsentOverride,
 };
