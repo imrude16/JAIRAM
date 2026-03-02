@@ -739,3 +739,70 @@ export const editorApproveConsentOverrideSchema = {
             }),
     }),
 };
+
+// ════════════════════════════════════════════════════════════════
+// EDITOR ASSIGNMENT SCHEMAS (NEW)
+// ════════════════════════════════════════════════════════════════
+
+// ================================================
+// ASSIGN TECHNICAL EDITOR SCHEMA
+// ================================================
+
+export const assignTechnicalEditorSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+    
+    body: Joi.object({
+        technicalEditorId: objectIdField("Technical Editor ID").required(),
+        
+        remarks: Joi.string()
+            .trim()
+            .min(10)
+            .max(2000)
+            .required()
+            .messages({
+                "string.min": "Remarks must be at least 10 characters",
+                "string.max": "Remarks cannot exceed 2000 characters",
+                "any.required": "Remarks for technical editor are required",
+            }),
+        
+        attachments: Joi.array().items(fileSchema).max(5).optional(),
+    }),
+};
+
+// ================================================
+// ASSIGN REVIEWERS SCHEMA
+// ================================================
+
+export const assignReviewersSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+    
+    body: Joi.object({
+        reviewerIds: Joi.array()
+            .items(objectIdField("Reviewer ID"))
+            .min(2)
+            .max(5)
+            .required()
+            .messages({
+                "array.min": "Minimum 2 reviewers required",
+                "array.max": "Maximum 5 reviewers allowed",
+                "any.required": "Reviewer IDs are required",
+            }),
+        
+        remarks: Joi.string()
+            .trim()
+            .min(10)
+            .max(2000)
+            .required()
+            .messages({
+                "string.min": "Remarks must be at least 10 characters",
+                "string.max": "Remarks cannot exceed 2000 characters",
+                "any.required": "Remarks for reviewers are required",
+            }),
+        
+        attachments: Joi.array().items(fileSchema).max(5).optional(),
+    }),
+};

@@ -23,6 +23,9 @@ import {
     checkReviewerMajoritySchema,
     // NEW IMPORTS (Consent Management):
     editorApproveConsentOverrideSchema,
+    // NEW IMPORTS (Editor Assignment):
+    assignTechnicalEditorSchema,
+    assignReviewersSchema,
 } from "./submissions.validator.js";
 
 /**
@@ -58,6 +61,9 @@ const {
     // NEW DESTRUCTURING (Consent Management):
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
+    // NEW DESTRUCTURING (Editor Assignment):
+    assignTechnicalEditor,
+    assignReviewers,
 } = submissionController;
 
 const router = Router();
@@ -658,6 +664,71 @@ router.get(
     allowRoles(ROLES.EDITOR, ROLES.ADMIN),
     validateRequest(checkReviewerMajoritySchema),
     asyncHandler(checkReviewerMajority)
+);
+
+// ════════════════════════════════════════════════════════════════
+// EDITOR ASSIGNMENT ROUTES (NEW - FOR WORKFLOW)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * ASSIGN TECHNICAL EDITOR
+ * 
+ * POST /api/submissions/:id/assign-technical-editor
+ * Headers: Authorization: Bearer <token>
+ * Body: {
+ *   technicalEditorId: "...",
+ *   remarks: "Please check formatting compliance...",
+ *   attachments?: [...]
+ * }
+ * 
+ * Auth: Required + EDITOR/ADMIN role
+ * 
+ * Process:
+ * 1. Validates technical editor exists and has TECHNICAL_EDITOR role
+ * 2. Adds to submission.assignedTechnicalEditors array
+ * 3. Updates current cycle with assignment
+ * 4. Sends notification email to technical editor
+ * 5. Returns updated submission
+ */
+router.post(
+    "/:id/assign-technical-editor",
+    requireAuth,
+    allowRoles(ROLES.EDITOR, ROLES.ADMIN),
+    validateRequest(assignTechnicalEditorSchema),
+    asyncHandler(assignTechnicalEditor)
+);
+
+/**
+ * ASSIGN REVIEWERS
+ * 
+ * POST /api/submissions/:id/assign-reviewers
+ * Headers: Authorization: Bearer <token>
+ * Body: {
+ *   reviewerIds: ["id1", "id2"],
+ *   remarks: "Focus on methodology section...",
+ *   attachments?: [...]
+ * }
+ * 
+ * Auth: Required + EDITOR/ADMIN role
+ * 
+ * Validation:
+ * - Minimum 2 reviewers required
+ * - Maximum 5 reviewers allowed
+ * - All reviewers must have REVIEWER role
+ * 
+ * Process:
+ * 1. Validates all reviewer IDs
+ * 2. Adds to submission.assignedReviewers array
+ * 3. Updates current cycle
+ * 4. Sends notification emails to all reviewers
+ * 5. Returns updated submission
+ */
+router.post(
+    "/:id/assign-reviewers",
+    requireAuth,
+    allowRoles(ROLES.EDITOR, ROLES.ADMIN),
+    validateRequest(assignReviewersSchema),
+    asyncHandler(assignReviewers)
 );
 
 export default router;

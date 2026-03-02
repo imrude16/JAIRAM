@@ -880,7 +880,7 @@ const processCoAuthorConsent = async (submissionId, coAuthorId, consent, token) 
         }
 
         await submission.save();
-        
+
         console.log("✅ [SERVICE] processCoAuthorConsent completed successfully");
 
         return {
@@ -1372,52 +1372,128 @@ const checkReviewerMajorityStatus = async (submissionId) => {
 // ════════════════════════════════════════════════════════════════
 
 // ================================================
-// AUTO-REJECT SUBMISSIONS WITH EXPIRED CONSENT DEADLINES (EFFICIENT CRON JOB)
+// AUTO-REJECT SUBMISSIONS WITH EXPIRED CONSENT DEADLINES + 48HR REMINDERS (ENHANCED CRON JOB)
 // ================================================
 
 const autoRejectExpiredConsents = async () => {
     try {
-        console.log("🔵 [CRON] Checking for expired consent deadlines...");
-        
+        console.log("🔵 [CRON] Starting consent deadline checks...");
+
         const now = new Date();
-        
-        // EFFICIENT QUERY: Only check submissions with ACTIVE consent deadlines
-        // Uses index on consentDeadlineStatus for fast lookup
+        const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        // ═══════════════════════════════════════════════════════════
+        // CHECK 1: Send 48-hour reminders (ACTIVE → REMINDED)
+        // ═══════════════════════════════════════════════════════════
+
+        const reminderSubmissions = await Submission.find({
+            consentDeadlineStatus: "ACTIVE",
+            "coAuthors": {
+                $elemMatch: {
+                    consentStatus: "PENDING",
+                    consentTokenExpires: { $lte: now, $gte: sevenDaysAgo }
+                }
+            },
+            createdAt: { $lte: fortyEightHoursAgo }
+        }).populate("author", "firstName lastName email");
+
+        console.log(`⚠️ [CRON] Found ${reminderSubmissions.length} submissions needing 48hr reminder`);
+
+        for (const submission of reminderSubmissions) {
+            const pendingCoAuthors = submission.coAuthors.filter(ca =>
+                ca.consentStatus === "PENDING"
+            );
+
+            if (pendingCoAuthors.length > 0) {
+                // Change status to REMINDED
+                submission.consentDeadlineStatus = "REMINDED";
+
+                // Add internal note
+                submission.internalNotes.push({
+                    note: `48-hour reminder: ${pendingCoAuthors.length} co-author(s) have not responded. Author notified.`,
+                    addedBy: submission.author,
+                    isConfidential: true,
+                    addedAt: new Date(),
+                });
+
+                await submission.save();
+
+                // Send reminder email to author
+                const author = submission.author;
+                try {
+                    await sendEmail({
+                        to: author.email,
+                        subject: `⏰ Reminder: Co-Author Consent Pending - ${submission.submissionNumber}`,
+                        html: `
+                            <h2>Co-Author Consent Reminder</h2>
+                            <p>Dear ${author.firstName} ${author.lastName},</p>
+                            <p>This is a reminder that <strong>${pendingCoAuthors.length} co-author(s)</strong> have not yet responded to your manuscript consent request:</p>
+                            <p><strong>Submission Number:</strong> ${submission.submissionNumber || "Draft"}</p>
+                            <p><strong>Title:</strong> ${submission.title}</p>
+                            <hr>
+                            
+                            <p><strong>⏳ Pending Co-Authors (${pendingCoAuthors.length}):</strong></p>
+                            <ul>
+                                ${pendingCoAuthors.map(ca => `
+                                    <li><strong>${ca.firstName} ${ca.lastName}</strong> (${ca.email})
+                                        <br><small>Invited: ${ca.consentTokenExpires ? new Date(ca.consentTokenExpires.getTime() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : 'N/A'}</small>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            
+                            <hr>
+                            <p>⚠️ <strong>Important:</strong> You have <strong>5 days remaining</strong> for all co-authors to respond. If they do not respond within 7 days total, your submission will be automatically rejected.</p>
+                            
+                            <p><strong>Next Steps:</strong></p>
+                            <ol>
+                                <li>Contact the pending co-author(s) to ensure they received the consent email</li>
+                                <li>Ask them to check their spam/junk folder</li>
+                                <li>Provide any clarification they may need</li>
+                            </ol>
+                            
+                            <p><em>This is an automated reminder. You will receive only ONE reminder per submission.</em></p>
+                        `,
+                    });
+                    console.log(`📧 [CRON] 48hr reminder sent to ${author.email}`);
+                } catch (emailError) {
+                    console.error("❌ Failed to send 48hr reminder:", emailError);
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // CHECK 2: Auto-reject expired consents (REMINDED → AUTO_REJECTED)
+        // ═══════════════════════════════════════════════════════════
+
         const expiredSubmissions = await Submission.find({
-            consentDeadlineStatus: "ACTIVE",  // ← Only active deadlines!
+            consentDeadlineStatus: { $in: ["ACTIVE", "REMINDED"] },
             "coAuthors": {
                 $elemMatch: {
                     consentStatus: { $in: ["PENDING", "REJECTED"] },
-                    consentTokenExpires: { $lte: now }
+                    consentTokenExpires: { $lte: sevenDaysAgo }
                 }
             }
         }).populate("author", "firstName lastName email");
-        
-        if (expiredSubmissions.length === 0) {
-            console.log("✅ [CRON] No expired consent deadlines found");
-            return { processed: 0 };
-        }
-        
+
         console.log(`⚠️ [CRON] Found ${expiredSubmissions.length} submissions with expired consent deadlines`);
-        
+
         const rejectedSubmissions = [];
-        
+
         for (const submission of expiredSubmissions) {
-            // Find co-authors with expired tokens
-            const expiredCoAuthors = submission.coAuthors.filter(ca => 
+            const expiredCoAuthors = submission.coAuthors.filter(ca =>
                 (ca.consentStatus === "PENDING" || ca.consentStatus === "REJECTED") &&
-                ca.consentTokenExpires <= now
+                ca.consentTokenExpires <= sevenDaysAgo
             );
-            
+
             if (expiredCoAuthors.length > 0) {
                 // Track NO_RESPONSE issues for pending co-authors
                 for (const coAuthor of expiredCoAuthors) {
                     if (coAuthor.consentStatus === "PENDING") {
-                        // Only add if not already tracked
                         const alreadyTracked = submission.consentIssues.some(
                             issue => issue.coAuthorId && issue.coAuthorId.equals(coAuthor._id)
                         );
-                        
+
                         if (!alreadyTracked) {
                             submission.consentIssues.push({
                                 coAuthorId: coAuthor._id,
@@ -1429,16 +1505,16 @@ const autoRejectExpiredConsents = async () => {
                         }
                     }
                 }
-                
+
                 // Update submission status
                 submission.status = "REJECTED";
                 submission.rejectedAt = new Date();
                 submission.consentDeadlineStatus = "AUTO_REJECTED";
-                
+
                 // Build detailed lists for email
                 const rejectedIssues = submission.consentIssues.filter(i => i.issueType === "REJECTED");
                 const noResponseIssues = submission.consentIssues.filter(i => i.issueType === "NO_RESPONSE");
-                
+
                 // Add internal note
                 const noteDetails = [];
                 if (rejectedIssues.length > 0) {
@@ -1447,16 +1523,16 @@ const autoRejectExpiredConsents = async () => {
                 if (noResponseIssues.length > 0) {
                     noteDetails.push(`No Response: ${noResponseIssues.map(i => i.coAuthorName).join(", ")}`);
                 }
-                
+
                 submission.internalNotes.push({
-                    note: `Submission auto-rejected: Consent deadline expired. ${noteDetails.join("; ")}`,
+                    note: `Submission auto-rejected: Consent deadline expired (7 days). ${noteDetails.join("; ")}`,
                     addedBy: submission.author,
                     isConfidential: true,
                     addedAt: new Date(),
                 });
-                
+
                 await submission.save();
-                
+
                 // Send detailed rejection email to author
                 const author = submission.author;
                 try {
@@ -1510,19 +1586,20 @@ const autoRejectExpiredConsents = async () => {
                 } catch (emailError) {
                     console.error("❌ Failed to send auto-rejection email:", emailError);
                 }
-                
+
                 rejectedSubmissions.push(submission.submissionNumber);
                 console.log(`❌ [CRON] Submission ${submission.submissionNumber} auto-rejected`);
             }
         }
-        
-        console.log(`✅ [CRON] Processed ${rejectedSubmissions.length} expired submissions`);
-        
+
+        console.log(`✅ [CRON] Processed ${reminderSubmissions.length} reminders and ${rejectedSubmissions.length} rejections`);
+
         return {
-            processed: rejectedSubmissions.length,
-            submissions: rejectedSubmissions,
+            reminders: reminderSubmissions.length,
+            rejections: rejectedSubmissions.length,
+            rejectedSubmissions,
         };
-        
+
     } catch (error) {
         console.error("❌ [CRON] Error in autoRejectExpiredConsents:", error);
         throw new AppError(
@@ -1541,12 +1618,12 @@ const autoRejectExpiredConsents = async () => {
 const editorApproveConsentOverride = async (submissionId, editorId, resolutionNote) => {
     try {
         console.log("🔵 [SERVICE] editorApproveConsentOverride started");
-        
+
         const submission = await findSubmissionById(submissionId);
         if (!submission) {
             throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
         }
-        
+
         // Verify user is Editor
         const editor = await User.findById(editorId);
         if (!editor || (editor.role !== "EDITOR" && editor.role !== "ADMIN")) {
@@ -1556,7 +1633,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 "NOT_EDITOR"
             );
         }
-        
+
         // Check if submission has consent issues
         if (submission.consentDeadlineStatus === "RESOLVED") {
             throw new AppError(
@@ -1565,7 +1642,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 "NO_CONSENT_ISSUES"
             );
         }
-        
+
         if (submission.consentDeadlineStatus === "AUTO_REJECTED") {
             throw new AppError(
                 "Submission has already been auto-rejected. Cannot override.",
@@ -1573,7 +1650,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 "ALREADY_REJECTED"
             );
         }
-        
+
         // Validate resolution note (required for manual approval)
         if (!resolutionNote || resolutionNote.trim().length < 10) {
             throw new AppError(
@@ -1582,10 +1659,10 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 "RESOLUTION_NOTE_TOO_SHORT"
             );
         }
-        
+
         // Mark all unresolved issues as resolved by this editor
         const resolvedCount = submission.consentIssues.filter(issue => !issue.resolvedAt).length;
-        
+
         for (const issue of submission.consentIssues) {
             if (!issue.resolvedAt) {
                 issue.resolvedAt = new Date();
@@ -1593,15 +1670,15 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 issue.resolutionNote = resolutionNote;
             }
         }
-        
+
         // Update consent status
         submission.consentDeadlineStatus = "RESOLVED";
-        
+
         // Move from DRAFT to SUBMITTED
         if (submission.status === "DRAFT") {
             submission.status = "SUBMITTED";
         }
-        
+
         // Add internal note with audit trail
         submission.internalNotes.push({
             note: `Editor ${editor.firstName} ${editor.lastName} manually approved submission despite ${resolvedCount} consent issue(s). Reason: ${resolutionNote}`,
@@ -1609,9 +1686,9 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
             isConfidential: true,
             addedAt: new Date(),
         });
-        
+
         await submission.save();
-        
+
         // Notify author
         const author = await User.findById(submission.author);
         if (author) {
@@ -1620,7 +1697,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                     .filter(i => i.resolvedBy && i.resolvedBy.equals(editorId))
                     .map(i => `${i.coAuthorName} (${i.issueType})`)
                     .join(", ");
-                
+
                 await sendEmail({
                     to: author.email,
                     subject: `✅ Submission Approved by Editor - ${submission.submissionNumber}`,
@@ -1655,15 +1732,15 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 console.error("❌ Failed to send approval email:", emailError);
             }
         }
-        
+
         console.log("✅ [SERVICE] editorApproveConsentOverride completed successfully");
-        
+
         return {
             message: "Submission approved successfully",
             submission,
             resolvedCount,
         };
-        
+
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("❌ [SERVICE] Unexpected error in editorApproveConsentOverride:", error);
@@ -1676,9 +1753,275 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
     }
 };
 
+// ════════════════════════════════════════════════════════════════
+// EDITOR ASSIGNMENT SERVICE FUNCTIONS (NEW)
+// ════════════════════════════════════════════════════════════════
+
 // ================================================
-// EXPORTS
+// ASSIGN TECHNICAL EDITOR
 // ================================================
+
+const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, remarks, attachments) => {
+    try {
+        console.log("🔵 [SERVICE] assignTechnicalEditor started");
+
+        const submission = await findSubmissionById(submissionId);
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        // Verify editor is assigned
+        const editor = await User.findById(editorId);
+        if (!editor || editor.role !== "EDITOR") {
+            throw new AppError(
+                "Only editors can assign technical editors",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_EDITOR"
+            );
+        }
+
+        // Verify technical editor exists and has correct role
+        const technicalEditor = await User.findById(technicalEditorId);
+        if (!technicalEditor) {
+            throw new AppError(
+                "Technical editor not found",
+                STATUS_CODES.NOT_FOUND,
+                "TECHNICAL_EDITOR_NOT_FOUND"
+            );
+        }
+
+        if (technicalEditor.role !== "TECHNICAL_EDITOR") {
+            throw new AppError(
+                "User is not a technical editor",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_TECHNICAL_EDITOR_ROLE"
+            );
+        }
+
+        // Check if already assigned
+        const alreadyAssigned = submission.assignedTechnicalEditors.some(
+            te => te.technicalEditor.toString() === technicalEditorId
+        );
+
+        if (alreadyAssigned) {
+            throw new AppError(
+                "This technical editor is already assigned to this submission",
+                STATUS_CODES.BAD_REQUEST,
+                "TECHNICAL_EDITOR_ALREADY_ASSIGNED"
+            );
+        }
+
+        // Add to assignedTechnicalEditors
+        submission.assignedTechnicalEditors.push({
+            technicalEditor: technicalEditorId,
+            assignedDate: new Date(),
+            status: "PENDING",
+        });
+
+        // Add internal note
+        submission.internalNotes.push({
+            note: `Technical Editor assigned: ${technicalEditor.firstName} ${technicalEditor.lastName}. Remarks: ${remarks}`,
+            addedBy: editorId,
+            isConfidential: true,
+        });
+
+        // Update current cycle with remarks and attachments
+        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        if (currentCycle) {
+            currentCycle.technicalEditorId = technicalEditorId;
+            // Store editor remarks for technical editor in cycle
+            if (!currentCycle.editorRemarksForTechEditor) {
+                currentCycle.editorRemarksForTechEditor = {
+                    remarks,
+                    attachments: attachments || [],
+                    sentAt: new Date(),
+                };
+            }
+            await currentCycle.save();
+        }
+
+        await submission.save();
+
+        // Send notification email to technical editor
+        try {
+            await sendEmail({
+                to: technicalEditor.email,
+                subject: `Technical Review Assignment - ${submission.submissionNumber}`,
+                html: `
+                    <h2>Technical Review Assignment</h2>
+                    <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
+                    <p>You have been assigned to review the technical aspects of a manuscript:</p>
+                    <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
+                    <p><strong>Title:</strong> ${submission.title}</p>
+                    <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                    <hr>
+                    <p><strong>Editor's Remarks:</strong></p>
+                    <p>${remarks}</p>
+                    ${attachments && attachments.length > 0 ? `
+                        <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
+                    ` : ''}
+                    <p>Please log in to the platform to review the manuscript and submit your decision.</p>
+                `,
+            });
+            console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
+        } catch (emailError) {
+            console.error("❌ Failed to send technical editor notification:", emailError);
+        }
+
+        console.log("✅ [SERVICE] assignTechnicalEditor completed successfully");
+
+        return {
+            message: "Technical editor assigned successfully",
+            submission,
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in assignTechnicalEditor:", error);
+        throw new AppError(
+            "Failed to assign technical editor",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "ASSIGN_TECHNICAL_EDITOR_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+// ================================================
+// ASSIGN REVIEWERS
+// ================================================
+
+const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, attachments) => {
+    try {
+        console.log("🔵 [SERVICE] assignReviewers started");
+
+        const submission = await findSubmissionById(submissionId);
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        // Verify editor
+        const editor = await User.findById(editorId);
+        if (!editor || editor.role !== "EDITOR") {
+            throw new AppError(
+                "Only editors can assign reviewers",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_EDITOR"
+            );
+        }
+
+        // Verify all reviewers exist and have correct role
+        const reviewers = await User.find({
+            _id: { $in: reviewerIds },
+            role: "REVIEWER"
+        });
+
+        if (reviewers.length !== reviewerIds.length) {
+            throw new AppError(
+                "One or more reviewer IDs are invalid or users are not reviewers",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_REVIEWER_IDS"
+            );
+        }
+
+        // Check for duplicates
+        const uniqueReviewerIds = [...new Set(reviewerIds)];
+        if (uniqueReviewerIds.length !== reviewerIds.length) {
+            throw new AppError(
+                "Duplicate reviewer IDs found",
+                STATUS_CODES.BAD_REQUEST,
+                "DUPLICATE_REVIEWERS"
+            );
+        }
+
+        // Add to assignedReviewers (skip if already assigned)
+        for (const reviewerId of reviewerIds) {
+            const alreadyAssigned = submission.assignedReviewers.some(
+                r => r.reviewer.toString() === reviewerId
+            );
+
+            if (!alreadyAssigned) {
+                submission.assignedReviewers.push({
+                    reviewer: reviewerId,
+                    assignedDate: new Date(),
+                    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+                    status: "PENDING",
+                    isAnonymous: true,
+                });
+            }
+        }
+
+        // Add internal note
+        submission.internalNotes.push({
+            note: `${reviewers.length} reviewer(s) assigned. Remarks: ${remarks}`,
+            addedBy: editorId,
+            isConfidential: true,
+        });
+
+        // Update current cycle
+        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        if (currentCycle) {
+            currentCycle.reviewersId = reviewerIds;
+            // Store editor remarks for reviewers
+            if (!currentCycle.editorRemarksForReviewers) {
+                currentCycle.editorRemarksForReviewers = {
+                    remarks,
+                    attachments: attachments || [],
+                    sentAt: new Date(),
+                };
+            }
+            await currentCycle.save();
+        }
+
+        await submission.save();
+
+        // Send notification emails to all reviewers
+        for (const reviewer of reviewers) {
+            try {
+                await sendEmail({
+                    to: reviewer.email,
+                    subject: `Manuscript Review Request - ${submission.submissionNumber}`,
+                    html: `
+                        <h2>Manuscript Review Request</h2>
+                        <p>Dear ${reviewer.firstName} ${reviewer.lastName},</p>
+                        <p>You have been invited to review a manuscript:</p>
+                        <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
+                        <p><strong>Title:</strong> ${submission.title}</p>
+                        <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                        <p><strong>Due Date:</strong> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+                        <hr>
+                        <p><strong>Editor's Remarks:</strong></p>
+                        <p>${remarks}</p>
+                        ${attachments && attachments.length > 0 ? `
+                            <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
+                        ` : ''}
+                        <p>Please log in to the platform to review the manuscript and submit your feedback.</p>
+                    `,
+                });
+                console.log(`📧 Reviewer notification sent to ${reviewer.email}`);
+            } catch (emailError) {
+                console.error("❌ Failed to send reviewer notification:", emailError);
+            }
+        }
+
+        console.log("✅ [SERVICE] assignReviewers completed successfully");
+
+        return {
+            message: `${reviewers.length} reviewer(s) assigned successfully`,
+            submission,
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in assignReviewers:", error);
+        throw new AppError(
+            "Failed to assign reviewers",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "ASSIGN_REVIEWERS_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
 
 export default {
     createSubmission,
@@ -1701,4 +2044,6 @@ export default {
     // NEW EXPORTS (Consent Management):
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
+    assignTechnicalEditor,
+    assignReviewers,
 };

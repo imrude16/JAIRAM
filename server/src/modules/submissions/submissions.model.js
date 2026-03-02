@@ -249,15 +249,16 @@ const submissionSchema = new Schema(
             type: String,
             enum: {
                 values: [
-                    "ACTIVE",           // Waiting for consents (< 7 days)
-                    "NOTIFIED",         // Author notified about rejection/no-response
-                    "RESOLVED",         // Editor manually approved OR all accepted
-                    "AUTO_REJECTED",    // Cron job auto-rejected after 7 days
+                    "ACTIVE",           // 0-48 hours, no issues
+                    "REMINDED",         // 48hr+ passed, author reminded 
+                    "NOTIFIED",         // Co-author rejected
+                    "RESOLVED",         // All accepted OR editor approved
+                    "AUTO_REJECTED",    // 7 days expired
                 ],
                 message: "{VALUE} is not a valid consent deadline status",
             },
             default: "ACTIVE",
-            index: true,  // CRITICAL for cron job performance!
+            index: true,
         },
 
         // Track which co-authors have consent issues (for audit trail & emails)

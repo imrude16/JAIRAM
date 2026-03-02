@@ -59,6 +59,36 @@ const submissionCycleSchema = new Schema(
             ref: "User",
         }],
 
+        // ══════════════════════════════════════════════════════════════
+        // EDITOR REMARKS TO TECHNICAL EDITOR/REVIEWERS (NEW)
+        // ══════════════════════════════════════════════════════════════
+
+        editorRemarksForTechEditor: {
+            remarks: {
+                type: String,
+                trim: true,
+                maxlength: 2000,
+            },
+            attachments: [{
+                fileName: String,
+                fileUrl: String,
+            }],
+            sentAt: Date,
+        },
+
+        editorRemarksForReviewers: {
+            remarks: {
+                type: String,
+                trim: true,
+                maxlength: 2000,
+            },
+            attachments: [{
+                fileName: String,
+                fileUrl: String,
+            }],
+            sentAt: Date,
+        },
+
         // ══════════════════════════════════════════════════════════
         // EDITOR DECISION (ENHANCED)
         // ══════════════════════════════════════════════════════════

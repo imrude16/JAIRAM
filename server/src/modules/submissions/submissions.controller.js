@@ -346,9 +346,51 @@ const editorApproveConsentOverride = async (req, res) => {
     );
 };
 
-// ================================================
-// EXPORTS
-// ================================================
+// ════════════════════════════════════════════════════════════════
+// EDITOR ASSIGNMENT CONTROLLERS (NEW)
+// ════════════════════════════════════════════════════════════════
+
+const assignTechnicalEditor = async (req, res) => {
+    const { id } = req.params;
+    const { technicalEditorId, remarks, attachments } = req.body;
+
+    const result = await submissionService.assignTechnicalEditor(
+        id,
+        req.user.id,
+        technicalEditorId,
+        remarks,
+        attachments
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        { submission: result.submission },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const assignReviewers = async (req, res) => {
+    const { id } = req.params;
+    const { reviewerIds, remarks, attachments } = req.body;
+
+    const result = await submissionService.assignReviewers(
+        id,
+        req.user.id,
+        reviewerIds,
+        remarks,
+        attachments
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        { submission: result.submission },
+        null,
+        STATUS_CODES.OK
+    );
+};
 
 export default {
     createSubmission,
@@ -371,4 +413,6 @@ export default {
     // NEW EXPORTS (Consent Management):
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
+    assignTechnicalEditor,
+    assignReviewers,
 };
