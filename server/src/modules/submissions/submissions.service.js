@@ -30,6 +30,9 @@ const findSubmissionById = async (submissionId, options = {}) => {
     try {
         let query = Submission.findById(submissionId);
 
+         // ✅ NEW: Always include hidden consent token fields
+        query = query.select('+coAuthors.consentToken +coAuthors.consentTokenExpires');
+
         if (options.populate) {
             query = query
                 .populate("author", "firstName lastName email")
@@ -319,29 +322,191 @@ const createSubmission = async (authorId, payload) => {
 
 const getSubmissionById = async (submissionId, userId, userRole) => {
     try {
-        console.log("🔵 [SERVICE] getSubmissionById started");
+        console.log(`🔵 [SERVICE] getSubmissionById: ${submissionId} by user: ${userId} (${userRole})`);
 
-        const submission = await findSubmissionById(submissionId, { populate: true });
+        // ═══════════════════════════════════════════════════════════
+        // STEP 1: FETCH USER EMAIL (needed for co-author check)
+        // ═══════════════════════════════════════════════════════════
+
+        const user = await User.findById(userId).select("email").lean();
+        if (!user) {
+            throw new AppError("User not found", STATUS_CODES.NOT_FOUND, "USER_NOT_FOUND");
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 2: FETCH SUBMISSION WITH POPULATIONS
+        // ═══════════════════════════════════════════════════════════
+
+        const submission = await Submission.findById(submissionId)
+            .populate("author", "firstName lastName email")
+            .populate("assignedEditor", "firstName lastName email")
+            .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")
+            .populate("assignedReviewers.reviewer", "firstName lastName email")
+            .select("+coAuthors.consentToken +coAuthors.consentTokenExpires"); // Include hidden fields for permission check
 
         if (!submission) {
             throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
         }
 
-        if (userRole !== "ADMIN" && userRole !== "EDITOR") {
-            validateUserPermission(submission, userId, "view");
+        // ═══════════════════════════════════════════════════════════
+        // STEP 3: CHECK VIEW PERMISSION
+        // ═══════════════════════════════════════════════════════════
+
+        const permissionCheck = checkCanViewSubmission(submission, userId, userRole, user.email);
+
+        if (!permissionCheck.canView) {
+            throw new AppError(
+                "You do not have permission to view this submission", 
+                STATUS_CODES.FORBIDDEN, 
+                "FORBIDDEN"
+            );
         }
+
+        console.log(`✅ [SERVICE] Permission granted: ${permissionCheck.viewLevel}`);
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 4: CONVERT TO PLAIN OBJECT AND FILTER
+        // ═══════════════════════════════════════════════════════════
+
+        // Convert mongoose document to plain object
+        const submissionObj = submission.toObject();
+
+        const filteredSubmission = filterSubmissionByViewLevel(
+            submissionObj, 
+            permissionCheck.viewLevel,
+            permissionCheck.showTimeline
+        );
 
         console.log("✅ [SERVICE] getSubmissionById completed successfully");
 
-        return {
-            message: "Submission retrieved successfully",
-            submission,
-        };
+        return filteredSubmission;
+
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in getSubmissionById:", error);
-        throw new AppError("Failed to retrieve submission", STATUS_CODES.INTERNAL_SERVER_ERROR, "GET_SUBMISSION_ERROR", { originalError: error.message });
+        console.error("❌ [SERVICE] Error in getSubmissionById:", error);
+        throw new AppError(
+            "Failed to retrieve submission", 
+            STATUS_CODES.INTERNAL_SERVER_ERROR, 
+            "GET_SUBMISSION_ERROR",
+            { originalError: error.message }
+        );
     }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ✅ NEW HELPER FUNCTIONS - ADD THESE AFTER getSubmissionById
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Check if user can view submission and determine access level
+ */
+const checkCanViewSubmission = (submission, userId, userRole, userEmail) => {
+    // Admin and Editor can view all submissions
+    if (userRole === "ADMIN" || userRole === "EDITOR") {
+        return { canView: true, viewLevel: "FULL", showTimeline: false };
+    }
+
+    // Extract author ID (handle both populated and non-populated)
+    const authorId = submission.author?._id || submission.author;
+
+    // Author can view their own submission (full access + timeline)
+    if (authorId.toString() === userId.toString()) {
+        return { canView: true, viewLevel: "FULL", showTimeline: true };
+    }
+
+    // Technical Editor can view if assigned
+    if (userRole === "TECHNICAL_EDITOR" && submission.assignedTechnicalEditors) {
+        const isAssigned = submission.assignedTechnicalEditors.some(te => {
+            const techEditorId = te.technicalEditor?._id || te.technicalEditor;
+            return techEditorId.toString() === userId.toString();
+        });
+        if (isAssigned) {
+            return { canView: true, viewLevel: "FULL", showTimeline: false };
+        }
+    }
+
+    // Reviewer can view if assigned
+    if (userRole === "REVIEWER" && submission.assignedReviewers) {
+        const isAssigned = submission.assignedReviewers.some(r => {
+            const reviewerId = r.reviewer?._id || r.reviewer;
+            return reviewerId.toString() === userId.toString();
+        });
+        if (isAssigned) {
+            return { canView: true, viewLevel: "FULL", showTimeline: false };
+        }
+    }
+
+    // Co-author access
+    if (submission.coAuthors && submission.coAuthors.length > 0) {
+        const userCoAuthor = submission.coAuthors.find(ca => {
+            // Match by email or user reference
+            const isUserEmail = ca.email === userEmail;
+            const isUserLinked = ca.user && (ca.user._id || ca.user).toString() === userId.toString();
+
+            // Must have accepted consent
+            return (isUserEmail || isUserLinked) && ca.consentStatus === "ACCEPTED";
+        });
+
+        if (userCoAuthor) {
+            if (userCoAuthor.isCorresponding) {
+                // Corresponding co-author: full access (no timeline)
+                return { canView: true, viewLevel: "FULL", showTimeline: false };
+            } else {
+                // Non-corresponding co-author: minimal access only
+                return { canView: true, viewLevel: "MINIMAL", showTimeline: false };
+            }
+        }
+    }
+
+    // No access
+    return { canView: false, viewLevel: "NONE", showTimeline: false };
+};
+
+/**
+ * Filter submission data based on view level
+ */
+const filterSubmissionByViewLevel = (submission, viewLevel, showTimeline) => {
+    // MINIMAL VIEW: Only basic info for non-corresponding co-authors
+    if (viewLevel === "MINIMAL") {
+        return {
+            id: submission._id,
+            submissionNumber: submission.submissionNumber,
+            title: submission.title,
+            abstract: submission.abstract,
+            articleType: submission.articleType,
+            author: {
+                firstName: submission.author?.firstName,
+                lastName: submission.author?.lastName
+            },
+            status: submission.status,
+            submittedAt: submission.submittedAt
+        };
+    }
+
+    // FULL VIEW: Create deep copy properly
+    const response = JSON.parse(JSON.stringify(submission));
+
+    // Remove timeline if user is not the author
+    if (!showTimeline && response.timeline) {
+        delete response.timeline;
+    }
+
+    // Always remove sensitive tokens from response
+    if (response.coAuthors && Array.isArray(response.coAuthors)) {
+        response.coAuthors.forEach(ca => {
+            delete ca.consentToken;
+            delete ca.consentTokenExpires;
+        });
+    }
+
+    if (response.suggestedReviewers && Array.isArray(response.suggestedReviewers)) {
+        response.suggestedReviewers.forEach(r => {
+            delete r.invitationToken;
+            delete r.invitationTokenExpires;
+        });
+    }
+
+    return response;
 };
 
 // ================================================
@@ -415,6 +580,10 @@ const submitManuscript = async (submissionId, userId, payload) => {
             throw new AppError("Blind manuscript file is required", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_FILE_REQUIRED");
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // STEP 1: SET SUBMISSION FIELDS
+        // ═══════════════════════════════════════════════════════════
+
         submission.checklist = {
             checklistVersion: CURRENT_CHECKLIST.version,
             responses: payload.checklist.responses,
@@ -427,7 +596,7 @@ const submitManuscript = async (submissionId, userId, payload) => {
         submission.pdfPreviewConfirmed = payload.pdfPreviewConfirmed;
         submission.suggestedReviewers = payload.suggestedReviewers;
 
-        // NEW: Initialize suggested reviewer responses tracking
+        // Initialize suggested reviewer responses tracking
         submission.suggestedReviewerResponses = {
             totalSuggested: payload.suggestedReviewers.length,
             accepted: 0,
@@ -436,14 +605,51 @@ const submitManuscript = async (submissionId, userId, payload) => {
             majorityMet: false,
         };
 
+        // ═══════════════════════════════════════════════════════════
+        // STEP 2: ✅ NEW - GENERATE CO-AUTHOR CONSENT TOKENS
+        // ═══════════════════════════════════════════════════════════
+
+        if (submission.coAuthors && submission.coAuthors.length > 0) {
+            console.log(`🔐 [CONSENT] Generating tokens for ${submission.coAuthors.length} co-author(s)`);
+
+            for (let i = 0; i < submission.coAuthors.length; i++) {
+                const coAuthor = submission.coAuthors[i];
+
+                // Generate consent token (valid for 7 days)
+                const consentToken = submission.generateCoAuthorConsentToken(i);
+
+                // Set expiry and status
+                coAuthor.consentTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                coAuthor.consentStatus = "PENDING";
+
+                console.log(`🔐 [CONSENT] Token generated for ${coAuthor.email}`);
+                console.log(`   Token: ${consentToken}`);
+                console.log(`   Expires: ${coAuthor.consentTokenExpires}`);
+            }
+
+            // Set consent deadline status
+            submission.consentDeadlineStatus = "ACTIVE";
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 3: GENERATE SUGGESTED REVIEWER INVITATION TOKENS
+        // ═══════════════════════════════════════════════════════════
+
         for (let i = 0; i < submission.suggestedReviewers.length; i++) {
             const token = submission.generateReviewerInvitationToken(i);
-            await sendReviewerInvitationEmail(submission, submission.suggestedReviewers[i], token);
+            console.log(`📧 [REVIEWER] Invitation token generated for ${submission.suggestedReviewers[i].email}`);
         }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 4: UPDATE STATUS TO SUBMITTED
+        // ═══════════════════════════════════════════════════════════
 
         submission.updateStatus("SUBMITTED");
 
-        // Create initial cycle and version
+        // ═══════════════════════════════════════════════════════════
+        // STEP 5: CREATE INITIAL CYCLE AND VERSION
+        // ═══════════════════════════════════════════════════════════
+
         try {
             const cycle = await createInitialCycle(submission._id);
             submission.currentCycleId = cycle._id;
@@ -468,7 +674,49 @@ const submitManuscript = async (submissionId, userId, payload) => {
             // Continue with submission even if cycle creation fails
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // STEP 6: SAVE SUBMISSION
+        // ═══════════════════════════════════════════════════════════
+
         await submission.save();
+
+        console.log("✅ [SERVICE] Submission saved with consent tokens");
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 7: ✅ NEW - SEND CO-AUTHOR CONSENT EMAILS
+        // ═══════════════════════════════════════════════════════════
+
+        if (submission.coAuthors && submission.coAuthors.length > 0) {
+            console.log(`📧 [CONSENT] Sending consent emails to ${submission.coAuthors.length} co-author(s)`);
+
+            for (const coAuthor of submission.coAuthors) {
+                try {
+                    await sendCoAuthorConsentEmail(submission, coAuthor);
+                    console.log(`✅ [CONSENT] Email sent to ${coAuthor.email}`);
+                } catch (emailError) {
+                    console.error(`❌ [CONSENT] Failed to send email to ${coAuthor.email}:`, emailError.message);
+                    // Don't fail submission if email fails - log and continue
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 8: SEND SUGGESTED REVIEWER INVITATION EMAILS
+        // ═══════════════════════════════════════════════════════════
+
+        for (const reviewer of submission.suggestedReviewers) {
+            try {
+                const token = reviewer.invitationToken;
+                await sendReviewerInvitationEmail(submission, reviewer, token);
+                console.log(`✅ [REVIEWER] Invitation email sent to ${reviewer.email}`);
+            } catch (emailError) {
+                console.error(`❌ [REVIEWER] Failed to send invitation to ${reviewer.email}:`, emailError.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 9: SEND CONFIRMATION EMAIL TO AUTHOR
+        // ═══════════════════════════════════════════════════════════
 
         const author = await User.findById(userId);
         if (author) {
@@ -483,11 +731,16 @@ const submitManuscript = async (submissionId, userId, payload) => {
                         <p><strong>Submission Number:</strong> ${submission.submissionNumber}</p>
                         <p><strong>Title:</strong> ${submission.title}</p>
                         <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                        ${submission.coAuthors && submission.coAuthors.length > 0 ? `
+                        <p><strong>Co-Authors:</strong> ${submission.coAuthors.length}</p>
+                        <p>Consent emails have been sent to all co-authors. They have 7 days to respond.</p>
+                        ` : ''}
                         <p>We will review your submission and contact you soon.</p>
                     `,
                 });
+                console.log("✅ [EMAIL] Confirmation email sent to author");
             } catch (emailError) {
-                console.error("❌ Failed to send confirmation email:", emailError);
+                console.error("❌ [EMAIL] Failed to send confirmation email:", emailError);
             }
         }
 
@@ -500,7 +753,12 @@ const submitManuscript = async (submissionId, userId, payload) => {
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("❌ [SERVICE] Unexpected error in submitManuscript:", error);
-        throw new AppError("Failed to submit manuscript", STATUS_CODES.INTERNAL_SERVER_ERROR, "SUBMIT_MANUSCRIPT_ERROR", { originalError: error.message });
+        throw new AppError(
+            "Failed to submit manuscript",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SUBMIT_MANUSCRIPT_ERROR",
+            { originalError: error.message }
+        );
     }
 };
 
@@ -776,7 +1034,15 @@ const processCoAuthorConsent = async (submissionId, coAuthorId, consent, token) 
             throw new AppError("Co-author not found in this submission", STATUS_CODES.NOT_FOUND, "COAUTHOR_NOT_FOUND");
         }
 
+        const coAuthor = submission.coAuthors[coAuthorIndex];
+        console.log("🔍 [DEBUG] coAuthor token in DB:", coAuthor.consentToken);
+        console.log("🔍 [DEBUG] coAuthor token expiry:", coAuthor.consentTokenExpires);
+        console.log("🔍 [DEBUG] coAuthor status:", coAuthor.consentStatus);
+        console.log("🔍 [DEBUG] tokens match:", coAuthor.consentToken === token);
+        console.log("🔍 [DEBUG] token expired:", coAuthor.consentTokenExpires < Date.now());
+
         const isValidToken = submission.verifyCoAuthorConsentToken(coAuthorIndex, token);
+        console.log("🔍 [DEBUG] isValidToken result:", isValidToken);
 
         if (!isValidToken) {
             throw new AppError("Invalid or expired consent token", STATUS_CODES.BAD_REQUEST, "INVALID_TOKEN");

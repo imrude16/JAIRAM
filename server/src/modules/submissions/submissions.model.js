@@ -693,13 +693,17 @@ submissionSchema.pre("save", async function (next) {
                 "pdfPreviewConfirmed",
                 "suggestedReviewers",
                 "suggestedReviewerResponses",
-                "consentDeadlineStatus",   // NEW
-                "consentIssues",            // NEW
+                "coAuthors",
+                "consentDeadlineStatus",   
+                "consentIssues",            
                 "status",
                 "submittedAt",
+                "acceptedAt",
+                "rejectedAt",
                 "currentCycleId",
                 "lastModifiedAt",
-                "updatedAt"
+                "updatedAt",
+                "internalNotes"
             ];
 
             // 🟡 Allowed AFTER submission (editorial stage only)
@@ -712,8 +716,9 @@ submissionSchema.pre("save", async function (next) {
                 "assignedTechnicalEditors",
                 "acceptedAt",
                 "rejectedAt",
-                "consentDeadlineStatus",    // NEW
-                "consentIssues",             // NEW
+                "consentDeadlineStatus",    
+                "consentIssues",             
+                "coAuthors",                 // NEW - for processing co-author responses
                 "status",
                 "lastModifiedAt",
                 "updatedAt",
@@ -1066,7 +1071,6 @@ submissionSchema.methods.checkReviewerMajority = function () {
         };
     }
 
-    // Majority rule: More than 50% must accept
     const requiredAcceptances = Math.ceil(total / 2);
 
     if (accepted >= requiredAcceptances) {
@@ -1078,7 +1082,6 @@ submissionSchema.methods.checkReviewerMajority = function () {
         };
     }
 
-    // Check if majority is still possible
     const maxPossibleAcceptances = accepted + pending;
 
     if (maxPossibleAcceptances < requiredAcceptances) {
@@ -1096,6 +1099,69 @@ submissionSchema.methods.checkReviewerMajority = function () {
         total,
         pending,
     };
+};
+
+// ✅ NEW METHOD - FIXED VIEW PERMISSION CHECK
+submissionSchema.methods.canUserViewSubmission = function (userId, userRole, userEmail) {
+    // Admin and Editor can view all submissions
+    if (userRole === "ADMIN" || userRole === "EDITOR") {
+        return { canView: true, viewLevel: "FULL" };
+    }
+
+    // Extract author ID (handle both populated and non-populated)
+    const authorId = this.author?._id || this.author;
+
+    // Author can view their own submission (full access + timeline)
+    if (authorId.toString() === userId.toString()) {
+        return { canView: true, viewLevel: "FULL", showTimeline: true };
+    }
+
+    // Technical Editor can view if assigned
+    if (userRole === "TECHNICAL_EDITOR" && this.assignedTechnicalEditors) {
+        const isAssigned = this.assignedTechnicalEditors.some(te => {
+            const techEditorId = te.technicalEditor?._id || te.technicalEditor;
+            return techEditorId.toString() === userId.toString();
+        });
+        if (isAssigned) {
+            return { canView: true, viewLevel: "FULL" };
+        }
+    }
+
+    // Reviewer can view if assigned
+    if (userRole === "REVIEWER" && this.assignedReviewers) {
+        const isAssigned = this.assignedReviewers.some(r => {
+            const reviewerId = r.reviewer?._id || r.reviewer;
+            return reviewerId.toString() === userId.toString();
+        });
+        if (isAssigned) {
+            return { canView: true, viewLevel: "FULL" };
+        }
+    }
+
+    // Co-author access
+    if (this.coAuthors && this.coAuthors.length > 0) {
+        const userCoAuthor = this.coAuthors.find(ca => {
+            // Match by email or user reference
+            const isUserEmail = ca.email === userEmail;
+            const isUserLinked = ca.user && (ca.user._id || ca.user).toString() === userId.toString();
+            
+            // Must have accepted consent
+            return (isUserEmail || isUserLinked) && ca.consentStatus === "ACCEPTED";
+        });
+
+        if (userCoAuthor) {
+            if (userCoAuthor.isCorresponding) {
+                // Corresponding co-author: full access (no timeline)
+                return { canView: true, viewLevel: "FULL" };
+            } else {
+                // Non-corresponding co-author: minimal access only
+                return { canView: true, viewLevel: "MINIMAL" };
+            }
+        }
+    }
+
+    // No access
+    return { canView: false, viewLevel: "NONE" };
 };
 
 // ══════════════════════════════════════════════════════════════════

@@ -29,7 +29,7 @@ const createSubmission = async (req, res) => {
 const getSubmissionById = async (req, res) => {
     const { id } = req.params;
     
-    const result = await submissionService.getSubmissionById(
+    const submission = await submissionService.getSubmissionById(
         id,
         req.user.id,
         req.user.role
@@ -37,8 +37,8 @@ const getSubmissionById = async (req, res) => {
     
     sendSuccess(
         res,
-        result.message,
-        { submission: result.submission },
+        "Submission retrieved successfully",
+        submission,  // ✅ CORRECT - service returns the submission directly
         null,
         STATUS_CODES.OK
     );
