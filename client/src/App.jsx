@@ -5,8 +5,9 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";  // eslint-disable-next-line no-unused-vars
-import { Toaster } from "react-hot-toast"; 
+import { useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-next-line no-unused-vars
+import { Toaster } from "react-hot-toast";
 import Header from "./components/layout/Header/Header";
 import Footer from "./components/layout/Footer/Footer";
 import HomePage from "./pages/HomePage/HomePage";
@@ -60,6 +61,10 @@ const PageTransition = ({ children }) => {
 
 function App() {
   const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   return (
     <AnimatePresence mode="wait">
@@ -241,10 +246,8 @@ function App() {
         <Route
           path="/auth/login"
           element={
-            <Layout minimal>
-              <AuthPage mode="login" />
-            </Layout>
-          }
+             <AuthPage mode="login" />
+           }
         />
 
         <Route
