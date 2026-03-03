@@ -249,7 +249,6 @@ function App() {
              <AuthPage mode="login" />
            }
         />
-
         <Route
           path="/auth/register"
           element={

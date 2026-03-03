@@ -570,7 +570,7 @@ const RegisterForm = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 p-1"
+                      className="absolute  right-3 top-1/3 -translate-y-1/2 text-gray-500 hover:text-green-600 p-1"
                     >
                       {showPassword ? (
                         <svg
@@ -633,6 +633,7 @@ const RegisterForm = () => {
                     required
                     disabled={loading}
                   />
+                  
                   {confirmPassword && confirmPassword !== password && (
                     <p className="mt-1 text-xs text-red-600">
                       Passwords do not match
