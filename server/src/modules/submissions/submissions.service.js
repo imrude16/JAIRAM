@@ -233,6 +233,52 @@ const sendCoAuthorConsentEmail = async (submission, coAuthor, token) => {
     }
 };
 
+// ================================================
+// GENERATE CLOUDINARY UPLOAD URL (NEW)
+// ================================================
+
+const generateUploadUrl = async (userId, payload) => {
+    try {
+        console.log("🔵 [SERVICE] generateUploadUrl started");
+
+        const { fileName, fileType, uploadType } = payload;
+        
+        const { cloudinary } = await import('../../config/cloudinary.js');
+        
+        const timestamp = Math.round(Date.now() / 1000);
+        const publicId = `submissions/${userId}/${uploadType}_${timestamp}`;
+        
+        const signature = cloudinary.utils.api_sign_request(
+            {
+                timestamp,
+                folder: 'submissions',
+                public_id: publicId,
+            },
+            process.env.CLOUDINARY_API_SECRET
+        );
+        
+        console.log("✅ [SERVICE] Upload URL generated");
+        
+        return {
+            message: "Upload URL generated successfully",
+            uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/upload`,
+            signature,
+            timestamp,
+            publicId,
+            apiKey: process.env.CLOUDINARY_API_KEY,
+        };
+        
+    } catch (error) {
+        console.error("❌ [SERVICE] Error in generateUploadUrl:", error);
+        throw new AppError(
+            "Failed to generate upload URL",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "UPLOAD_URL_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
     try {
         const email = reviewer.email;
@@ -2312,4 +2358,5 @@ export default {
     editorApproveConsentOverride,
     assignTechnicalEditor,
     assignReviewers,
+    generateUploadUrl,
 };

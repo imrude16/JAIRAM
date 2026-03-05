@@ -20,7 +20,7 @@ import ArticleDetail from "./components/articles/ArticleDetail/ArticleDetail";
 import AuthPage from "./pages/AuthPage/AuthPage";
 import MinimalHeader from "./components/layout/Header/MinimalHeader";
 import EditorialBoard from "./pages/Editor-Board/EditorialBoard";
-import ManuscriptLoginPage from "./pages/ManuscriptLoginPage/ManuscriptLoginPage";
+import ManuscriptSubmissionPortal from "./pages/ManuscriptSubmissionPortal/ManuscriptSubmissionPortal";
 import PoweredTrustPage from "./pages/PoweredTrustPage/PoweredTrustPage";
 import OtpVerificationPage from "./pages/OtpVerificationPage/OtpVerificationPage";
 
@@ -131,7 +131,7 @@ function App() {
           path="/manuscript-submission-portal"
           element={
             <PageTransition>
-              <ManuscriptLoginPage />
+              <ManuscriptSubmissionPortal />
             </PageTransition>
           }
         />

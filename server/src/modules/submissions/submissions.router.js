@@ -26,6 +26,7 @@ import {
     // NEW IMPORTS (Editor Assignment):
     assignTechnicalEditorSchema,
     assignReviewersSchema,
+    generateUploadUrlSchema,
 } from "./submissions.validator.js";
 
 /**
@@ -64,6 +65,7 @@ const {
     // NEW DESTRUCTURING (Editor Assignment):
     assignTechnicalEditor,
     assignReviewers,
+    generateUploadUrl, 
 } = submissionController;
 
 const router = Router();
@@ -102,6 +104,23 @@ const router = Router();
 router.post(
     "/cron/auto-reject-expired-consents",
     asyncHandler(autoRejectExpiredConsents)
+);
+
+/**
+ * GENERATE CLOUDINARY UPLOAD URL
+ * 
+ * POST /api/submissions/upload-url
+ * Headers: Authorization: Bearer <token>
+ * Body: { fileName, fileType, uploadType }
+ * 
+ * Auth: Required (any logged-in user)
+ * Returns: Cloudinary upload credentials
+ */
+router.post(
+    "/upload-url",
+    requireAuth,
+    validateRequest(generateUploadUrlSchema),
+    asyncHandler(generateUploadUrl)
 );
 
 // ============================================================

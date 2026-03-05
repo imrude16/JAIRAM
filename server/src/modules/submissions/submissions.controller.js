@@ -392,6 +392,24 @@ const assignReviewers = async (req, res) => {
     );
 };
 
+const generateUploadUrl = async (req, res) => {
+    const result = await submissionService.generateUploadUrl(req.user.id, req.body);
+    
+    sendSuccess(
+        res,
+        result.message,
+        {
+            uploadUrl: result.uploadUrl,
+            signature: result.signature,
+            timestamp: result.timestamp,
+            publicId: result.publicId,
+            apiKey: result.apiKey,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 export default {
     createSubmission,
     getSubmissionById,
@@ -415,4 +433,5 @@ export default {
     editorApproveConsentOverride,
     assignTechnicalEditor,
     assignReviewers,
+    generateUploadUrl,
 };

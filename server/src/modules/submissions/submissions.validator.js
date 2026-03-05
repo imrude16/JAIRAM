@@ -806,3 +806,40 @@ export const assignReviewersSchema = {
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
+
+// ================================================
+// GENERATE UPLOAD URL SCHEMA
+// ================================================
+
+export const generateUploadUrlSchema = {
+    body: Joi.object({
+        fileName: Joi.string()
+            .trim()
+            .max(255)
+            .required()
+            .messages({
+                "string.max": "File name cannot exceed 255 characters",
+                "any.required": "File name is required",
+            }),
+        
+        fileType: Joi.string()
+            .required()
+            .messages({
+                "any.required": "File type is required",
+            }),
+        
+        uploadType: Joi.string()
+            .valid(
+                "coverLetter",
+                "blindManuscript",
+                "figure",
+                "table",
+                "supplementary"
+            )
+            .required()
+            .messages({
+                "any.only": "Upload type must be one of: coverLetter, blindManuscript, figure, table, supplementary",
+                "any.required": "Upload type is required",
+            }),
+    }),
+};
