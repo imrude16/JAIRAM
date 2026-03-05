@@ -131,7 +131,7 @@ const TopBar = () => {
   };
 
   const handleSubmitManuscript = () => {
-    navigate("/manuscript-login");
+    navigate("/manuscript-submission-portal");
   };
 
   const handleSearch = useCallback(() => {
