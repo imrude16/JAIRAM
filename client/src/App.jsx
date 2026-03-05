@@ -128,7 +128,7 @@ function App() {
           }
         />
         <Route
-          path="/manuscript-login"
+          path="/manuscript-submission-portal"
           element={
             <PageTransition>
               <ManuscriptLoginPage />
