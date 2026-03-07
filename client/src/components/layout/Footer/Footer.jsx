@@ -15,6 +15,7 @@ import {
   Award,
   Users,
   FileText,
+  X,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -322,7 +323,135 @@ const SocialLinks = React.memo(() => {
 
 SocialLinks.displayName = "SocialLinks";
 
+// Privacy Policy Modal Component
+const PrivacyPolicyModal = React.memo(({ onClose }) => {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="bg-green-700 rounded-t-lg px-6 py-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-white text-xl font-bold">Privacy & Cookie Notice</h2>
+            <p className="text-green-100 text-sm mt-0.5">JAIRAM — Data Protection Policy</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 bg-green-600 hover:bg-green-500 rounded-full flex items-center justify-center text-white transition-colors ml-4 mt-0.5 shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 text-gray-700 text-sm leading-relaxed space-y-4 text-left">
+          <div>
+            <p className="font-semibold text-gray-900 mb-1 text-center">
+              Journal of Advanced &amp; Integrated Research in Acute Medicine (JAIRAM)
+            </p>
+            <p>
+              The Journal of Advanced &amp; Integrated Research in Acute Medicine (JAIRAM) is committed to protecting the privacy and personal data of authors, reviewers, editors, and website users in accordance with ICMJE Recommendations, COPE Core Practices, and GDPR (EU Regulation 2016/679).
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Information We Collect:</p>
+            <p className="mb-1">During registration and manuscript submission, we may collect:</p>
+            <ul className="space-y-0.5">
+              <li>• Name, affiliation, designation</li>
+              <li>• Email and contact details</li>
+              <li>• ORCID iD (if provided)</li>
+              <li>• Manuscript and peer review information</li>
+              <li>• Login credentials and IP address</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">How We Use the Information:</p>
+            <p className="mb-1">Personal data is used solely for:</p>
+            <ul className="space-y-0.5">
+              <li>• Manuscript processing and peer review</li>
+              <li>• Editorial decision-making and publication</li>
+              <li>• DOI registration and indexing</li>
+              <li>• Journal communication and ethical oversight</li>
+            </ul>
+            <p className="mt-1">We do not sell or commercially distribute personal data.</p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Legal Basis (GDPR):</p>
+            <p>
+              Data processing is based on user consent, contractual necessity (publication process), legitimate academic interests, and legal obligations.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Data Sharing:</p>
+            <p className="mb-1">Limited data may be shared with:</p>
+            <ul className="space-y-0.5">
+              <li>• Editors and peer reviewers</li>
+              <li>• Publishing/hosting service providers</li>
+              <li>• DOI registration agencies and indexing databases</li>
+              <li>• Legal authorities where required</li>
+            </ul>
+            <p className="mt-1">All submissions are treated confidentially in accordance with ICMJE and COPE standards.</p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Data Retention:</p>
+            <p>
+              Published article metadata forms part of the permanent scholarly record. Editorial records may be retained to ensure publication integrity.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Your Rights:</p>
+            <p>
+              You may request access, correction, restriction, or deletion of your personal data, subject to publication record requirements.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Cookies:</p>
+            <p>
+              JAIRAM uses essential cookies for secure login and website functionality, and limited analytics cookies to improve user experience. Users may manage cookie preferences through browser settings.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold underline text-gray-900 mb-1">Contact:</p>
+            <p>For privacy-related inquiries:</p>
+            <p>Editorial Office – JAIRAM</p>
+            <p>Email:</p>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md font-medium transition-colors text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+PrivacyPolicyModal.displayName = "PrivacyPolicyModal";
+
 const BottomBar = React.memo(() => {
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
   const bottomLinks = useMemo(
     () => [
       { label: "Privacy Policy", path: "/privacy-policy" },
@@ -334,38 +463,47 @@ const BottomBar = React.memo(() => {
   );
 
   const handleClick = useCallback((path) => {
+    if (path === "/privacy-policy") {
+      setShowPrivacyModal(true);
+      return;
+    }
     console.log("Navigate to:", path);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   return (
-    <div className="bg-blue-950/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-center md:text-left">
-            <p className="text-sm text-gray-400">
-              &copy; {new Date().getFullYear()} Journal of Advanced & Integrated
-              Research in Acute Medicine (JAIRAM).Published by Nexus Biomedical
-              Research Foundation Trust,Lucknow,India. Articles are published
-              under the Creative Commons Attribution 4.0 International
-              License(CC BY 4.0)
-            </p>
-          </div>
+    <>
+      {showPrivacyModal && (
+        <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />
+      )}
+      <div className="bg-blue-950/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-center md:text-left">
+              <p className="text-sm text-gray-400">
+                &copy; {new Date().getFullYear()} Journal of Advanced & Integrated
+                Research in Acute Medicine (JAIRAM).Published by Nexus Biomedical
+                Research Foundation Trust,Lucknow,India. Articles are published
+                under the Creative Commons Attribution 4.0 International
+                License(CC BY 4.0)
+              </p>
+            </div>
 
-          <div className="flex flex-wrap justify-center gap-6">
-            {bottomLinks.map((link, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleClick(link.path)}
-                className="text-sm text-gray-400 hover:text-blue-400 transition-colors duration-200"
-              >
-                {link.label}
-              </button>
-            ))}
+            <div className="flex flex-wrap justify-center gap-6">
+              {bottomLinks.map((link, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleClick(link.path)}
+                  className="text-sm text-gray-400 hover:text-blue-400 transition-colors duration-200"
+                >
+                  {link.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 });
 

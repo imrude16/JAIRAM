@@ -73,7 +73,7 @@ const LoginForm = () => {
           </p>
 
           <div style={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.15)", marginBottom: "36px" }}>
-            <img src="/assets/home.jpeg" alt="Journal cover" style={{ width: "300px", display: "block" }} />
+            <img src="/assets/home.jpeg" alt="Journal cover" style={{ width: "260px", display: "block" }} />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "center" }}>
