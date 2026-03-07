@@ -24,21 +24,7 @@ import {
   BarChart3,
   X,
   Search,
-  UserCheck,
 } from "lucide-react";
-
-const THEME = {
-  primary: "#0f3460",
-  primaryLight: "#e8eef6",
-  primaryMid: "#1a4a7a",
-  secondary: "#0e7490",
-  secondaryLight: "#e0f2fe",
-  gold: "#92701a",
-  goldLight: "#fef9eb",
-  muted: "#4a5e72",
-  surface: "#f7f9fc",
-  border: "#c8d5e4",
-};
 
 const COPYRIGHT_TEXT = `I/we certify that I/we have participated sufficiently in the intellectual content, conception and design of this work or the analysis and interpretation of the data (when applicable), as well as the writing of the manuscript, to take public responsibility for it and have agreed to have my/our name listed as a contributor. I/we believe the manuscript represents valid work. Each author confirms they meet the criteria for authorship as established by the JAIRAM. Neither this manuscript nor one with substantially similar content under my/our authorship has been published or is being considered for publication elsewhere, except as described in the covering letter. I/we certify that all the data collected during the study is presented in this manuscript and no data from the study has been or will be published separately. I/we attest that, if requested by the editors, I/we will provide the data/information or will cooperate fully in obtaining and providing the data/information on which the manuscript is based, for examination by the editors or their assignees. Financial interests, direct or indirect, that exist or may be perceived to exist for individual contributors in connection with the content of this paper have been disclosed in the cover letter. Sources of outside support of the project are named in the cover letter.
 
@@ -1692,7 +1678,7 @@ const InfoCard = ({ title, icon: Icon, children, accentColor = "#0f3460" }) => (
   </div>
 );
 
-const KeywordsTagInput = ({ value, onChange, hasError }) => {
+const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
   const [inputVal, setInputVal] = React.useState("");
   const inputRef = React.useRef(null);
 
@@ -1729,6 +1715,7 @@ const KeywordsTagInput = ({ value, onChange, hasError }) => {
 
   const handleChange = (e) => {
     const val = e.target.value;
+    if (onClearError) onClearError();
     if (val.includes(",")) {
       const parts = val.split(",");
       parts.slice(0, -1).forEach((p) => addTag(p));
@@ -1949,22 +1936,28 @@ const SubmitManuscript = () => {
       if (!formData.totalWordCount) e.totalWordCount = "Word count is required";
       if (!formData.bwFigures) e.bwFigures = "Required";
       if (!formData.colorFigures) e.colorFigures = "Required";
-      if (!formData.tables) e.statTables = "Required";
+      if (!formData.tables) e.tables = "Required";
       if (!formData.pages) e.pages = "Required";
       if (
         ["original", "case_report", "case_series", "editorial"].includes(
           formData.articleType,
         ) &&
-        !formData.iecNumber
+        formData.iecNumber === "Yes" &&
+        !formData.iecNumberDetails.trim()
       )
         e.iecNumber = "Please select a response for IEC Number";
       if (
         ["meta", "review"].includes(formData.articleType) &&
-        !formData.prosperoRegistration
+        formData.prosperoRegistration === "Yes" &&
+        !formData.prosperoRegistrationDetails.trim()
       )
         e.prosperoRegistration =
           "Please select a response for PROSPERO Registration";
-      if (formData.articleType === "clinical" && !formData.trialRegistration)
+      if (
+        formData.articleType === "clinical" &&
+        formData.trialRegistration === "Yes" &&
+        !formData.trialRegistrationDetails.trim()
+      )
         e.trialRegistration = "Please select a response for Trial Registration";
     } else if (step === 3) {
       if (!authors.length) e.authors = "At least one author is required";
@@ -2663,7 +2656,7 @@ const SubmitManuscript = () => {
                         {
                           field: "tables",
                           label: "No. of Tables",
-                          errKey: "statTables",
+                          errKey: "tables",
                         },
                         {
                           field: "pages",
@@ -2714,10 +2707,14 @@ const SubmitManuscript = () => {
                     <KeywordsTagInput
                       value={formData.keywords}
                       onChange={(val) => handleField("keywords", val)}
-                      hasError={!!errors.keywords}
+                      onClearError={() => {
+                        if (errors.keywords) {
+                          setErrors((p) => ({ ...p, keywords: "" }));
+                        }
+                      }}
                     />
                     <p className="text-xs text-gray-400 mt-1.5">
-                      Maximum 6 keywords And According to MESH standards — press{" "}
+                      Maximum 6 keywords and According to MESH standards — press{" "}
                       <span className="font-semibold">Space</span> or{" "}
                       <span className="font-semibold">Enter</span> after each
                       word to create a tag
