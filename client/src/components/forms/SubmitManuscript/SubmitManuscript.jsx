@@ -1,4 +1,6 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
+import api from "../../../services/api";
+import externalApi from "../../../services/externalApi"; // For search functions, to avoid auth issues with main api
 import {
   Upload,
   Send,
@@ -26,6 +28,7 @@ import {
   Search,
   UserCheck,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const THEME = {
   primary: "#0f3460",
@@ -132,17 +135,136 @@ const TOTAL_CHECKLIST = CHECKLIST_SECTIONS.reduce(
 /* ─────────────────────────────────────────────────────────
    API SERVICE LAYER — backend not yet connected
 ───────────────────────────────────────────────────────── */
-const searchRegisteredUsers = async (query, excludeEmails = []) => {
-  return [];
+const searchReviewers = async (query, excludeEmails = []) => {
+  if (query.length < 2) return [];
+
+  try {
+    const exclude = excludeEmails.join(',');
+    const response = await api.get('/submissions/search/reviewers', {
+      params: { q: query, exclude },
+    });
+
+    // Backend returns: { data: { reviewers: [...] } }
+    const reviewers = response.data?.data?.reviewers || response.data?.reviewers || [];
+
+    return reviewers.map((user) => ({
+      id: user._id,
+      title: 'Dr.',
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      specialization: user.primarySpecialty,
+      institution: user.institution,
+      country: user.country,
+    }));
+  } catch (error) {
+    console.error('Search reviewers error:', error);
+    return [];
+  }
 };
 
 const searchCoAuthors = async (query, excludeEmails = []) => {
-  return [];
+  if (query.length < 2) return [];
+
+  try {
+    const exclude = excludeEmails.join(',');
+    const response = await api.get('/submissions/search/authors', {
+      params: { q: query, exclude },
+    });
+
+    // Backend returns: { data: { authors: [...] } }
+    const authors = response.data?.data?.authors || response.data?.authors || [];
+
+    return authors.map((user) => ({
+      id: user._id,
+      title: 'Dr.',
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phoneCode + user.mobileNumber,
+      department: user.department || '',
+      country: user.country || '',
+      ORCID: user.orcid || '',
+    }));
+  } catch (error) {
+    console.error('Search authors error:', error);
+    return [];
+  }
+};
+
+// Normalize old article type values to new full-form values (for backward compatibility)
+const normalizeArticleType = (value) => {
+  const articleTypeMap = {
+    'original': 'Original Article',
+    'case_report': 'Case Report',
+    'case_series': 'Case Series',
+    'meta': 'Meta-Analysis',
+    'review': 'Review Article / Systematic Review',
+    'editorial': 'Editorial',
+    'clinical': 'Clinical Trial',
+  };
+  return articleTypeMap[value] || value; // Return mapped value or original if not in map
 };
 
 const onlyNumbers = (e) => {
   if (e.ctrlKey || e.metaKey || e.key.length > 1) return;
   if (!/[0-9]/.test(e.key)) e.preventDefault();
+};
+
+const handleCloudinaryUpload = async (
+  file,
+  uploadType,
+  onProgress
+) => {
+  try {
+    // STEP 1: Request signed upload parameters from backend
+    const res = await api.post("/submissions/upload-url", {
+      fileName: file.name,
+      fileType: file.type,
+      uploadType,
+    });
+
+    const data = res.data.data;
+
+    // STEP 2: Prepare multipart form data
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("signature", data.signature);
+    formData.append("timestamp", data.timestamp);
+    formData.append("api_key", data.apiKey);
+    formData.append("public_id", data.publicId);
+
+    // STEP 3: Upload to Cloudinary
+    const uploadResponse = await externalApi.post(
+      data.uploadUrl,
+      formData,
+      {
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+
+          const percent = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+
+          if (onProgress) onProgress(percent);
+        },
+      }
+    );
+
+    const uploadResult = uploadResponse.data;
+
+    // ✅ FIXED: Return with correct property names for backend
+    return {
+      fileName: file.name,           // ✅ Changed from 'name'
+      fileUrl: uploadResult.secure_url,  // ✅ Changed from 'url'
+      fileSize: uploadResult.bytes,     // ✅ Changed from 'size'
+      mimeType: file.type,             // ✅ Changed from 'type'
+    };
+
+  } catch (error) {
+    console.error("Cloudinary upload failed:", error);
+    throw error;
+  }
 };
 
 const FieldLabel = ({ children, required }) => (
@@ -486,16 +608,19 @@ const DeclarationBlock = ({
                       </div>
                     );
                   }
+
+                  // ✅ Map display value to backend-compatible storage value
+                  const storageValue = option === "Not Applicable" ? "N/A" : option;
                   return (
                     <div key={option} className="flex justify-center">
                       <input
                         type="radio"
                         name={`checklist-${flatIdx}`}
                         value={option}
-                        checked={checklistAnswers[flatIdx] === option}
+                        checked={checklistAnswers[flatIdx] === (option === "Not Applicable" ? "N/A" : option)}
                         onChange={() => {
                           const u = [...checklistAnswers];
-                          u[flatIdx] = option;
+                          u[flatIdx] = storageValue;
                           setChecklistAnswers(u);
                           if (errors.checklist)
                             setErrors((p) => ({ ...p, checklist: "" }));
@@ -585,20 +710,19 @@ const FileUploadBox = ({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-gray-800 truncate">
-                {file.name}
+                {file.fileName}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {(file.size / 1024 / 1024).toFixed(2)} MB · Uploaded
-                successfully
+                {(file.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded successfully
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end">
               <button
                 type="button"
                 onClick={() => {
-                  const u = URL.createObjectURL(file);
-                  window.open(u, "_blank");
-                  setTimeout(() => URL.revokeObjectURL(u), 1000);
+                  if (file.fileUrl) {
+                    window.open(file.fileUrl, "_blank");
+                  }
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#b8cfe0] text-[#0f3460] text-xs font-semibold rounded-lg hover:bg-[#e8eef6] transition"
               >
@@ -728,18 +852,18 @@ const MultiFileUploadBox = ({
                     title={f.name}
                     className="text-sm font-semibold text-gray-700 truncate"
                   >
-                    {f.name}
+                    {f.fileName}
                   </p>
                   <p className="text-xs text-gray-400">
-                    {(f.size / 1024 / 1024).toFixed(2)} MB
+                    {(f.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded successfully
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    const u = URL.createObjectURL(f);
-                    window.open(u, "_blank");
-                    setTimeout(() => URL.revokeObjectURL(u), 1000);
+                    if (f.fileUrl) {
+                      window.open(f.fileUrl, "_blank");
+                    }
                   }}
                   className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#b8cfe0] text-[#0f3460] text-xs font-semibold rounded-lg hover:bg-[#e8eef6] transition"
                 >
@@ -780,14 +904,9 @@ const MultiFileUploadBox = ({
   );
 };
 
-const SuccessModal = ({ isOpen, onClose }) => {
-  const idRef = useRef(null);
-  if (!isOpen) {
-    idRef.current = null;
-    return null;
-  }
-  if (idRef.current === null)
-    idRef.current = Math.floor(Math.random() * 90000) + 10000;
+const SuccessModal = ({ isOpen, onClose, submissionNumber }) => {
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl p-12 max-w-md w-full shadow-2xl text-center border border-[#c8d5e4]">
@@ -812,7 +931,7 @@ const SuccessModal = ({ isOpen, onClose }) => {
             Submission ID
           </p>
           <p className="text-lg font-bold text-[#0f3460]">
-            JAIRAM-2026-{idRef.current}
+            {submissionNumber || 'Generating...'}
           </p>
         </div>
         <button
@@ -952,7 +1071,7 @@ const ReviewerSearchBox = ({ onSelect, existingEmails }) => {
     }
     let cancelled = false;
     setLoading(true);
-    searchRegisteredUsers(query, existingEmails)
+    searchReviewers(query, existingEmails)
       .then((data) => {
         if (!cancelled) setResults(data);
       })
@@ -1064,14 +1183,14 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
         p.map((r, idx) =>
           idx === emptyIdx
             ? {
-                title: user.title,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-                specialization: user.specialization,
-                institution: user.institution,
-                country: user.country,
-              }
+              title: user.title,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              specialization: user.specialization,
+              institution: user.institution,
+              country: user.country,
+            }
             : r,
         ),
       );
@@ -1505,8 +1624,8 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
                     ...p,
                     [key]: numeric
                       ? e.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, maxLength || undefined)
+                        .replace(/\D/g, "")
+                        .slice(0, maxLength || undefined)
                       : e.target.value,
                   }))
                 }
@@ -1698,9 +1817,9 @@ const KeywordsTagInput = ({ value, onChange, hasError }) => {
 
   const tags = value
     ? value
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
     : [];
 
   const addTag = (raw) => {
@@ -1741,11 +1860,10 @@ const KeywordsTagInput = ({ value, onChange, hasError }) => {
   return (
     <div
       onClick={() => inputRef.current?.focus()}
-      className={`flex flex-wrap items-center gap-2 min-h-12 w-full px-3 py-2.5 border-2 rounded-xl cursor-text transition-all ${
-        hasError
-          ? "border-red-300 bg-red-50"
-          : "border-[#c8d5e4] focus-within:border-[#0f3460] focus-within:ring-4 focus-within:ring-[#e8eef6]"
-      } bg-white`}
+      className={`flex flex-wrap items-center gap-2 min-h-12 w-full px-3 py-2.5 border-2 rounded-xl cursor-text transition-all ${hasError
+        ? "border-red-300 bg-red-50"
+        : "border-[#c8d5e4] focus-within:border-[#0f3460] focus-within:ring-4 focus-within:ring-[#e8eef6]"
+        } bg-white`}
     >
       <Tag className="w-4 h-4 text-gray-400 shrink-0" />
       {tags.map((tag, idx) => (
@@ -1804,7 +1922,13 @@ const SubmitManuscript = () => {
   const [currentStep, setCurrentStep] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const [submissionNumber, setSubmissionNumber] = React.useState(null);
   const [errors, setErrors] = React.useState({});
+  const [draftId, setDraftId] = React.useState(null);
+  const [draftLoading, setDraftLoading] = React.useState(true);
+  const [autoSaving, setAutoSaving] = React.useState(false);
+  const [lastSaved, setLastSaved] = React.useState(null);
+  const autoSaveTimerRef = useRef(null);
   const [checklistSubmitAttempted, setChecklistSubmitAttempted] =
     React.useState(false);
   const [copyrightFormAccepted, setCopyrightFormAccepted] =
@@ -1870,19 +1994,21 @@ const SubmitManuscript = () => {
   const answeredCount = checklistAnswers.filter(Boolean).length;
   const checklistProgress = (answeredCount / TOTAL_CHECKLIST) * 100;
   const showIEC = [
-    "original",
-    "case_report",
-    "case_series",
-    "editorial",
+    "Original Article",
+    "Case Report",
+    "Case Series",
+    "Editorial",
   ].includes(formData.articleType);
-  const showProspero = ["meta", "review"].includes(formData.articleType);
-  const showTrial = formData.articleType === "clinical";
+  const showProspero = ["Meta-Analysis", "Review Article / Systematic Review"].includes(formData.articleType);
+  const showTrial = formData.articleType === "Clinical Trial";
 
   const coAuthorCorresponding = authors.some((a) => a.isCorresponding);
   const hasCorrespondingAuthor = selfCorresponding || coAuthorCorresponding;
 
   const handleField = (f, v) => {
-    setFormData((p) => ({ ...p, [f]: v }));
+    // Normalize articleType value to ensure it matches backend expectations
+    const normalizedValue = f === 'articleType' ? normalizeArticleType(v) : v;
+    setFormData((p) => ({ ...p, [f]: normalizedValue }));
     if (errors[f]) setErrors((p) => ({ ...p, [f]: "" }));
   };
 
@@ -1952,19 +2078,19 @@ const SubmitManuscript = () => {
       if (!formData.tables) e.statTables = "Required";
       if (!formData.pages) e.pages = "Required";
       if (
-        ["original", "case_report", "case_series", "editorial"].includes(
+        ["Original Article", "Case Report", "Case Series", "Editorial"].includes(
           formData.articleType,
         ) &&
         !formData.iecNumber
       )
         e.iecNumber = "Please select a response for IEC Number";
       if (
-        ["meta", "review"].includes(formData.articleType) &&
+        ["Meta-Analysis", "Review Article / Systematic Review"].includes(formData.articleType) &&
         !formData.prosperoRegistration
       )
         e.prosperoRegistration =
           "Please select a response for PROSPERO Registration";
-      if (formData.articleType === "clinical" && !formData.trialRegistration)
+      if (formData.articleType === "Clinical Trial" && !formData.trialRegistration)
         e.trialRegistration = "Please select a response for Trial Registration";
     } else if (step === 3) {
       if (!authors.length) e.authors = "At least one author is required";
@@ -1995,7 +2121,7 @@ const SubmitManuscript = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 0) setChecklistSubmitAttempted(true);
     if (!validateStep(currentStep)) return;
 
@@ -2003,6 +2129,9 @@ const SubmitManuscript = () => {
       setCorrespondingError(true);
       return;
     }
+
+    // Save draft before moving to next step
+    await saveDraft(true); // true = show toast
 
     if (currentStep === 0) setChecklistSubmitAttempted(false);
     setCurrentStep((s) => s + 1);
@@ -2016,51 +2145,409 @@ const SubmitManuscript = () => {
 
   const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setLoading(false);
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setCurrentStep(0);
-      setFormData({
-        articleType: "",
-        title: "",
-        runningTitle: "",
-        abstract: "",
-        keywords: "",
-        totalWordCount: "",
-        bwFigures: "",
-        colorFigures: "",
-        tables: "",
-        pages: "",
-        trialRegistration: "",
-        trialRegistrationDetails: "",
-        iecNumber: "",
-        iecNumberDetails: "",
-        prosperoRegistration: "",
-        prosperoRegistrationDetails: "",
-      });
-      setFiles({
-        coverLetter: null,
-        blindManuscript: null,
-        images: [],
-        tables: [],
-        supplements: null,
-      });
-      setSubmissionDeclared(false);
-      setChecklistAnswers(Array(TOTAL_CHECKLIST).fill(null));
-      setChecklistSubmitAttempted(false);
-      setAuthors([]);
-      setSelfCorresponding(false);
-      setCorrespondingError(false);
-      setConflictHasConflict(null);
-      setConflictDetails("");
-      setCopyrightAgreed(false);
-      setPreviewConfirmed(false);
-      setReviewers([{ ...EMPTY_REVIEWER }]);
-    }, 3500);
+
+    try {
+      // ══════════════════════════════════════════════════════════
+      // BUILD SUBMISSION PAYLOAD
+      // ══════════════════════════════════════════════════════════
+      // ✅ Map frontend checklist answers to backend question IDs
+      const QUESTION_ID_MAP = [
+        "OA_001", "OA_002", "OA_003", "OA_004", "OA_005",  // Questions 1-5
+        "EA_001", "EA_002", "EA_003", "EA_004", "EA_005", "EA_006", "EA_007",  // Questions 6-12
+        "TR_001", "TR_002", "TR_003", "TR_004", "TR_005"   // Questions 13-17
+      ];
+
+      const CATEGORY_ID_MAP = [
+        "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS"
+      ];
+
+      const payload = {
+        // Checklist (all 17 questions from Step 0)
+        checklist: {
+          checklistVersion: "1.0.0",
+          responses: checklistAnswers.map((answer, idx) => ({
+            questionId: QUESTION_ID_MAP[idx],
+            categoryId: CATEGORY_ID_MAP[idx],
+            response: answer === "Yes" ? "YES" : answer === "No" ? "NO" : "N/A",
+          })),
+          copeCompliance: submissionDeclared,
+        },
+
+        // Conflict of Interest
+        conflictOfInterest: {
+          hasConflict: conflictHasConflict === "Yes",
+          details: conflictHasConflict === "Yes" ? conflictDetails : "",
+        },
+
+        // Copyright Agreement
+        copyrightAgreement: {
+          accepted: copyrightAgreed,
+          acceptedAt: new Date(),
+          ipAddress: undefined, // Optional - can get from IP service if needed
+        },
+
+        // PDF Preview Confirmation
+        pdfPreviewConfirmed: previewConfirmed,
+
+        // Suggested Reviewers
+        suggestedReviewers: reviewers
+          .filter(r => r.firstName && r.email) // Only filled reviewers
+          .map((r, idx) => ({
+            title: r.title,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            email: r.email,
+            specialization: r.specialization,
+            institution: r.institution,
+            country: r.country,
+            source: "MANUAL_ENTRY",
+          })),
+      };
+
+      // ══════════════════════════════════════════════════════════
+      // SUBMIT TO BACKEND
+      // ══════════════════════════════════════════════════════════
+
+      // First, ensure draft exists with all data
+      if (draftId) {
+        // Update draft with final data before submitting
+        await api.patch(`/submissions/${draftId}`, {
+          articleType: formData.articleType,
+          title: formData.title,
+          runningTitle: formData.runningTitle,
+          abstract: formData.abstract,
+          keywords: formData.keywords.split(',').map(k => k.trim()).filter(Boolean),
+
+          manuscriptDetails: {
+            wordCount: parseInt(formData.totalWordCount) || 0,
+            numberOfBlackAndWhiteFigures: parseInt(formData.bwFigures) || 0,
+            numberOfColorFigures: parseInt(formData.colorFigures) || 0,
+            numberOfTables: parseInt(formData.tables) || 0,
+            numberOfPages: parseInt(formData.pages) || 1,
+          },
+
+          iecApproval: formData.iecNumber ? {
+            hasIEC: formData.iecNumber === "Yes",
+            iecNumber: formData.iecNumberDetails || "",
+          } : undefined,
+
+          prosperoRegistration: formData.prosperoRegistration ? {
+            hasProspero: formData.prosperoRegistration === "Yes",
+            prosperoNumber: formData.prosperoRegistrationDetails || "",
+          } : undefined,
+
+          trialRegistration: formData.trialRegistration ? {
+            hasTrial: formData.trialRegistration === "Yes",
+            trialNumber: formData.trialRegistrationDetails || "",
+          } : undefined,
+
+          isCorrespondingAuthor: selfCorresponding,
+
+          coAuthors: authors.map((author, index) => ({
+            title: author.title,
+            firstName: author.firstName,
+            lastName: author.lastName,
+            email: author.email,
+            phoneNumber: author.phone,
+            department: author.department,
+            country: author.country,
+            orcid: author.ORCID || "",
+            order: index + 1,
+            isCorresponding: author.isCorresponding || false,
+            source: "MANUAL_ENTRY",
+          })),
+
+          coverLetter: files.coverLetter,
+          blindManuscriptFile: files.blindManuscript,
+          figures: files.images,
+          tables: files.tables,
+          supplementaryFiles: files.supplements ? [files.supplements] : [],
+        });
+      }
+
+      // Now submit the manuscript
+      const { data } = await api.post(`/submissions/${draftId}/submit`, payload);
+
+      // Store real submission number from backend
+      setSubmissionNumber(data?.data?.submission?.submissionNumber || null);
+
+      setLoading(false);
+      setShowSuccess(true);
+
+      // Show success modal for 3.5 seconds, then reset form
+      setTimeout(() => {
+        setShowSuccess(false);
+        setCurrentStep(0);
+        setFormData({
+          articleType: "",
+          title: "",
+          runningTitle: "",
+          abstract: "",
+          keywords: "",
+          totalWordCount: "",
+          bwFigures: "",
+          colorFigures: "",
+          tables: "",
+          pages: "",
+          trialRegistration: "",
+          trialRegistrationDetails: "",
+          iecNumber: "",
+          iecNumberDetails: "",
+          prosperoRegistration: "",
+          prosperoRegistrationDetails: "",
+        });
+        setFiles({
+          coverLetter: null,
+          blindManuscript: null,
+          images: [],
+          tables: [],
+          supplements: null,
+        });
+        setSubmissionDeclared(false);
+        setChecklistAnswers(Array(TOTAL_CHECKLIST).fill(null));
+        setChecklistSubmitAttempted(false);
+        setAuthors([]);
+        setSelfCorresponding(false);
+        setCorrespondingError(false);
+        setConflictHasConflict(null);
+        setConflictDetails("");
+        setCopyrightAgreed(false);
+        setPreviewConfirmed(false);
+        setReviewers([{ ...EMPTY_REVIEWER }]);
+        setDraftId(null);
+        setLastSaved(null);
+
+        toast.success('Submission completed! Redirecting...', { duration: 2000 });
+
+        // Optional: Redirect to dashboard or submission list
+        // window.location.href = '/dashboard';
+      }, 3500);
+
+    } catch (error) {
+      setLoading(false);
+      console.error('Submission error:', error);
+
+      // Show specific error message
+      const errorMessage = error.response?.data?.message || 'Submission failed. Please try again.';
+      toast.error(errorMessage, { duration: 5000 });
+
+      // If validation errors, show them to user
+      if (error.response?.data?.details) {
+        console.error('Validation errors:', error.response.data.details);
+      }
+    }
   };
+
+  // ══════════════════════════════════════════════════════════
+  // DRAFT MANAGEMENT FUNCTIONS (PHASE 3)
+  // ══════════════════════════════════════════════════════════
+
+  const loadDraft = useCallback(async () => {
+    try {
+      setDraftLoading(true);
+      const { data } = await api.get('/submissions/draft');
+
+      if (data?.data?.draft) {
+        const draft = data.data.draft;
+        setDraftId(draft._id);
+
+        // Restore form data
+        if (draft.articleType) {
+          setFormData((prev) => ({
+            ...prev,
+            articleType: normalizeArticleType(draft.articleType),
+            title: draft.title || '',
+            runningTitle: draft.runningTitle || '',
+            abstract: draft.abstract || '',
+            keywords: draft.keywords?.join(', ') || '',
+            totalWordCount: draft.manuscriptDetails?.wordCount?.toString() || '',
+            bwFigures: draft.manuscriptDetails?.numberOfBlackAndWhiteFigures?.toString() || '',
+            colorFigures: draft.manuscriptDetails?.numberOfColorFigures?.toString() || '',
+            tables: draft.manuscriptDetails?.numberOfTables?.toString() || '',
+            pages: draft.manuscriptDetails?.numberOfPages?.toString() || '',
+            trialRegistration: draft.trialRegistration || '',
+            trialRegistrationDetails: draft.trialRegistrationDetails || '',
+            iecNumber: draft.iecNumber || '',
+            iecNumberDetails: draft.iecNumberDetails || '',
+            prosperoRegistration: draft.prosperoRegistration || '',
+            prosperoRegistrationDetails: draft.prosperoRegistrationDetails || '',
+          }));
+        }
+
+        // Restore files
+        if (draft.coverLetter || draft.blindManuscriptFile || draft.figures?.length || draft.tables?.length || draft.supplementaryFiles?.length) {
+          setFiles((prev) => ({
+            ...prev,
+            coverLetter: draft.coverLetter || null,
+            blindManuscript: draft.blindManuscriptFile || null,
+            images: draft.figures || [],
+            tables: draft.tables || [],
+            supplements: draft.supplementaryFiles?.[0] || null,
+          }));
+        }
+
+        // Restore co-authors
+        if (draft.coAuthors?.length) {
+          const restoredAuthors = draft.coAuthors.map((ca) => ({
+            id: ca._id || Date.now() + Math.random(),
+            title: ca.title || 'Dr.',
+            firstName: ca.firstName || '',
+            lastName: ca.lastName || '',
+            email: ca.email || '',
+            phone: ca.phoneNumber || '',
+            department: ca.department || '',
+            country: ca.country || '',
+            ORCID: ca.orcid || '',
+            isCorresponding: ca.isCorresponding || false,
+          }));
+          setAuthors(restoredAuthors);
+        }
+
+        // Restore corresponding author status
+        if (draft.isCorrespondingAuthor !== undefined) {
+          setSelfCorresponding(draft.isCorrespondingAuthor);
+        }
+
+        setLastSaved(new Date(draft.lastModifiedAt || draft.createdAt));
+
+        toast.success('Draft loaded successfully', { duration: 2000 });
+      }
+    } catch (error) {
+      console.error('Load draft error:', error);
+      // Don't show error toast - just silently fail if no draft exists
+    } finally {
+      setDraftLoading(false);
+    }
+  }, []);
+
+  const saveDraft = useCallback(async (showToast = false) => {
+    try {
+      if (showToast) setAutoSaving(true);
+
+      // Build payload
+      const payload = {
+        articleType: formData.articleType ? normalizeArticleType(formData.articleType) : undefined,
+        title: formData.title || undefined,
+        runningTitle: formData.runningTitle || undefined,
+        abstract: formData.abstract || undefined,
+        keywords: formData.keywords ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
+
+        manuscriptDetails: {
+          wordCount: formData.totalWordCount ? parseInt(formData.totalWordCount) : undefined,
+          numberOfBlackAndWhiteFigures: formData.bwFigures ? parseInt(formData.bwFigures) : undefined,
+          numberOfColorFigures: formData.colorFigures ? parseInt(formData.colorFigures) : undefined,
+          numberOfTables: formData.tables ? parseInt(formData.tables) : undefined,
+          numberOfPages: formData.pages ? parseInt(formData.pages) : undefined,
+        },
+
+        trialRegistration: formData.trialRegistration || undefined,
+        trialRegistrationDetails: formData.trialRegistrationDetails || undefined,
+        iecNumber: formData.iecNumber || undefined,
+        iecNumberDetails: formData.iecNumberDetails || undefined,
+        prosperoRegistration: formData.prosperoRegistration || undefined,
+        prosperoRegistrationDetails: formData.prosperoRegistrationDetails || undefined,
+
+        coverLetter: files.coverLetter || undefined,
+        blindManuscriptFile: files.blindManuscript || undefined,
+        figures: files.images.length > 0 ? files.images : undefined,
+        tables: files.tables.length > 0 ? files.tables : undefined,
+        supplementaryFiles: files.supplements ? [files.supplements] : undefined,
+
+        isCorrespondingAuthor: selfCorresponding,
+
+        coAuthors: authors.length > 0 ? authors.map((author, index) => ({
+          title: author.title,
+          firstName: author.firstName,
+          lastName: author.lastName,
+          email: author.email,
+          phoneNumber: author.phone,
+          department: author.department,
+          country: author.country,
+          orcid: author.ORCID || '',
+          order: index + 1,
+          isCorresponding: author.isCorresponding || false,
+        })) : undefined,
+      };
+
+      // Remove undefined values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined) delete payload[key];
+        if (typeof payload[key] === 'object' && payload[key] !== null && !Array.isArray(payload[key])) {
+          Object.keys(payload[key]).forEach(nestedKey => {
+            if (payload[key][nestedKey] === undefined) delete payload[key][nestedKey];
+          });
+          if (Object.keys(payload[key]).length === 0) delete payload[key];
+        }
+      });
+
+      // Only save if there's actual data
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+
+      const { data } = await api.post('/submissions/draft', payload);
+
+      if (data?.data?.submission?._id) {
+        setDraftId(data.data.submission._id);
+        setLastSaved(new Date());
+        if (showToast) {
+          toast.success('Draft saved', { duration: 1500 });
+        }
+      }
+    } catch (error) {
+      console.error('Save draft error:', error);
+      if (showToast) {
+        toast.error('Failed to save draft', { duration: 2000 });
+      }
+    } finally {
+      if (showToast) setAutoSaving(false);
+    }
+  }, [formData, files, authors, selfCorresponding]);
+
+  // Optional: Delete draft function (not currently used in UI)
+  // const deleteDraft = useCallback(async () => {
+  //   if (!draftId) return;
+
+  //   try {
+  //     await api.delete(`/submissions/draft/${draftId}`);
+  //     setDraftId(null);
+  //     setLastSaved(null);
+  //   } catch (error) {
+  //     console.error('Delete draft error:', error);
+  //   }
+  // }, [draftId]);
+
+  // Load draft on mount
+  useEffect(() => {
+    loadDraft();
+  }, [loadDraft]);
+
+  // Auto-save every 30 seconds when user is typing
+  useEffect(() => {
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Don't auto-save if still loading draft or if no data entered
+    if (draftLoading) return;
+
+    // Set new timer
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraft(false); // false = don't show toast
+    }, 30000); // 30 seconds
+
+    // Cleanup
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [formData, files, authors, selfCorresponding, draftLoading, saveDraft]);
 
   const handlePreviewManuscript = () => {
     const corrAuthor = (() => {
@@ -2099,6 +2586,20 @@ const SubmitManuscript = () => {
   })();
 
   const existingAuthorEmails = authors.map((a) => a.email).filter(Boolean);
+
+  // Show loading spinner while draft is loading
+  if (draftLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)",
+      }}>
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#0f3460] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm font-semibold text-gray-600">Loading your draft...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -2313,13 +2814,12 @@ const SubmitManuscript = () => {
 
                       {/* Confirm checkbox */}
                       <div
-                        className={`border rounded-xl px-6 py-5 transition-all ${
-                          submissionDeclared
-                            ? "bg-[#e8eef6] border-[#0f3460]"
-                            : errors.submissionDeclared
-                              ? "bg-red-50 border-red-300"
-                              : "bg-[#f7f9fc] border-[#c8d5e4]"
-                        }`}
+                        className={`border rounded-xl px-6 py-5 transition-all ${submissionDeclared
+                          ? "bg-[#e8eef6] border-[#0f3460]"
+                          : errors.submissionDeclared
+                            ? "bg-red-50 border-red-300"
+                            : "bg-[#f7f9fc] border-[#c8d5e4]"
+                          }`}
                       >
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input
@@ -2415,14 +2915,21 @@ const SubmitManuscript = () => {
                       label="Cover Letter"
                       file={files.coverLetter}
                       required
-                      onChange={(f) => {
+                      onChange={async (f) => {
                         if (!f.name.match(/\.(doc|docx)$/i)) {
                           alert("Only Word files (.doc, .docx) accepted.");
                           return;
                         }
-                        setFiles((p) => ({ ...p, coverLetter: f }));
-                        if (errors.coverLetter)
-                          setErrors((p) => ({ ...p, coverLetter: "" }));
+                        try {
+                          toast.loading('Uploading...', { id: 'cover-upload' });
+                          const metadata = await handleCloudinaryUpload(f, 'coverLetter');
+                          setFiles((p) => ({ ...p, coverLetter: metadata }));
+                          if (errors.coverLetter)
+                            setErrors((p) => ({ ...p, coverLetter: "" }));
+                          toast.success('Uploaded!', { id: 'cover-upload' });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: 'cover-upload' });
+                        }
                       }}
                       onDelete={() =>
                         setFiles((p) => ({ ...p, coverLetter: null }))
@@ -2436,14 +2943,21 @@ const SubmitManuscript = () => {
                       label="Blind Manuscript File"
                       file={files.blindManuscript}
                       required
-                      onChange={(f) => {
+                      onChange={async (f) => {
                         if (!f.name.match(/\.(doc|docx)$/i)) {
                           alert("Only Word files (.doc, .docx) accepted.");
                           return;
                         }
-                        setFiles((p) => ({ ...p, blindManuscript: f }));
-                        if (errors.blindManuscript)
-                          setErrors((p) => ({ ...p, blindManuscript: "" }));
+                        try {
+                          toast.loading('Uploading...', { id: 'manuscript-upload' });
+                          const metadata = await handleCloudinaryUpload(f, 'blindManuscript');
+                          setFiles((p) => ({ ...p, blindManuscript: metadata }));
+                          if (errors.blindManuscript)
+                            setErrors((p) => ({ ...p, blindManuscript: "" }));
+                          toast.success('Uploaded!', { id: 'manuscript-upload' });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: 'manuscript-upload' });
+                        }
                       }}
                       onDelete={() =>
                         setFiles((p) => ({ ...p, blindManuscript: null }))
@@ -2458,7 +2972,7 @@ const SubmitManuscript = () => {
                       files={files.images}
                       max={6}
                       required={false}
-                      onAdd={(sel) => {
+                      onAdd={async (sel) => {
                         const valid = sel.filter((f) =>
                           f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i),
                         );
@@ -2469,11 +2983,19 @@ const SubmitManuscript = () => {
                           return;
                         }
                         const toAdd = valid.slice(0, 6 - files.images.length);
-                        if (toAdd.length) {
+
+                        try {
+                          toast.loading(`Uploading ${toAdd.length} file(s)...`, { id: 'figures-upload' });
+                          const uploaded = await Promise.all(
+                            toAdd.map((f) => handleCloudinaryUpload(f, 'figure'))
+                          );
                           setFiles((p) => ({
                             ...p,
-                            images: [...p.images, ...toAdd],
+                            images: [...p.images, ...uploaded],
                           }));
+                          toast.success('Uploaded!', { id: 'figures-upload' });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: 'figures-upload' });
                         }
                       }}
                       onRemove={(i) =>
@@ -2482,16 +3004,23 @@ const SubmitManuscript = () => {
                           images: p.images.filter((_, idx) => idx !== i),
                         }))
                       }
-                      onReplace={(i, f) => {
+                      onReplace={async (i, f) => {
                         if (!f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i)) {
                           alert("Only Word and image files allowed.");
                           return;
                         }
-                        setFiles((p) => {
-                          const imgs = [...p.images];
-                          imgs[i] = f;
-                          return { ...p, images: imgs };
-                        });
+                        try {
+                          toast.loading('Uploading...', { id: `figure-replace-${i}` });
+                          const metadata = await handleCloudinaryUpload(f, 'figure');
+                          setFiles((p) => {
+                            const imgs = [...p.images];
+                            imgs[i] = metadata;
+                            return { ...p, images: imgs };
+                          });
+                          toast.success('Replaced!', { id: `figure-replace-${i}` });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: `figure-replace-${i}` });
+                        }
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
                       description="Accepted: .doc, .docx, .jpg, .jpeg, .png (Optional)"
@@ -2502,7 +3031,7 @@ const SubmitManuscript = () => {
                       files={files.tables}
                       max={8}
                       required={false}
-                      onAdd={(sel) => {
+                      onAdd={async (sel) => {
                         const valid = sel.filter((f) =>
                           f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i),
                         );
@@ -2516,11 +3045,19 @@ const SubmitManuscript = () => {
                           0,
                           8 - (files.tables?.length || 0),
                         );
-                        if (toAdd.length) {
+
+                        try {
+                          toast.loading(`Uploading ${toAdd.length} file(s)...`, { id: 'tables-upload' });
+                          const uploaded = await Promise.all(
+                            toAdd.map((f) => handleCloudinaryUpload(f, 'table'))
+                          );
                           setFiles((p) => ({
                             ...p,
-                            tables: [...(p.tables || []), ...toAdd],
+                            tables: [...(p.tables || []), ...uploaded],
                           }));
+                          toast.success('Uploaded!', { id: 'tables-upload' });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: 'tables-upload' });
                         }
                       }}
                       onRemove={(i) =>
@@ -2529,16 +3066,23 @@ const SubmitManuscript = () => {
                           tables: p.tables.filter((_, idx) => idx !== i),
                         }))
                       }
-                      onReplace={(i, f) => {
+                      onReplace={async (i, f) => {
                         if (!f.name.match(/\.(doc|docx|jpg|jpeg|png)$/i)) {
                           alert("Only Word and image files allowed.");
                           return;
                         }
-                        setFiles((p) => {
-                          const tbls = [...p.tables];
-                          tbls[i] = f;
-                          return { ...p, tables: tbls };
-                        });
+                        try {
+                          toast.loading('Uploading...', { id: `table-replace-${i}` });
+                          const metadata = await handleCloudinaryUpload(f, 'table');
+                          setFiles((p) => {
+                            const tbls = [...p.tables];
+                            tbls[i] = metadata;
+                            return { ...p, tables: tbls };
+                          });
+                          toast.success('Replaced!', { id: `table-replace-${i}` });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: `table-replace-${i}` });
+                        }
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
                       description="Accepted: .doc, .docx, .jpg, .jpeg, .png (Optional)"
@@ -2548,12 +3092,19 @@ const SubmitManuscript = () => {
                       label="Supplementary Files"
                       file={files.supplements}
                       required={false}
-                      onChange={(f) => {
+                      onChange={async (f) => {
                         if (!f.name.match(/\.(doc|docx)$/i)) {
                           alert("Only Word files (.doc, .docx) accepted.");
                           return;
                         }
-                        setFiles((p) => ({ ...p, supplements: f }));
+                        try {
+                          toast.loading('Uploading...', { id: 'supplement-upload' });
+                          const metadata = await handleCloudinaryUpload(f, 'supplementary');
+                          setFiles((p) => ({ ...p, supplements: metadata }));
+                          toast.success('Uploaded!', { id: 'supplement-upload' });
+                        } catch (err) {
+                          toast.error('Upload failed: ' + err.message, { id: 'supplement-upload' });
+                        }
                       }}
                       onDelete={() =>
                         setFiles((p) => ({ ...p, supplements: null }))
@@ -2585,15 +3136,15 @@ const SubmitManuscript = () => {
                       className={`w-full px-4 py-3 border-2 rounded-xl outline-none text-sm transition-all ${errors.articleType ? "border-red-300 bg-red-50" : "border-[#c8d5e4] focus:border-[#0f3460] focus:ring-4 focus:ring-[#e8eef6]"}`}
                     >
                       <option value="">— Select article type —</option>
-                      <option value="original">Original Article</option>
-                      <option value="case_report">Case Report</option>
-                      <option value="case_series">Case Series</option>
-                      <option value="meta">Meta-Analysis</option>
-                      <option value="review">
+                      <option value="Original Article">Original Article</option>
+                      <option value="Case Report">Case Report</option>
+                      <option value="Case Series">Case Series</option>
+                      <option value="Meta-Analysis">Meta-Analysis</option>
+                      <option value="Review Article / Systematic Review">
                         Review Article / Systematic Review
                       </option>
-                      <option value="editorial">Editorial</option>
-                      <option value="clinical">Clinical Trial</option>
+                      <option value="Editorial">Editorial</option>
+                      <option value="Clinical Trial">Clinical Trial</option>
                     </select>
                     <ErrorMsg msg={errors.articleType} />
                   </div>
@@ -3050,11 +3601,11 @@ const SubmitManuscript = () => {
                       const displayName = selfCorresponding
                         ? "You (Submitting Author)"
                         : (() => {
-                            const ca = authors.find((a) => a.isCorresponding);
-                            return ca
-                              ? `${ca.title} ${ca.firstName} ${ca.lastName}`
-                              : "";
-                          })();
+                          const ca = authors.find((a) => a.isCorresponding);
+                          return ca
+                            ? `${ca.title} ${ca.firstName} ${ca.lastName}`
+                            : "";
+                        })();
                       return (
                         <div className="flex items-center gap-3 rounded-xl border border-[#a0d4e8] bg-[#e0f2fe] px-5 py-4">
                           <CheckCircle className="w-5 h-5 text-[#0e7490] shrink-0" />
@@ -3128,19 +3679,19 @@ const SubmitManuscript = () => {
                       </p>
                       {reviewers.filter((r) => r.firstName || r.email).length >
                         0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {reviewers
-                            .filter((r) => r.firstName || r.email)
-                            .map((r, i) => (
-                              <span
-                                key={i}
-                                className="text-xs bg-white border border-[#a0d4e8] text-[#0e7490] font-semibold px-3 py-1 rounded-full"
-                              >
-                                {r.title} {r.firstName} {r.lastName}
-                              </span>
-                            ))}
-                        </div>
-                      )}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {reviewers
+                              .filter((r) => r.firstName || r.email)
+                              .map((r, i) => (
+                                <span
+                                  key={i}
+                                  className="text-xs bg-white border border-[#a0d4e8] text-[#0e7490] font-semibold px-3 py-1 rounded-full"
+                                >
+                                  {r.title} {r.firstName} {r.lastName}
+                                </span>
+                              ))}
+                          </div>
+                        )}
                       {errors.reviewers && <ErrorMsg msg={errors.reviewers} />}
                     </div>
                     <button
@@ -3153,7 +3704,7 @@ const SubmitManuscript = () => {
                     >
                       <Users className="w-4 h-4" />{" "}
                       {reviewers.filter((r) => r.firstName || r.email).length >
-                      0
+                        0
                         ? "Edit Suggestions"
                         : "Add Reviewers"}
                     </button>
@@ -3440,11 +3991,27 @@ const SubmitManuscript = () => {
                       >
                         I hereby confirm that I have read, understood, and
                         agreed to the submission guidelines, policies and
-                        submission declaration of the journal.
                       </StyledCheckbox>
                       {errors.copyright && <ErrorMsg msg={errors.copyright} />}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Draft Status Indicator */}
+              {!draftLoading && lastSaved && (
+                <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span>
+                    Draft auto-saved {new Date(lastSaved).toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
+
+              {autoSaving && (
+                <div className="mt-6 flex items-center justify-center gap-2 text-xs text-blue-600">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                  <span>Saving draft...</span>
                 </div>
               )}
 
@@ -3456,6 +4023,7 @@ const SubmitManuscript = () => {
                 onSubmit={handleSubmit}
                 loading={loading}
               />
+
             </form>
           </div>
         </div>
@@ -3463,8 +4031,13 @@ const SubmitManuscript = () => {
 
       <SuccessModal
         isOpen={showSuccess}
-        onClose={() => setShowSuccess(false)}
+        onClose={() => {
+          setShowSuccess(false);
+          setSubmissionNumber(null);
+        }}
+        submissionNumber={submissionNumber}
       />
+
       <CopyrightModal
         isOpen={showCopyrightModal}
         onClose={() => setShowCopyrightModal(false)}

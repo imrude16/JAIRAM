@@ -410,6 +410,71 @@ const generateUploadUrl = async (req, res) => {
     );
 };
 
+const searchAuthors = async (req, res) => {
+    const { q, exclude } = req.query;
+    
+    const result = await submissionService.searchAuthors(q, exclude || "");
+    
+    sendSuccess(
+        res,
+        result.message,
+        { authors: result.authors },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const searchReviewers = async (req, res) => {
+    const { q, exclude } = req.query;
+    
+    const result = await submissionService.searchReviewers(q, exclude || "");
+    
+    sendSuccess(
+        res,
+        result.message,
+        { reviewers: result.reviewers },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const saveDraft = async (req, res) => {
+    const result = await submissionService.saveDraft(req.user.id, req.body);
+    
+    sendSuccess(
+        res,
+        result.message,
+        { submission: result.submission },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const getLatestDraft = async (req, res) => {
+    const result = await submissionService.getLatestDraft(req.user.id);
+    
+    sendSuccess(
+        res,
+        result.message,
+        { draft: result.draft },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const deleteDraft = async (req, res) => {
+    const { id } = req.params;
+    const result = await submissionService.deleteDraft(req.user.id, id);
+    
+    sendSuccess(
+        res,
+        result.message,
+        null,
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 export default {
     createSubmission,
     getSubmissionById,
@@ -434,4 +499,9 @@ export default {
     assignTechnicalEditor,
     assignReviewers,
     generateUploadUrl,
+    searchAuthors,
+    searchReviewers,
+    saveDraft,
+    getLatestDraft,
+    deleteDraft,
 };

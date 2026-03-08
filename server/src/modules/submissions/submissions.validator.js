@@ -843,3 +843,160 @@ export const generateUploadUrlSchema = {
             }),
     }),
 };
+
+// ================================================
+// SEARCH AUTHORS SCHEMA
+// ================================================
+
+export const searchAuthorsSchema = {
+    query: Joi.object({
+        q: Joi.string()
+            .trim()
+            .min(2)
+            .max(100)
+            .required()
+            .messages({
+                "string.min": "Search query must be at least 2 characters",
+                "string.max": "Search query cannot exceed 100 characters",
+                "any.required": "Search query is required",
+            }),
+        
+        exclude: Joi.string()
+            .optional()
+            .allow("")
+            .messages({
+                "string.base": "Exclude must be a comma-separated list of emails",
+            }),
+    }),
+};
+
+// ================================================
+// SEARCH REVIEWERS SCHEMA
+// ================================================
+
+export const searchReviewersSchema = {
+    query: Joi.object({
+        q: Joi.string()
+            .trim()
+            .min(2)
+            .max(100)
+            .required()
+            .messages({
+                "string.min": "Search query must be at least 2 characters",
+                "string.max": "Search query cannot exceed 100 characters",
+                "any.required": "Search query is required",
+            }),
+        
+        exclude: Joi.string()
+            .optional()
+            .allow("")
+            .messages({
+                "string.base": "Exclude must be a comma-separated list of emails",
+            }),
+    }),
+};
+
+// ================================================
+// SAVE DRAFT SCHEMA
+// ================================================
+
+export const saveDraftSchema = {
+    body: Joi.object({
+        articleType: Joi.string()
+            .valid(
+                "Original Article",
+                "Case Report",
+                "Case Series",
+                "Meta-Analysis",
+                "Review Article / Systematic Review",
+                "Editorial",
+                "Clinical Trial"
+            )
+            .optional(),
+
+        title: Joi.string().trim().min(10).max(500).optional(),
+        runningTitle: Joi.string().trim().max(50).optional(),
+        abstract: Joi.string().trim().max(2500).optional(),
+        keywords: Joi.array().items(Joi.string().trim()).max(6).optional(),
+
+        manuscriptDetails: Joi.object({
+            wordCount: Joi.number().integer().min(0).optional(),
+            numberOfBlackAndWhiteFigures: Joi.number().integer().min(0).optional(),
+            numberOfColorFigures: Joi.number().integer().min(0).optional(),
+            numberOfTables: Joi.number().integer().min(0).optional(),
+            numberOfPages: Joi.number().integer().min(1).optional(),
+        }).optional(),
+
+        isCorrespondingAuthor: Joi.boolean().optional(),
+
+        coAuthors: Joi.array()
+            .items(Joi.object({
+                user: Joi.string().hex().length(24).optional().allow(null),
+                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").optional(),
+                firstName: Joi.string().optional(),
+                lastName: Joi.string().optional(),
+                email: Joi.string().email().optional(),
+                phoneNumber: Joi.string().optional(),
+                department: Joi.string().optional(),
+                country: Joi.string().optional(),
+                orcid: Joi.string().optional().allow(""),
+                order: Joi.number().integer().optional(),
+                isCorresponding: Joi.boolean().optional(),
+            }))
+            .optional(),
+
+        coverLetter: Joi.object({
+            fileName: Joi.string().optional(),
+            fileUrl: Joi.string().optional(),
+            fileSize: Joi.number().optional(),
+            mimeType: Joi.string().optional(),
+        }).optional(),
+
+        blindManuscriptFile: Joi.object({
+            fileName: Joi.string().optional(),
+            fileUrl: Joi.string().optional(),
+            fileSize: Joi.number().optional(),
+            mimeType: Joi.string().optional(),
+        }).optional(),
+
+        figures: Joi.array().items(Joi.object({
+            fileName: Joi.string().optional(),
+            fileUrl: Joi.string().optional(),
+            fileSize: Joi.number().optional(),
+            mimeType: Joi.string().optional(),
+        })).optional(),
+
+        tables: Joi.array().items(Joi.object({
+            fileName: Joi.string().optional(),
+            fileUrl: Joi.string().optional(),
+            fileSize: Joi.number().optional(),
+            mimeType: Joi.string().optional(),
+        })).optional(),
+
+        supplementaryFiles: Joi.array().items(Joi.object({
+            fileName: Joi.string().optional(),
+            fileUrl: Joi.string().optional(),
+            fileSize: Joi.number().optional(),
+            mimeType: Joi.string().optional(),
+        })).optional(),
+    })
+        .min(1)
+        .messages({
+            "object.min": "At least one field must be provided to save draft",
+        }),
+};
+
+// ================================================
+// DELETE DRAFT SCHEMA
+// ================================================
+
+export const deleteDraftSchema = {
+    params: Joi.object({
+        id: Joi.string().hex().length(24).required()
+            .messages({
+                "string.hex": "Invalid draft ID format",
+                "string.length": "Invalid draft ID format",
+                "any.required": "Draft ID is required",
+            }),
+    }),
+};

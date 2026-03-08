@@ -694,8 +694,8 @@ submissionSchema.pre("save", async function (next) {
                 "suggestedReviewers",
                 "suggestedReviewerResponses",
                 "coAuthors",
-                "consentDeadlineStatus",   
-                "consentIssues",            
+                "consentDeadlineStatus",
+                "consentIssues",
                 "status",
                 "submittedAt",
                 "acceptedAt",
@@ -716,8 +716,8 @@ submissionSchema.pre("save", async function (next) {
                 "assignedTechnicalEditors",
                 "acceptedAt",
                 "rejectedAt",
-                "consentDeadlineStatus",    
-                "consentIssues",             
+                "consentDeadlineStatus",
+                "consentIssues",
                 "coAuthors",                 // NEW - for processing co-author responses
                 "status",
                 "lastModifiedAt",
@@ -741,14 +741,9 @@ submissionSchema.pre("save", async function (next) {
             }
         }
 
-        // Generate submission number when moving from DRAFT to SUBMITTED
+        // Generate submission number when moving from DRAFT to SUBMITTED (atomic counter)
         if (this.isModified("status") && this.status === "SUBMITTED" && !this.submissionNumber) {
-            const year = new Date().getFullYear();
-            const count = await this.constructor.countDocuments({
-                submissionNumber: { $regex: `^JAIRAM-${year}-` }
-            });
-
-            this.submissionNumber = `JAIRAM-${year}-${String(count + 1).padStart(4, '0')}`;
+            this.submissionNumber = await this.constructor.getNextSubmissionNumber();
             this.submittedAt = new Date();
         }
 
@@ -1144,7 +1139,7 @@ submissionSchema.methods.canUserViewSubmission = function (userId, userRole, use
             // Match by email or user reference
             const isUserEmail = ca.email === userEmail;
             const isUserLinked = ca.user && (ca.user._id || ca.user).toString() === userId.toString();
-            
+
             // Must have accepted consent
             return (isUserEmail || isUserLinked) && ca.consentStatus === "ACCEPTED";
         });
@@ -1163,6 +1158,31 @@ submissionSchema.methods.canUserViewSubmission = function (userId, userRole, use
     // No access
     return { canView: false, viewLevel: "NONE" };
 };
+
+// ══════════════════════════════════════════════════════════════════
+// COUNTER SCHEMA - FOR ATOMIC SUBMISSION NUMBER GENERATION
+// ══════════════════════════════════════════════════════════════════
+
+const counterSchema = new Schema({
+    _id: String,
+    seq: { type: Number, default: 0 }
+});
+
+const SubmissionCounter = model("SubmissionCounter", counterSchema);
+
+submissionSchema.statics.getNextSubmissionNumber = async function () {
+    const year = new Date().getFullYear();
+    const counterId = `submission-${year}`;
+
+    const counter = await SubmissionCounter.findByIdAndUpdate(
+        counterId,
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    );
+
+    return `JAIRAM-${year}-${String(counter.seq).padStart(4, '0')}`;
+};
+
 
 // ══════════════════════════════════════════════════════════════════
 // STATIC METHODS

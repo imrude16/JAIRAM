@@ -27,6 +27,10 @@ import {
     assignTechnicalEditorSchema,
     assignReviewersSchema,
     generateUploadUrlSchema,
+    searchAuthorsSchema,
+    searchReviewersSchema,
+    saveDraftSchema,        
+    deleteDraftSchema,
 } from "./submissions.validator.js";
 
 /**
@@ -65,7 +69,12 @@ const {
     // NEW DESTRUCTURING (Editor Assignment):
     assignTechnicalEditor,
     assignReviewers,
-    generateUploadUrl, 
+    generateUploadUrl,
+    searchAuthors,
+    searchReviewers,
+    saveDraft,           
+    getLatestDraft,      
+    deleteDraft,   
 } = submissionController;
 
 const router = Router();
@@ -121,6 +130,74 @@ router.post(
     requireAuth,
     validateRequest(generateUploadUrlSchema),
     asyncHandler(generateUploadUrl)
+);
+
+router.get(
+    "/search/authors",
+    requireAuth,
+    validateRequest(searchAuthorsSchema),
+    asyncHandler(searchAuthors)
+);
+
+router.get(
+    "/search/reviewers",
+    requireAuth,
+    validateRequest(searchReviewersSchema),
+    asyncHandler(searchReviewers)
+);
+
+// ════════════════════════════════════════════════════════════════
+// DRAFT MANAGEMENT ROUTES (PHASE 3)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * SAVE DRAFT
+ * 
+ * POST /api/submissions/draft
+ * Headers: Authorization: Bearer <token>
+ * Body: { any submission fields }
+ * 
+ * Auth: Required (any logged-in user)
+ * Returns: Saved/updated draft submission
+ * 
+ * Updates existing draft if found, creates new if not
+ */
+router.post(
+    "/draft",
+    requireAuth,
+    validateRequest(saveDraftSchema),
+    asyncHandler(saveDraft)
+);
+
+/**
+ * GET LATEST DRAFT
+ * 
+ * GET /api/submissions/draft
+ * Headers: Authorization: Bearer <token>
+ * 
+ * Auth: Required
+ * Returns: Most recent draft or null
+ */
+router.get(
+    "/draft",
+    requireAuth,
+    asyncHandler(getLatestDraft)
+);
+
+/**
+ * DELETE DRAFT
+ * 
+ * DELETE /api/submissions/draft/:id
+ * Headers: Authorization: Bearer <token>
+ * 
+ * Auth: Required
+ * Returns: Success message
+ */
+router.delete(
+    "/draft/:id",
+    requireAuth,
+    validateRequest(deleteDraftSchema),
+    asyncHandler(deleteDraft)
 );
 
 // ============================================================

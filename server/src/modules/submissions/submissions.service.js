@@ -30,7 +30,7 @@ const findSubmissionById = async (submissionId, options = {}) => {
     try {
         let query = Submission.findById(submissionId);
 
-         // ✅ NEW: Always include hidden consent token fields
+        // ✅ NEW: Always include hidden consent token fields
         query = query.select('+coAuthors.consentToken +coAuthors.consentTokenExpires');
 
         if (options.populate) {
@@ -242,23 +242,22 @@ const generateUploadUrl = async (userId, payload) => {
         console.log("🔵 [SERVICE] generateUploadUrl started");
 
         const { fileName, fileType, uploadType } = payload;
-        
+
         const { cloudinary } = await import('../../config/cloudinary.js');
-        
+
         const timestamp = Math.round(Date.now() / 1000);
         const publicId = `submissions/${userId}/${uploadType}_${timestamp}`;
-        
+
         const signature = cloudinary.utils.api_sign_request(
             {
                 timestamp,
-                folder: 'submissions',
                 public_id: publicId,
             },
             process.env.CLOUDINARY_API_SECRET
         );
-        
+
         console.log("✅ [SERVICE] Upload URL generated");
-        
+
         return {
             message: "Upload URL generated successfully",
             uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/upload`,
@@ -267,7 +266,7 @@ const generateUploadUrl = async (userId, payload) => {
             publicId,
             apiKey: process.env.CLOUDINARY_API_KEY,
         };
-        
+
     } catch (error) {
         console.error("❌ [SERVICE] Error in generateUploadUrl:", error);
         throw new AppError(
@@ -279,6 +278,109 @@ const generateUploadUrl = async (userId, payload) => {
     }
 };
 
+// ================================================
+// SEARCH AUTHORS (NEW)
+// ================================================
+
+const searchAuthors = async (searchQuery, excludeEmails = "") => {
+    try {
+        console.log("🔵 [SERVICE] searchAuthors started");
+
+        const excludeList = excludeEmails.split(",").filter(Boolean);
+
+        const users = await User.find({
+            role: "USER",
+            email: { $nin: excludeList },
+            isEmailVerified: true,
+            status: "ACTIVE",
+            $or: [
+                { firstName: { $regex: searchQuery, $options: "i" } },
+                { lastName: { $regex: searchQuery, $options: "i" } },
+                { email: { $regex: searchQuery, $options: "i" } },
+                { institution: { $regex: searchQuery, $options: "i" } },
+            ],
+        })
+            .select("firstName lastName email department institution address.country orcid phoneCode mobileNumber")
+            .limit(10);
+
+        console.log(`✅ [SERVICE] Found ${users.length} authors`);
+
+        return {
+            message: "Authors retrieved successfully",
+            authors: users.map(user => ({
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                department: user.department,
+                institution: user.institution,
+                country: user.address?.country,
+                orcid: user.orcid,
+                phoneCode: user.phoneCode,
+                mobileNumber: user.mobileNumber,
+            })),
+        };
+    } catch (error) {
+        console.error("❌ [SERVICE] Error in searchAuthors:", error);
+        throw new AppError(
+            "Failed to search authors",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SEARCH_AUTHORS_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+// ================================================
+// SEARCH REVIEWERS (NEW)
+// ================================================
+
+const searchReviewers = async (searchQuery, excludeEmails = "") => {
+    try {
+        console.log("🔵 [SERVICE] searchReviewers started");
+
+        const excludeList = excludeEmails.split(",").filter(Boolean);
+
+        const users = await User.find({
+            role: "REVIEWER",
+            email: { $nin: excludeList },
+            isEmailVerified: true,
+            status: "ACTIVE",
+            $or: [
+                { firstName: { $regex: searchQuery, $options: "i" } },
+                { lastName: { $regex: searchQuery, $options: "i" } },
+                { email: { $regex: searchQuery, $options: "i" } },
+                { primarySpecialty: { $regex: searchQuery, $options: "i" } },
+                { institution: { $regex: searchQuery, $options: "i" } },
+            ],
+        })
+            .select("firstName lastName email primarySpecialty institution address.country")
+            .limit(10);
+
+        console.log(`✅ [SERVICE] Found ${users.length} reviewers`);
+
+        return {
+            message: "Reviewers retrieved successfully",
+            reviewers: users.map(user => ({
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                primarySpecialty: user.primarySpecialty,
+                institution: user.institution,
+                country: user.address?.country,
+            })),
+        };
+    } catch (error) {
+        console.error("❌ [SERVICE] Error in searchReviewers:", error);
+        throw new AppError(
+            "Failed to search reviewers",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SEARCH_REVIEWERS_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
 const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
     try {
         const email = reviewer.email;
@@ -402,8 +504,8 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
 
         if (!permissionCheck.canView) {
             throw new AppError(
-                "You do not have permission to view this submission", 
-                STATUS_CODES.FORBIDDEN, 
+                "You do not have permission to view this submission",
+                STATUS_CODES.FORBIDDEN,
                 "FORBIDDEN"
             );
         }
@@ -418,7 +520,7 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         const submissionObj = submission.toObject();
 
         const filteredSubmission = filterSubmissionByViewLevel(
-            submissionObj, 
+            submissionObj,
             permissionCheck.viewLevel,
             permissionCheck.showTimeline
         );
@@ -431,8 +533,8 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         if (error instanceof AppError) throw error;
         console.error("❌ [SERVICE] Error in getSubmissionById:", error);
         throw new AppError(
-            "Failed to retrieve submission", 
-            STATUS_CODES.INTERNAL_SERVER_ERROR, 
+            "Failed to retrieve submission",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
             "GET_SUBMISSION_ERROR",
             { originalError: error.message }
         );
@@ -690,6 +792,10 @@ const submitManuscript = async (submissionId, userId, payload) => {
         // STEP 4: UPDATE STATUS TO SUBMITTED
         // ═══════════════════════════════════════════════════════════
 
+        // ✅ Only generate submission number if it doesn't already exist
+        // if (!submission.submissionNumber) {
+        //     submission.submissionNumber = await submission.generateSubmissionNumber();
+        // }
         submission.updateStatus("SUBMITTED");
 
         // ═══════════════════════════════════════════════════════════
@@ -2335,6 +2441,155 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, att
     }
 };
 
+// ================================================
+// SAVE DRAFT (NEW - PHASE 3)
+// ================================================
+
+const saveDraft = async (userId, payload) => {
+    try {
+        console.log("🔵 [SERVICE] saveDraft started");
+
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new AppError("User not found", STATUS_CODES.NOT_FOUND, "USER_NOT_FOUND");
+        }
+
+        // Check if draft already exists
+        const existingDraft = await Submission.findOne({
+            author: userId,
+            status: "DRAFT",
+        }).sort({ createdAt: -1 }); // Get most recent draft
+
+        let submission;
+
+        if (existingDraft) {
+            // Update existing draft
+            Object.keys(payload).forEach(key => {
+                if (payload[key] !== undefined) {
+                    existingDraft[key] = payload[key];
+                }
+            });
+            existingDraft.lastModifiedAt = new Date();
+
+            // ✅ BYPASS VALIDATION for draft updates
+            submission = await existingDraft.save({ validateBeforeSave: false });
+            console.log("🟢 [SERVICE] Draft updated:", submission._id);
+        } else {
+            // ✅ BYPASS VALIDATION for draft creation
+            // Set minimal required fields to satisfy Mongoose
+            const draftData = {
+                ...payload,
+                author: userId,
+                status: "DRAFT",
+                submitterRoleType: "Author", // Default for drafts
+            };
+
+            submission = new Submission(draftData);
+            await submission.save({ validateBeforeSave: false });
+            console.log("🟢 [SERVICE] Draft created:", submission._id);
+        }
+
+        await submission.populate("author", "firstName lastName email");
+
+        return {
+            message: "Draft saved successfully",
+            submission,
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Error in saveDraft:", error);
+        throw new AppError(
+            "Failed to save draft",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SAVE_DRAFT_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+// ================================================
+// GET LATEST DRAFT (NEW - PHASE 3)
+// ================================================
+
+const getLatestDraft = async (userId) => {
+    try {
+        console.log("🔵 [SERVICE] getLatestDraft started");
+
+        const draft = await Submission.findOne({
+            author: userId,
+            status: "DRAFT",
+        })
+            .sort({ lastModifiedAt: -1 })
+            .populate("author", "firstName lastName email");
+
+        if (!draft) {
+            return {
+                message: "No draft found",
+                draft: null,
+            };
+        }
+
+        console.log("✅ [SERVICE] Draft found:", draft._id);
+
+        return {
+            message: "Draft retrieved successfully",
+            draft,
+        };
+
+    } catch (error) {
+        console.error("❌ [SERVICE] Error in getLatestDraft:", error);
+        throw new AppError(
+            "Failed to retrieve draft",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "GET_DRAFT_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+// ================================================
+// DELETE DRAFT (NEW - PHASE 3)
+// ================================================
+
+const deleteDraft = async (userId, draftId) => {
+    try {
+        console.log("🔵 [SERVICE] deleteDraft started");
+
+        const draft = await Submission.findOne({
+            _id: draftId,
+            author: userId,
+            status: "DRAFT",
+        });
+
+        if (!draft) {
+            throw new AppError(
+                "Draft not found or already submitted",
+                STATUS_CODES.NOT_FOUND,
+                "DRAFT_NOT_FOUND"
+            );
+        }
+
+        await draft.deleteOne();
+
+        console.log("✅ [SERVICE] Draft deleted:", draftId);
+
+        return {
+            message: "Draft deleted successfully",
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Error in deleteDraft:", error);
+        throw new AppError(
+            "Failed to delete draft",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "DELETE_DRAFT_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 export default {
     createSubmission,
     getSubmissionById,
@@ -2359,4 +2614,9 @@ export default {
     assignTechnicalEditor,
     assignReviewers,
     generateUploadUrl,
+    searchAuthors,
+    searchReviewers,
+    saveDraft,
+    getLatestDraft,
+    deleteDraft,
 };
