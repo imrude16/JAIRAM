@@ -2326,7 +2326,7 @@ const SubmitManuscript = () => {
 
         // Optional: Redirect to dashboard or submission list
         // window.location.href = '/dashboard';
-      }, 3500);
+      }, 5000);
 
     } catch (error) {
       setLoading(false);
