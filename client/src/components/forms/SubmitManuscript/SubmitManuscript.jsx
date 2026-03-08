@@ -26,7 +26,6 @@ import {
   BarChart3,
   X,
   Search,
-  UserCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -1811,7 +1810,7 @@ const InfoCard = ({ title, icon: Icon, children, accentColor = "#0f3460" }) => (
   </div>
 );
 
-const KeywordsTagInput = ({ value, onChange, hasError }) => {
+const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
   const [inputVal, setInputVal] = React.useState("");
   const inputRef = React.useRef(null);
 
@@ -1848,6 +1847,7 @@ const KeywordsTagInput = ({ value, onChange, hasError }) => {
 
   const handleChange = (e) => {
     const val = e.target.value;
+    if (onClearError) onClearError();
     if (val.includes(",")) {
       const parts = val.split(",");
       parts.slice(0, -1).forEach((p) => addTag(p));
@@ -2075,13 +2075,14 @@ const SubmitManuscript = () => {
       if (!formData.totalWordCount) e.totalWordCount = "Word count is required";
       if (!formData.bwFigures) e.bwFigures = "Required";
       if (!formData.colorFigures) e.colorFigures = "Required";
-      if (!formData.tables) e.statTables = "Required";
+      if (!formData.tables) e.tables = "Required";
       if (!formData.pages) e.pages = "Required";
       if (
         ["Original Article", "Case Report", "Case Series", "Editorial"].includes(
           formData.articleType,
         ) &&
-        !formData.iecNumber
+        formData.iecNumber === "Yes" &&
+        !formData.iecNumberDetails.trim()
       )
         e.iecNumber = "Please select a response for IEC Number";
       if (
@@ -3214,7 +3215,7 @@ const SubmitManuscript = () => {
                         {
                           field: "tables",
                           label: "No. of Tables",
-                          errKey: "statTables",
+                          errKey: "tables",
                         },
                         {
                           field: "pages",
@@ -3265,10 +3266,14 @@ const SubmitManuscript = () => {
                     <KeywordsTagInput
                       value={formData.keywords}
                       onChange={(val) => handleField("keywords", val)}
-                      hasError={!!errors.keywords}
+                      onClearError={() => {
+                        if (errors.keywords) {
+                          setErrors((p) => ({ ...p, keywords: "" }));
+                        }
+                      }}
                     />
                     <p className="text-xs text-gray-400 mt-1.5">
-                      Maximum 6 keywords And According to MESH standards — press{" "}
+                      Maximum 6 keywords and According to MESH standards — press{" "}
                       <span className="font-semibold">Space</span> or{" "}
                       <span className="font-semibold">Enter</span> after each
                       word to create a tag
