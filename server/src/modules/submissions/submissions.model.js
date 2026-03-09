@@ -411,7 +411,9 @@ const submissionSchema = new Schema(
             fileSize: Number,
             mimeType: String,
             uploadedAt: Date,
-            isTemporary: { type: Boolean, default: true },
+            isTemporary: { type: Boolean, default: true }, 
+            // isTemporary indicates if the file is still in temp storage 
+            // and not yet associated with a final submission (deleted after 7 days if not submitted)
         },
 
         blindManuscriptFile: {
