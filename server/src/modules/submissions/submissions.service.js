@@ -178,37 +178,6 @@ const createInitialCycle = async (submissionId) => {
     }
 };
 
-// const sendCoAuthorConsentEmail = async (submission, coAuthor, token) => {
-//     try {
-//         const email = coAuthor.email;
-//         const name = `${coAuthor.firstName} ${coAuthor.lastName}`;
-
-//         const consentUrl = `${process.env.FRONTEND_URL}/submissions/${submission._id}/coauthor-consent/${coAuthor._id}?token=${token}`;
-
-//         const emailHtml = `
-//             <h2>Co-Author Consent Request</h2>
-//             <p>Dear ${name},</p>
-//             <p>You have been added as a co-author on the manuscript titled:</p>
-//             <p><strong>${submission.title}</strong></p>
-//             <p>Submission Number: ${submission.submissionNumber || "Draft"}</p>
-//             <p>Please review and provide your consent by clicking the link below:</p>
-//             <p><a href="${consentUrl}" style="background:#007bff;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Provide Consent</a></p>
-//             <p>This link will expire in 7 days.</p>
-//             <p>If you did not expect this invitation, please ignore this email.</p>
-//         `;
-
-//         await sendEmail({
-//             to: email,
-//             subject: `Co-Author Consent Request - ${submission.title}`,
-//             html: emailHtml,
-//         });
-
-//         console.log(`🔵 [HELPER] Consent email sent to ${email}`);
-//     } catch (emailError) {
-//         console.error("❌ [HELPER] Failed to send consent email:", emailError);
-//     }
-// };
-
 // ================================================
 // GENERATE CLOUDINARY UPLOAD URL (NEW)
 // ================================================
