@@ -3774,14 +3774,14 @@ const SubmitManuscript = () => {
                         {
                           label: "Cover Letter",
                           value: files.coverLetter
-                            ? files.coverLetter.name
+                            ? files.coverLetter.fileName
                             : null,
                           required: true,
                         },
                         {
                           label: "Blind Manuscript",
                           value: files.blindManuscript
-                            ? files.blindManuscript.name
+                            ? files.blindManuscript.fileName
                             : null,
                           required: true,
                         },
@@ -3802,7 +3802,7 @@ const SubmitManuscript = () => {
                         {
                           label: "Supplementary",
                           value: files.supplements
-                            ? files.supplements.name
+                            ? files.supplements.fileName
                             : null,
                           required: false,
                         },
