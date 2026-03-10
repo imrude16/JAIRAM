@@ -208,15 +208,15 @@ const submissionSchema = new Schema(
                 default: false,
             },
 
-            // Consent tracking
-            consentStatus: {
-                type: String,
-                enum: ["PENDING", "ACCEPTED", "REJECTED"],
-                default: "PENDING",
-            },
-            consentDate: Date,
-            consentToken: { type: String, select: false },
-            consentTokenExpires: { type: Date, select: false },
+            // // Consent tracking
+            // consentStatus: {
+            //     type: String,
+            //     enum: ["PENDING", "ACCEPTED", "REJECTED"],
+            //     default: "PENDING",
+            // },
+            // consentDate: Date,
+            // consentToken: { type: String, select: false },
+            // consentTokenExpires: { type: Date, select: false },
 
             // Source tracking
             source: {

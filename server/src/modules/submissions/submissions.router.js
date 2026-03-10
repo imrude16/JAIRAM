@@ -349,8 +349,8 @@ router.post(
 /**
  * CO-AUTHOR CONSENT
  * 
- * POST /api/submissions/:id/coauthor-consent/:coAuthorId
- * Body: { consent: "ACCEPT" | "REJECT", token }
+ * POST /api/submissions/coauthor-consent
+ * Body: { consent: "ACCEPT" | "REJECT", token, remark }
  * 
  * Auth: None (uses token-based authentication)
  * Purpose: Allow co-authors to accept/reject invitation
@@ -377,7 +377,7 @@ router.post(
  *    - Author receives final notification email
  */
 router.post(
-    "/:id/coauthor-consent/:coAuthorId",
+    "/coauthor-consent",
     validateRequest(coAuthorConsentSchema),
     asyncHandler(processCoAuthorConsent)
 );

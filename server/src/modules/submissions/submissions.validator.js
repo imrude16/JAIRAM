@@ -513,20 +513,24 @@ export const assignEditorSchema = {
 // ================================================
 
 export const coAuthorConsentSchema = {
-    params: Joi.object({
-        id: objectIdField("Submission ID").required(),
-        coAuthorId: Joi.string().required(), // Can be ObjectId or email
-    }),
-
     body: Joi.object({
-        consent: Joi.string().valid("ACCEPT", "REJECT").required()
+        consent: Joi.string().valid("APPROVE", "REJECT").required()
             .messages({
-                "any.only": "Consent must be either ACCEPT or REJECT",
+                "any.only": "Consent must be either APPROVE or REJECT",
             }),
         token: Joi.string().required()
             .messages({
                 "any.required": "Consent token is required",
             }),
+        remark: Joi.when("consent", {
+            is: "REJECT",
+            then: Joi.string().trim().min(10).max(1000).required()
+                .messages({
+                    "any.required": "Please provide a reason for rejection",
+                    "string.min": "Reason must be at least 10 characters",
+                }),
+            otherwise: Joi.optional().allow(""),
+        }),
     }),
 };
 

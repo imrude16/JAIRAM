@@ -1189,6 +1189,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
               specialization: user.specialization,
               institution: user.institution,
               country: user.country,
+              source: "DATABASE_SEARCH",
             }
             : r,
         ),
@@ -1204,6 +1205,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
           specialization: user.specialization,
           institution: user.institution,
           country: user.country,
+          source: "DATABASE_SEARCH",
         },
       ]);
     }
@@ -1565,6 +1567,7 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
       department: user.department || "",
       country: user.country || "",
       ORCID: user.ORCID || "",
+      source: "DATABASE_SEARCH",
     }));
   };
 
@@ -1944,6 +1947,7 @@ const SubmitManuscript = () => {
     country: "",
     department: "",
     ORCID: "",
+    source: undefined,
   });
   const [showAuthorForm, setShowAuthorForm] = React.useState(false);
   const [conflictHasConflict, setConflictHasConflict] = React.useState(null);
@@ -2016,7 +2020,7 @@ const SubmitManuscript = () => {
     if (!authorDraft.firstName.trim() && !authorDraft.lastName.trim()) return;
     setAuthors((p) => [
       ...p,
-      { ...authorDraft, id: Date.now(), isCorresponding: false },
+      { ...authorDraft, id: Date.now(), isCorresponding: false, source: authorDraft.source || "MANUAL_ENTRY" },
     ]);
     setAuthorDraft({
       title: "Dr.",
@@ -2027,6 +2031,7 @@ const SubmitManuscript = () => {
       country: "",
       department: "",
       ORCID: "",
+      source: undefined,
     });
     setShowAuthorForm(false);
     if (errors.authors) setErrors((p) => ({ ...p, authors: "" }));
@@ -2205,7 +2210,7 @@ const SubmitManuscript = () => {
             specialization: r.specialization,
             institution: r.institution,
             country: r.country,
-            source: "MANUAL_ENTRY",
+            source: r.source || "MANUAL_ENTRY",
           })),
       };
 
@@ -2259,7 +2264,7 @@ const SubmitManuscript = () => {
             orcid: author.ORCID || "",
             order: index + 1,
             isCorresponding: author.isCorresponding || false,
-            source: "MANUAL_ENTRY",
+            source: author.source || "MANUAL_ENTRY",
           })),
 
           coverLetter: files.coverLetter,
@@ -2322,7 +2327,7 @@ const SubmitManuscript = () => {
         setDraftId(null);
         setLastSaved(null);
 
-        toast.success('Submission completed! Redirecting...', { duration: 2000 });
+        toast.success('Submission completed! Redirecting...', { duration: 5000 });
 
         // Optional: Redirect to dashboard or submission list
         // window.location.href = '/dashboard';
@@ -2332,8 +2337,14 @@ const SubmitManuscript = () => {
       setLoading(false);
       console.error('Submission error:', error);
 
+      // Check for timeout error
+      if (error.code === 'ECONNABORTED' || error.message === 'timeout of 30000ms exceeded') {
+        toast.error('Request timed out. Your submission may have been processed. Please check your submissions page.', { duration: 8000 });
+        return;
+      }
+
       // Show specific error message
-      const errorMessage = error.response?.data?.message || 'Submission failed. Please try again.';
+      const errorMessage = error.response?.data?.message || error.message || 'Submission failed. Please try again.';
       toast.error(errorMessage, { duration: 5000 });
 
       // If validation errors, show them to user
@@ -2567,7 +2578,7 @@ const SubmitManuscript = () => {
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   const steps = [

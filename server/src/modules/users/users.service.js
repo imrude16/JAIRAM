@@ -50,7 +50,7 @@ const generateAndSaveOTP = async (user) => {
 
         return otp;
     } catch (dbError) {
-        console.error("❌ [HELPER] generateAndSaveOTP failed:", dbError); 
+        console.error("❌ [HELPER] generateAndSaveOTP failed:", dbError);
         throw new AppError("Failed to generate verification code", STATUS_CODES.INTERNAL_SERVER_ERROR, "OTP_GENERATION_ERROR", { originalError: dbError.message });
     }
 };
@@ -62,7 +62,7 @@ const sendOTPEmail = async (email, firstName, otp) => {
         console.log(`🔵 [HELPER] sendOTPEmail: Email sent to ${email}`); // debugger
 
     } catch (emailError) {
-        console.error("❌ [HELPER] sendOTPEmail failed:", emailError); 
+        console.error("❌ [HELPER] sendOTPEmail failed:", emailError);
         throw new AppError("Failed to send verification email. Please try again.", STATUS_CODES.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILED", { originalError: emailError.message });
     }
 };
@@ -75,7 +75,7 @@ const createAuthToken = (user) => {
 
         return token;
     } catch (tokenError) {
-        console.error("❌ [HELPER] createAuthToken failed:", tokenError); 
+        console.error("❌ [HELPER] createAuthToken failed:", tokenError);
         throw new AppError("Failed to generate authentication token", STATUS_CODES.INTERNAL_SERVER_ERROR, "TOKEN_GENERATION_ERROR", { originalError: tokenError.message });
     }
 };
@@ -141,7 +141,7 @@ const registerUser = async (payload) => {
         try {
             otp = await generateAndSaveOTP(user);
         } catch (otpError) {
-            console.error("❌ [SERVICE] OTP generation failed, cleaning up user"); 
+            console.error("❌ [SERVICE] OTP generation failed, cleaning up user");
             try { await User.findByIdAndDelete(user._id); } catch (e) { console.error("❌ Cleanup failed:", e); }
             throw otpError;
         }
@@ -149,7 +149,7 @@ const registerUser = async (payload) => {
         try {
             await sendOTPEmail(user.email, user.firstName, otp);
         } catch (emailError) {
-            console.error("❌ [SERVICE] Email failed, cleaning up user"); 
+            console.error("❌ [SERVICE] Email failed, cleaning up user");
             try { await User.findByIdAndDelete(user._id); } catch (e) { console.error("❌ Cleanup failed:", e); }
             throw emailError;
         }
@@ -160,7 +160,7 @@ const registerUser = async (payload) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in registerUser:", error); 
+        console.error("❌ [SERVICE] Unexpected error in registerUser:", error);
         throw new AppError("An unexpected error occurred during registration", STATUS_CODES.INTERNAL_SERVER_ERROR, "REGISTRATION_ERROR", { originalError: error.message });
     }
 };
@@ -192,7 +192,7 @@ const verifyOTP = async (email, otp) => {
             console.log("🔵 [SERVICE] OTP verification result:", isValidOTP); // debugger
 
         } catch (verifyError) {
-            console.error("❌ [SERVICE] Error during OTP verification:", verifyError); 
+            console.error("❌ [SERVICE] Error during OTP verification:", verifyError);
             throw new AppError("Error verifying OTP", STATUS_CODES.INTERNAL_SERVER_ERROR, "OTP_VERIFICATION_ERROR", { originalError: verifyError.message });
         }
 
@@ -206,8 +206,48 @@ const verifyOTP = async (email, otp) => {
 
             console.log("🔵 [SERVICE] User verified and saved"); // debugger
 
+            // ═══════════════════════════════════════════════════════════
+            // LINK PENDING CONSENTS AFTER REGISTRATION
+            // ═══════════════════════════════════════════════════════════
+
+            try {
+                const consentService = (await import("../consents/consent.service.js")).default;
+                const { Submission } = await import("../submissions/submissions.model.js");
+
+                // Link consents to user
+                const linkedConsents = await consentService.linkConsentToUser(user);
+
+                if (linkedConsents.length > 0) {
+                    console.log(`✅ [REGISTRATION] Linked ${linkedConsents.length} consent(s)`);
+
+                    // Link co-author references in submissions
+                    for (const consent of linkedConsents) {
+                        const submission = await Submission.findById(consent.submissionId);
+                        if (!submission) continue;
+
+                        let updated = false;
+
+                        for (const coAuthor of submission.coAuthors) {
+                            if (coAuthor.email === user.email && !coAuthor.user) {
+                                coAuthor.user = user._id;
+                                updated = true;
+                                console.log(`✅ [REGISTRATION] Linked co-author in submission ${submission.submissionNumber || submission._id}`);
+                            }
+                        }
+
+                        if (updated) {
+                            await submission.save({ validateBeforeSave: false });
+                        }
+                    }
+                }
+            } catch (linkError) {
+                console.error("❌ [REGISTRATION] Failed to link consents:", linkError);
+                // Don't fail registration
+            }
+
+
         } catch (dbError) {
-            console.error("❌ [SERVICE] Database error during user update:", dbError); 
+            console.error("❌ [SERVICE] Database error during user update:", dbError);
             throw new AppError("Failed to verify email", STATUS_CODES.INTERNAL_SERVER_ERROR, "EMAIL_VERIFICATION_ERROR", { originalError: dbError.message });
         }
 
@@ -219,7 +259,7 @@ const verifyOTP = async (email, otp) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in verifyOTP:", error); 
+        console.error("❌ [SERVICE] Unexpected error in verifyOTP:", error);
         throw new AppError("An unexpected error occurred during OTP verification", STATUS_CODES.INTERNAL_SERVER_ERROR, "OTP_VERIFICATION_ERROR", { originalError: error.message });
     }
 };
@@ -249,7 +289,7 @@ const resendOTP = async (email) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in resendOTP:", error); 
+        console.error("❌ [SERVICE] Unexpected error in resendOTP:", error);
         throw new AppError("An unexpected error occurred while resending OTP", STATUS_CODES.INTERNAL_SERVER_ERROR, "RESEND_OTP_ERROR", { originalError: error.message });
     }
 };
@@ -279,7 +319,7 @@ const loginUser = async (email, password) => {
             console.log("🔵 [SERVICE] Password verification completed"); // debugger
 
         } catch (compareError) {
-            console.error("❌ [SERVICE] Error during password comparison:", compareError); 
+            console.error("❌ [SERVICE] Error during password comparison:", compareError);
             throw new AppError("Error verifying password", STATUS_CODES.INTERNAL_SERVER_ERROR, "PASSWORD_VERIFICATION_ERROR", { originalError: compareError.message });
         }
 
@@ -295,7 +335,7 @@ const loginUser = async (email, password) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in loginUser:", error); 
+        console.error("❌ [SERVICE] Unexpected error in loginUser:", error);
         throw new AppError("An unexpected error occurred during login", STATUS_CODES.INTERNAL_SERVER_ERROR, "LOGIN_ERROR", { originalError: error.message });
     }
 };
@@ -318,7 +358,7 @@ const getUserById = async (userId) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in getUserById:", error); 
+        console.error("❌ [SERVICE] Unexpected error in getUserById:", error);
         throw new AppError("An unexpected error occurred while retrieving user", STATUS_CODES.INTERNAL_SERVER_ERROR, "GET_USER_ERROR", { originalError: error.message });
     }
 };
@@ -346,7 +386,7 @@ const updateUserProfile = async (userId, updates) => {
             console.log("🔵 [SERVICE] User update completed"); // debugger
 
         } catch (dbError) {
-            console.error("❌ [SERVICE] Database error during user update:", dbError); 
+            console.error("❌ [SERVICE] Database error during user update:", dbError);
             if (dbError.name === "CastError") throw new AppError("Invalid user ID format", STATUS_CODES.BAD_REQUEST, "INVALID_USER_ID");
             if (dbError.name === "ValidationError") throw new AppError("Invalid update data provided", STATUS_CODES.BAD_REQUEST, "VALIDATION_ERROR", { errors: dbError.errors });
             throw new AppError("Database error while updating user", STATUS_CODES.INTERNAL_SERVER_ERROR, "DATABASE_ERROR", { originalError: dbError.message });
@@ -386,7 +426,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
             console.log("🔵 [SERVICE] Current password verification completed"); // debugger
 
         } catch (compareError) {
-            console.error("❌ [SERVICE] Error during password comparison:", compareError); 
+            console.error("❌ [SERVICE] Error during password comparison:", compareError);
             throw new AppError("Error verifying current password", STATUS_CODES.INTERNAL_SERVER_ERROR, "PASSWORD_VERIFICATION_ERROR", { originalError: compareError.message });
         }
 
@@ -399,7 +439,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
             console.log("🔵 [SERVICE] Password updated and saved"); // debugger
 
         } catch (dbError) {
-            console.error("❌ [SERVICE] Database error during password update:", dbError); 
+            console.error("❌ [SERVICE] Database error during password update:", dbError);
             throw new AppError("Failed to update password", STATUS_CODES.INTERNAL_SERVER_ERROR, "PASSWORD_UPDATE_ERROR", { originalError: dbError.message });
         }
 
@@ -409,7 +449,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in changePassword:", error); 
+        console.error("❌ [SERVICE] Unexpected error in changePassword:", error);
         throw new AppError("An unexpected error occurred while changing password", STATUS_CODES.INTERNAL_SERVER_ERROR, "CHANGE_PASSWORD_ERROR", { originalError: error.message });
     }
 };
@@ -437,7 +477,7 @@ const checkEmailAvailability = async (email) => {
         if (user && !user.isEmailVerified) {
 
             console.log("🔵 [SERVICE] Email found but not verified"); // debugger
-            
+
             return { available: false, message: "Email is not available. This email is registered but not verified. Please complete verification." };
         }
 
@@ -447,7 +487,7 @@ const checkEmailAvailability = async (email) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in checkEmailAvailability:", error); 
+        console.error("❌ [SERVICE] Unexpected error in checkEmailAvailability:", error);
         throw new AppError("An unexpected error occurred while checking email", STATUS_CODES.INTERNAL_SERVER_ERROR, "CHECK_EMAIL_ERROR", { originalError: error.message });
     }
 };
@@ -476,11 +516,11 @@ const forgotPassword = async (email) => {
 
         // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Save OTP to user
         user.passwordResetOTP = otp;
         user.passwordResetOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        
+
         try {
             await user.save();
             console.log("🔵 [SERVICE] Password reset OTP saved"); // debugger

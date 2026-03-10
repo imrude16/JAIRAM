@@ -5,7 +5,8 @@ import { User } from "../users/users.model.js";
 import { sendEmail } from "../../infrastructure/email/email.service.js";
 import { CURRENT_CHECKLIST } from "../../common/constants/checklistQuestions.v1.0.0.js";
 import { SubmissionCycle } from "./submissionCycles/submissionCycle.model.js";
-import { ManuscriptVersion } from "./manuscriptVersions/manuscriptVersion.model.js";
+import manuscriptVersionService from "../manuscriptVersions/manuscriptVersion.service.js";
+import consentService from "../consents/consent.service.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
@@ -177,61 +178,36 @@ const createInitialCycle = async (submissionId) => {
     }
 };
 
-const createManuscriptVersion = async (submissionId, cycleId, uploadedBy, uploaderRole, fileRefs) => {
-    try {
-        const versionCount = await ManuscriptVersion.countDocuments({ submissionId });
+// const sendCoAuthorConsentEmail = async (submission, coAuthor, token) => {
+//     try {
+//         const email = coAuthor.email;
+//         const name = `${coAuthor.firstName} ${coAuthor.lastName}`;
 
-        const version = await ManuscriptVersion.create({
-            submissionId,
-            cycleNumber: cycleId,
-            fileRefs,
-            uploadedBy,
-            uploaderRole,
-            versionNumber: versionCount + 1,
-        });
+//         const consentUrl = `${process.env.FRONTEND_URL}/submissions/${submission._id}/coauthor-consent/${coAuthor._id}?token=${token}`;
 
-        console.log(`🔵 [HELPER] Manuscript version ${versionCount + 1} created`);
-        return version;
-    } catch (error) {
-        console.error("❌ [HELPER] Failed to create manuscript version:", error);
-        throw new AppError(
-            "Failed to create manuscript version",
-            STATUS_CODES.INTERNAL_SERVER_ERROR,
-            "VERSION_CREATION_ERROR"
-        );
-    }
-};
+//         const emailHtml = `
+//             <h2>Co-Author Consent Request</h2>
+//             <p>Dear ${name},</p>
+//             <p>You have been added as a co-author on the manuscript titled:</p>
+//             <p><strong>${submission.title}</strong></p>
+//             <p>Submission Number: ${submission.submissionNumber || "Draft"}</p>
+//             <p>Please review and provide your consent by clicking the link below:</p>
+//             <p><a href="${consentUrl}" style="background:#007bff;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Provide Consent</a></p>
+//             <p>This link will expire in 7 days.</p>
+//             <p>If you did not expect this invitation, please ignore this email.</p>
+//         `;
 
-const sendCoAuthorConsentEmail = async (submission, coAuthor, token) => {
-    try {
-        const email = coAuthor.email;
-        const name = `${coAuthor.firstName} ${coAuthor.lastName}`;
+//         await sendEmail({
+//             to: email,
+//             subject: `Co-Author Consent Request - ${submission.title}`,
+//             html: emailHtml,
+//         });
 
-        const consentUrl = `${process.env.FRONTEND_URL}/submissions/${submission._id}/coauthor-consent/${coAuthor._id}?token=${token}`;
-
-        const emailHtml = `
-            <h2>Co-Author Consent Request</h2>
-            <p>Dear ${name},</p>
-            <p>You have been added as a co-author on the manuscript titled:</p>
-            <p><strong>${submission.title}</strong></p>
-            <p>Submission Number: ${submission.submissionNumber || "Draft"}</p>
-            <p>Please review and provide your consent by clicking the link below:</p>
-            <p><a href="${consentUrl}" style="background:#007bff;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Provide Consent</a></p>
-            <p>This link will expire in 7 days.</p>
-            <p>If you did not expect this invitation, please ignore this email.</p>
-        `;
-
-        await sendEmail({
-            to: email,
-            subject: `Co-Author Consent Request - ${submission.title}`,
-            html: emailHtml,
-        });
-
-        console.log(`🔵 [HELPER] Consent email sent to ${email}`);
-    } catch (emailError) {
-        console.error("❌ [HELPER] Failed to send consent email:", emailError);
-    }
-};
+//         console.log(`🔵 [HELPER] Consent email sent to ${email}`);
+//     } catch (emailError) {
+//         console.error("❌ [HELPER] Failed to send consent email:", emailError);
+//     }
+// };
 
 // ================================================
 // GENERATE CLOUDINARY UPLOAD URL (NEW)
@@ -754,29 +730,39 @@ const submitManuscript = async (submissionId, userId, payload) => {
         };
 
         // ═══════════════════════════════════════════════════════════
-        // STEP 2: ✅ NEW - GENERATE CO-AUTHOR CONSENT TOKENS
+        // STEP 2: ✅ CREATE CONSENT RECORDS (ALL CO-AUTHORS)
         // ═══════════════════════════════════════════════════════════
 
+        const consentRecords = [];
+
         if (submission.coAuthors && submission.coAuthors.length > 0) {
-            console.log(`🔐 [CONSENT] Generating tokens for ${submission.coAuthors.length} co-author(s)`);
+            console.log(`🔐 [CONSENT] Creating consent records for ${submission.coAuthors.length} co-author(s)`);
 
-            for (let i = 0; i < submission.coAuthors.length; i++) {
-                const coAuthor = submission.coAuthors[i];
+            for (const coAuthor of submission.coAuthors) {
+                try {
+                    const { consent, token } = await consentService.createConsent(
+                        submission._id,
+                        {
+                            user: coAuthor.user || null,
+                            email: coAuthor.email,
+                            firstName: coAuthor.firstName,
+                            lastName: coAuthor.lastName,
+                            phoneNumber: coAuthor.phoneNumber,
+                            source: coAuthor.source,
+                        }
+                    );
 
-                // Generate consent token (valid for 7 days)
-                const consentToken = submission.generateCoAuthorConsentToken(i);
+                    consentRecords.push({ consent, token, coAuthor });
 
-                // Set expiry and status
-                coAuthor.consentTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                coAuthor.consentStatus = "PENDING";
-
-                console.log(`🔐 [CONSENT] Token generated for ${coAuthor.email}`);
-                console.log(`   Token: ${consentToken}`);
-                console.log(`   Expires: ${coAuthor.consentTokenExpires}`);
+                    console.log(`✅ [CONSENT] Consent created for ${coAuthor.email} (${coAuthor.source})`);
+                } catch (consentError) {
+                    console.error(`❌ [CONSENT] Failed to create consent for ${coAuthor.email}:`, consentError);
+                }
             }
 
-            // Set consent deadline status
-            submission.consentDeadlineStatus = "ACTIVE";
+            if (consentRecords.length > 0) {
+                submission.consentDeadlineStatus = "ACTIVE";
+            }
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -812,7 +798,7 @@ const submitManuscript = async (submissionId, userId, payload) => {
             if (submission.tables) fileRefs.push(...submission.tables.map(f => f.fileUrl));
             if (submission.supplementaryFiles) fileRefs.push(...submission.supplementaryFiles.map(f => f.fileUrl));
 
-            await createManuscriptVersion(
+            await manuscriptVersionService.createManuscriptVersion(
                 submission._id,
                 cycle._id,
                 userId,
@@ -835,65 +821,75 @@ const submitManuscript = async (submissionId, userId, payload) => {
         console.log("✅ [SERVICE] Submission saved with consent tokens");
 
         // ═══════════════════════════════════════════════════════════
-        // STEP 7: ✅ NEW - SEND CO-AUTHOR CONSENT EMAILS
+        // STEP 7: ✅ SEND CONSENT EMAILS (ALL CO-AUTHORS) - ASYNC
         // ═══════════════════════════════════════════════════════════
 
-        if (submission.coAuthors && submission.coAuthors.length > 0) {
-            console.log(`📧 [CONSENT] Sending consent emails to ${submission.coAuthors.length} co-author(s)`);
+        if (consentRecords.length > 0) {
+            console.log(`📧 [CONSENT] Queuing consent emails to ${consentRecords.length} co-author(s)`);
 
-            for (const coAuthor of submission.coAuthors) {
-                try {
-                    await sendCoAuthorConsentEmail(submission, coAuthor);
-                    console.log(`✅ [CONSENT] Email sent to ${coAuthor.email}`);
-                } catch (emailError) {
-                    console.error(`❌ [CONSENT] Failed to send email to ${coAuthor.email}:`, emailError.message);
-                    // Don't fail submission if email fails - log and continue
+            // Fire-and-forget: send emails in background without awaiting
+            setImmediate(async () => {
+                for (const { consent, token, coAuthor } of consentRecords) {
+                    try {
+                        await consentService.sendConsentEmail(submission, coAuthor, token);
+                        console.log(`✅ [CONSENT] Email sent to ${coAuthor.email}`);
+                    } catch (emailError) {
+                        console.error(`❌ [CONSENT] Failed to send email:`, emailError.message);
+                    }
                 }
-            }
+            });
         }
 
         // ═══════════════════════════════════════════════════════════
-        // STEP 8: SEND SUGGESTED REVIEWER INVITATION EMAILS
+        // STEP 8: SEND SUGGESTED REVIEWER INVITATION EMAILS - ASYNC
         // ═══════════════════════════════════════════════════════════
 
-        for (const reviewer of submission.suggestedReviewers) {
-            try {
-                const token = reviewer.invitationToken;
-                await sendReviewerInvitationEmail(submission, reviewer, token);
-                console.log(`✅ [REVIEWER] Invitation email sent to ${reviewer.email}`);
-            } catch (emailError) {
-                console.error(`❌ [REVIEWER] Failed to send invitation to ${reviewer.email}:`, emailError.message);
-            }
+        if (submission.suggestedReviewers && submission.suggestedReviewers.length > 0) {
+            // Fire-and-forget: send emails in background without awaiting
+            setImmediate(async () => {
+                for (const reviewer of submission.suggestedReviewers) {
+                    try {
+                        const token = reviewer.invitationToken;
+                        await sendReviewerInvitationEmail(submission, reviewer, token);
+                        console.log(`✅ [REVIEWER] Invitation email sent to ${reviewer.email}`);
+                    } catch (emailError) {
+                        console.error(`❌ [REVIEWER] Failed to send invitation to ${reviewer.email}:`, emailError.message);
+                    }
+                }
+            });
         }
 
         // ═══════════════════════════════════════════════════════════
-        // STEP 9: SEND CONFIRMATION EMAIL TO AUTHOR
+        // STEP 9: SEND CONFIRMATION EMAIL TO AUTHOR - ASYNC
         // ═══════════════════════════════════════════════════════════
 
         const author = await User.findById(userId);
         if (author) {
-            try {
-                await sendEmail({
-                    to: author.email,
-                    subject: `Submission Confirmation - ${submission.submissionNumber}`,
-                    html: `
-                        <h2>Manuscript Submission Confirmation</h2>
-                        <p>Dear ${author.firstName} ${author.lastName},</p>
-                        <p>Your manuscript has been successfully submitted:</p>
-                        <p><strong>Submission Number:</strong> ${submission.submissionNumber}</p>
-                        <p><strong>Title:</strong> ${submission.title}</p>
-                        <p><strong>Article Type:</strong> ${submission.articleType}</p>
-                        ${submission.coAuthors && submission.coAuthors.length > 0 ? `
-                        <p><strong>Co-Authors:</strong> ${submission.coAuthors.length}</p>
-                        <p>Consent emails have been sent to all co-authors. They have 7 days to respond.</p>
-                        ` : ''}
-                        <p>We will review your submission and contact you soon.</p>
-                    `,
-                });
-                console.log("✅ [EMAIL] Confirmation email sent to author");
-            } catch (emailError) {
-                console.error("❌ [EMAIL] Failed to send confirmation email:", emailError);
-            }
+            // Fire-and-forget: send email in background without awaiting
+            setImmediate(async () => {
+                try {
+                    await sendEmail({
+                        to: author.email,
+                        subject: `Submission Confirmation - ${submission.submissionNumber}`,
+                        html: `
+                            <h2>Manuscript Submission Confirmation</h2>
+                            <p>Dear ${author.firstName} ${author.lastName},</p>
+                            <p>Your manuscript has been successfully submitted:</p>
+                            <p><strong>Submission Number:</strong> ${submission.submissionNumber}</p>
+                            <p><strong>Title:</strong> ${submission.title}</p>
+                            <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                            ${submission.coAuthors && submission.coAuthors.length > 0 ? `
+                            <p><strong>Co-Authors:</strong> ${submission.coAuthors.length}</p>
+                            <p>Consent emails have been sent to all co-authors. They have 7 days to respond.</p>
+                            ` : ''}
+                            <p>We will review your submission and contact you soon.</p>
+                        `,
+                    });
+                    console.log("✅ [EMAIL] Confirmation email sent to author");
+                } catch (emailError) {
+                    console.error("❌ [EMAIL] Failed to send confirmation email:", emailError);
+                }
+            });
         }
 
         console.log("✅ [SERVICE] submitManuscript completed successfully");
@@ -1008,7 +1004,7 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
         }
 
         const cycles = await SubmissionCycle.findBySubmission(submissionId);
-        const versions = await ManuscriptVersion.findBySubmission(submissionId);
+        const versions = await manuscriptVersionService.getVersionsBySubmission(submissionId);
 
         console.log("✅ [SERVICE] getSubmissionTimeline completed successfully");
 
@@ -1168,146 +1164,53 @@ const assignEditor = async (submissionId, editorId, assignedByUserId) => {
 // CO-AUTHOR CONSENT (UPDATED WITH REJECTION TRACKING)
 // ================================================
 
-const processCoAuthorConsent = async (submissionId, coAuthorId, consent, token) => {
+const processCoAuthorConsent = async (token, decision, remark = null) => {
     try {
         console.log("🔵 [SERVICE] processCoAuthorConsent started");
 
-        const submission = await findSubmissionById(submissionId);
+        // Process consent
+        const consent = await consentService.processConsentResponse(token, decision, remark);
 
+        const submission = await findSubmissionById(consent.submissionId);
         if (!submission) {
             throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
         }
 
-        const coAuthorIndex = submission.coAuthors.findIndex(
-            ca => ca._id.toString() === coAuthorId
-        );
+        // If rejected, notify author
+        if (consent.status === "REJECTED") {
+            await consentService.notifyAuthorOfRejection(submission, consent);
 
-        if (coAuthorIndex === -1) {
-            throw new AppError("Co-author not found in this submission", STATUS_CODES.NOT_FOUND, "COAUTHOR_NOT_FOUND");
-        }
-
-        const coAuthor = submission.coAuthors[coAuthorIndex];
-        console.log("🔍 [DEBUG] coAuthor token in DB:", coAuthor.consentToken);
-        console.log("🔍 [DEBUG] coAuthor token expiry:", coAuthor.consentTokenExpires);
-        console.log("🔍 [DEBUG] coAuthor status:", coAuthor.consentStatus);
-        console.log("🔍 [DEBUG] tokens match:", coAuthor.consentToken === token);
-        console.log("🔍 [DEBUG] token expired:", coAuthor.consentTokenExpires < Date.now());
-
-        const isValidToken = submission.verifyCoAuthorConsentToken(coAuthorIndex, token);
-        console.log("🔍 [DEBUG] isValidToken result:", isValidToken);
-
-        if (!isValidToken) {
-            throw new AppError("Invalid or expired consent token", STATUS_CODES.BAD_REQUEST, "INVALID_TOKEN");
-        }
-
-        submission.coAuthors[coAuthorIndex].consentStatus = consent === "ACCEPT" ? "ACCEPTED" : "REJECTED";
-        submission.coAuthors[coAuthorIndex].consentDate = new Date();
-        submission.coAuthors[coAuthorIndex].consentToken = undefined;
-        submission.coAuthors[coAuthorIndex].consentTokenExpires = undefined;
-
-        // NEW: Handle rejection with tracking and single notification
-        if (consent === "REJECT") {
-            const coAuthor = submission.coAuthors[coAuthorIndex];
-
-            // Only notify if not already notified
-            if (submission.consentDeadlineStatus === "ACTIVE") {
-                submission.consentDeadlineStatus = "NOTIFIED";
-
-                // Track this rejection in consentIssues
-                submission.consentIssues.push({
-                    coAuthorId: coAuthor._id,
-                    coAuthorEmail: coAuthor.email,
-                    coAuthorName: `${coAuthor.firstName} ${coAuthor.lastName}`,
-                    issueType: "REJECTED",
-                    reportedAt: new Date(),
-                });
-
-                // Move to DRAFT if was SUBMITTED
-                if (submission.status === "SUBMITTED") {
-                    submission.status = "DRAFT";
-                }
-
-                console.log(`⚠️ [SERVICE] Co-author ${coAuthor.email} REJECTED consent`);
-
-                // Send notification email to author (ONCE)
-                const author = await User.findById(submission.author);
-                if (author) {
-                    try {
-                        const rejectedCoAuthors = submission.coAuthors.filter(ca => ca.consentStatus === "REJECTED");
-                        const pendingCoAuthors = submission.coAuthors.filter(ca => ca.consentStatus === "PENDING");
-
-                        await sendEmail({
-                            to: author.email,
-                            subject: `⚠️ Co-Author Consent Issue - ${submission.submissionNumber || "Draft"}`,
-                            html: `
-                        <h2>Co-Author Consent Issue</h2>
-                        <p>Dear ${author.firstName} ${author.lastName},</p>
-                        <p>Co-author <strong>${coAuthor.firstName} ${coAuthor.lastName}</strong> (${coAuthor.email}) has <strong>rejected</strong> consent for your manuscript:</p>
-                        <p><strong>Title:</strong> ${submission.title}</p>
-                        <p><strong>Submission Number:</strong> ${submission.submissionNumber || "Draft"}</p>
-                        <hr>
-                        <p><strong>⏳ You have 7 days to resolve this issue:</strong></p>
-                        <p>Consent Token Expires: <strong>${coAuthor.consentTokenExpires ? coAuthor.consentTokenExpires.toLocaleDateString() : "N/A"}</strong></p>
-                        
-                        <p><strong>Current Status:</strong></p>
-                        <ul>
-                            <li><strong>❌ Rejected (${rejectedCoAuthors.length}):</strong>
-                                <ul>
-                                    ${rejectedCoAuthors.map(ca => `<li>${ca.firstName} ${ca.lastName} (${ca.email})</li>`).join('')}
-                                </ul>
-                            </li>
-                            <li><strong>⏰ Pending (${pendingCoAuthors.length}):</strong>
-                                <ul>
-                                    ${pendingCoAuthors.map(ca => `<li>${ca.firstName} ${ca.lastName} (${ca.email})</li>`).join('')}
-                                </ul>
-                            </li>
-                        </ul>
-                        
-                        <p><strong>Next Steps:</strong></p>
-                        <ol>
-                            <li>Contact the co-author(s) to understand their concerns</li>
-                            <li>If resolved offline, inform the Editor who can manually approve</li>
-                            <li>If not resolved within 7 days, your submission will be automatically rejected</li>
-                        </ol>
-                        
-                        <p>⚠️ Your submission is now in <strong>DRAFT</strong> status until this is resolved.</p>
-                        <p><em>You will receive only ONE notification per issue. No further emails will be sent unless the deadline expires.</em></p>
-                    `,
-                        });
-                        console.log(`📧 [SERVICE] Rejection notification sent to author (ONCE)`);
-                    } catch (emailError) {
-                        console.error("❌ Failed to send rejection notification:", emailError);
-                    }
-                }
-            }
-
-        } else {
-            // Check if all co-authors have now accepted
-            const allAccepted = submission.coAuthors.every(ca => ca.consentStatus === "ACCEPTED");
-
-            if (allAccepted) {
-                submission.consentDeadlineStatus = "RESOLVED";
-
-                // Move back to SUBMITTED if it was moved to DRAFT
-                if (submission.status === "DRAFT") {
-                    submission.status = "SUBMITTED";
-                }
-
-                console.log(`✅ [SERVICE] All co-authors accepted - submission can proceed`);
+            if (submission.status === "SUBMITTED") {
+                submission.status = "DRAFT";
+                await submission.save();
             }
         }
 
-        await submission.save();
+        // If approved, check if all approved
+        if (consent.status === "APPROVED") {
+            const { Consent } = await import("../consents/consent.model.js");
+            const allApproved = await Consent.areAllApproved(consent.submissionId);
 
-        console.log("✅ [SERVICE] processCoAuthorConsent completed successfully");
+            if (allApproved && submission.status === "DRAFT") {
+                submission.status = "SUBMITTED";
+                await submission.save();
+                console.log(`✅ [SERVICE] All consents approved - submission SUBMITTED`);
+            }
+        }
 
         return {
-            message: `Consent ${consent === "ACCEPT" ? "accepted" : "rejected"} successfully`,
+            message: `Consent ${decision === "APPROVE" ? "accepted" : "rejected"} successfully`,
+            needsRegistration: !consent.coAuthorId, // ✅ Tell frontend if registration needed
         };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in processCoAuthorConsent:", error);
-        throw new AppError("Failed to process consent", STATUS_CODES.INTERNAL_SERVER_ERROR, "CONSENT_ERROR", { originalError: error.message });
+        console.error("❌ [SERVICE] Error in processCoAuthorConsent:", error);
+        throw new AppError(
+            "Failed to process consent",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "CONSENT_ERROR",
+            { originalError: error.message }
+        );
     }
 };
 
@@ -1482,7 +1385,7 @@ const submitRevision = async (userId, payload) => {
             if (payload.revisedManuscript) fileRefs.push(payload.revisedManuscript.fileUrl);
             if (payload.attachments) fileRefs.push(...payload.attachments.map(a => a.fileUrl));
 
-            await createManuscriptVersion(
+            await manuscriptVersionService.createManuscriptVersion(
                 payload.originalSubmissionId,
                 cycle._id,
                 userId,

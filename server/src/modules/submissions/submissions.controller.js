@@ -16,7 +16,7 @@ import { STATUS_CODES } from "../../common/constants/statusCodes.js";
 
 const createSubmission = async (req, res) => {
     const result = await submissionService.createSubmission(req.user.id, req.body);
-    
+
     sendSuccess(
         res,
         result.message,
@@ -28,13 +28,13 @@ const createSubmission = async (req, res) => {
 
 const getSubmissionById = async (req, res) => {
     const { id } = req.params;
-    
+
     const submission = await submissionService.getSubmissionById(
         id,
         req.user.id,
         req.user.role
     );
-    
+
     sendSuccess(
         res,
         "Submission retrieved successfully",
@@ -46,13 +46,13 @@ const getSubmissionById = async (req, res) => {
 
 const updateSubmission = async (req, res) => {
     const { id } = req.params;
-    
+
     const result = await submissionService.updateSubmission(
         id,
         req.user.id,
         req.body
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -64,13 +64,13 @@ const updateSubmission = async (req, res) => {
 
 const submitManuscript = async (req, res) => {
     const { id } = req.params;
-    
+
     const result = await submissionService.submitManuscript(
         id,
         req.user.id,
         req.body
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -86,7 +86,7 @@ const listSubmissions = async (req, res) => {
         req.user.role,
         req.query
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -102,7 +102,7 @@ const listSubmissions = async (req, res) => {
 const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status, comments } = req.body;
-    
+
     const result = await submissionService.updateStatus(
         id,
         req.user.id,
@@ -110,7 +110,7 @@ const updateStatus = async (req, res) => {
         status,
         comments
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -123,14 +123,14 @@ const updateStatus = async (req, res) => {
 const updatePaymentStatus = async (req, res) => {
     const { id } = req.params;
     const { paymentStatus, note } = req.body;
-    
+
     const result = await submissionService.updatePaymentStatus(
         id,
         req.user.id,
         paymentStatus,
         note
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -143,13 +143,13 @@ const updatePaymentStatus = async (req, res) => {
 const assignEditor = async (req, res) => {
     const { id } = req.params;
     const { editorId } = req.body;
-    
+
     const result = await submissionService.assignEditor(
         id,
         editorId,
         req.user.id
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -160,16 +160,14 @@ const assignEditor = async (req, res) => {
 };
 
 const processCoAuthorConsent = async (req, res) => {
-    const { id, coAuthorId } = req.params;
-    const { consent, token } = req.body;
-    
+    const { consent, token, remark } = req.body;
+
     const result = await submissionService.processCoAuthorConsent(
-        id,
-        coAuthorId,
+        token,
         consent,
-        token
+        remark
     );
-    
+
     sendSuccess(
         res,
         result.message,
@@ -247,9 +245,9 @@ const makeEditorDecision = async (req, res) => {
     sendSuccess(
         res,
         result.message,
-        { 
+        {
             submission: result.submission,
-            decisionsRemaining: result.decisionsRemaining 
+            decisionsRemaining: result.decisionsRemaining
         },
         null,
         STATUS_CODES.OK
@@ -271,9 +269,9 @@ const makeTechnicalEditorDecision = async (req, res) => {
     sendSuccess(
         res,
         result.message,
-        { 
+        {
             submission: result.submission,
-            note: result.note 
+            note: result.note
         },
         null,
         STATUS_CODES.OK
@@ -318,9 +316,9 @@ const autoRejectExpiredConsents = async (req, res) => {
     sendSuccess(
         res,
         "Expired consents processed successfully",
-        { 
+        {
             processed: result.processed,
-            submissions: result.submissions 
+            submissions: result.submissions
         },
         null,
         STATUS_CODES.OK
@@ -394,7 +392,7 @@ const assignReviewers = async (req, res) => {
 
 const generateUploadUrl = async (req, res) => {
     const result = await submissionService.generateUploadUrl(req.user.id, req.body);
-    
+
     sendSuccess(
         res,
         result.message,
@@ -412,9 +410,9 @@ const generateUploadUrl = async (req, res) => {
 
 const searchAuthors = async (req, res) => {
     const { q, exclude } = req.query;
-    
+
     const result = await submissionService.searchAuthors(q, exclude || "");
-    
+
     sendSuccess(
         res,
         result.message,
@@ -426,9 +424,9 @@ const searchAuthors = async (req, res) => {
 
 const searchReviewers = async (req, res) => {
     const { q, exclude } = req.query;
-    
+
     const result = await submissionService.searchReviewers(q, exclude || "");
-    
+
     sendSuccess(
         res,
         result.message,
@@ -440,7 +438,7 @@ const searchReviewers = async (req, res) => {
 
 const saveDraft = async (req, res) => {
     const result = await submissionService.saveDraft(req.user.id, req.body);
-    
+
     sendSuccess(
         res,
         result.message,
@@ -452,7 +450,7 @@ const saveDraft = async (req, res) => {
 
 const getLatestDraft = async (req, res) => {
     const result = await submissionService.getLatestDraft(req.user.id);
-    
+
     sendSuccess(
         res,
         result.message,
@@ -465,7 +463,7 @@ const getLatestDraft = async (req, res) => {
 const deleteDraft = async (req, res) => {
     const { id } = req.params;
     const result = await submissionService.deleteDraft(req.user.id, id);
-    
+
     sendSuccess(
         res,
         result.message,
