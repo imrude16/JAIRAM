@@ -621,6 +621,20 @@ const updateSubmission = async (submissionId, userId, updates) => {
         const sensitiveFields = ["submissionNumber", "status", "assignedEditor", "assignedReviewers", "assignedTechnicalEditors", "paymentStatus"];
         sensitiveFields.forEach(field => delete updates[field]);
 
+        if (updates.coAuthors && updates.coAuthors.length > 0) {
+            updates.coAuthors = updates.coAuthors.map(coAuthor => {
+                if (coAuthor.source === "DATABASE_SEARCH") {
+                    return {
+                        user: coAuthor.user || null,
+                        order: coAuthor.order,
+                        isCorresponding: coAuthor.isCorresponding,
+                        source: "DATABASE_SEARCH",
+                    };
+                }
+                return coAuthor;
+            });
+        }
+
         Object.keys(updates).forEach(key => {
             submission[key] = updates[key];
         });
@@ -709,19 +723,35 @@ const submitManuscript = async (submissionId, userId, payload) => {
 
             for (const coAuthor of submission.coAuthors) {
                 try {
+
+                    let consentCoAuthorData = {
+                        user: coAuthor.user || null,
+                        email: coAuthor.email,
+                        firstName: coAuthor.firstName,
+                        lastName: coAuthor.lastName,
+                        phoneNumber: coAuthor.phoneNumber,
+                        source: coAuthor.source,
+                    };
+
+                    if (coAuthor.source === "DATABASE_SEARCH" && coAuthor.user) {
+                        const coAuthorUser = await User.findById(coAuthor.user)
+                            .select("firstName lastName email");
+                        if (coAuthorUser) {
+                            consentCoAuthorData = {
+                                ...consentCoAuthorData,
+                                email: coAuthorUser.email,
+                                firstName: coAuthorUser.firstName,
+                                lastName: coAuthorUser.lastName,
+                            };
+                        }
+                    }
+
                     const { consent, token } = await consentService.createConsent(
                         submission._id,
-                        {
-                            user: coAuthor.user || null,
-                            email: coAuthor.email,
-                            firstName: coAuthor.firstName,
-                            lastName: coAuthor.lastName,
-                            phoneNumber: coAuthor.phoneNumber,
-                            source: coAuthor.source,
-                        }
+                        consentCoAuthorData
                     );
 
-                    consentRecords.push({ consent, token, coAuthor });
+                    consentRecords.push({ consent, token, coAuthor, emailData: consentCoAuthorData });
 
                     console.log(`✅ [CONSENT] Consent created for ${coAuthor.email} (${coAuthor.source})`);
                 } catch (consentError) {
@@ -798,9 +828,9 @@ const submitManuscript = async (submissionId, userId, payload) => {
 
             // Fire-and-forget: send emails in background without awaiting
             setImmediate(async () => {
-                for (const { consent, token, coAuthor } of consentRecords) {
+                for (const { token, coAuthor, emailData } of consentRecords) {
                     try {
-                        await consentService.sendConsentEmail(submission, coAuthor, token);
+                        await consentService.sendConsentEmail(submission, emailData, token);
                         console.log(`✅ [CONSENT] Email sent to ${coAuthor.email}`);
                     } catch (emailError) {
                         console.error(`❌ [CONSENT] Failed to send email:`, emailError.message);
