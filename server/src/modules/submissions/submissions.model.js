@@ -143,88 +143,89 @@ const submissionSchema = new Schema(
             default: false,
         },
 
-        // Co-Authors
-        coAuthors: [{
-            // Reference to User (null if outside co-author until registration)
-            user: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-                default: null,
-            },
+        coAuthors: [
+            {
+                _id: false,  // ✅ Disable auto-generated _id
 
-            // Manual entry fields (required for outside co-authors)
-            title: {
-                type: String,
-                enum: ["Dr.", "Prof.", "Mr.", "Mrs."],
-                required: true,
-            },
-            firstName: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            lastName: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            email: {
-                type: String,
-                required: true,
-                lowercase: true,
-                trim: true,
-            },
-            phoneNumber: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            department: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            country: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            orcid: {
-                type: String,
-                trim: true,
-                match: [/^\d{4}-\d{4}-\d{4}-\d{4}$/, "Invalid ORCID format"],
-            },
+                // ══════════════════════════════════════════════════════════
+                // REFERENCE (Always present)
+                // ══════════════════════════════════════════════════════════
 
-            // Author order
-            order: {
-                type: Number,
-                required: true,
-                min: 1,
-            },
+                user: {
+                    type: Schema.Types.ObjectId,
+                    ref: "User",
+                    default: null,
+                    index: true,
+                },
 
-            // Is this co-author the corresponding author?
-            isCorresponding: {
-                type: Boolean,
-                default: false,
-            },
+                source: {
+                    type: String,
+                    enum: {
+                        values: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
+                        message: "{VALUE} is not a valid source",
+                    },
+                    required: true,
+                },
 
-            // // Consent tracking
-            // consentStatus: {
-            //     type: String,
-            //     enum: ["PENDING", "ACCEPTED", "REJECTED"],
-            //     default: "PENDING",
-            // },
-            // consentDate: Date,
-            // consentToken: { type: String, select: false },
-            // consentTokenExpires: { type: Date, select: false },
+                order: {
+                    type: Number,
+                    required: true,
+                    min: 1,
+                },
 
-            // Source tracking
-            source: {
-                type: String,
-                enum: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
-                default: "MANUAL_ENTRY",
+                isCorresponding: {
+                    type: Boolean,
+                    default: false,
+                },
+
+                // ══════════════════════════════════════════════════════════
+                // TEMPORARY FIELDS (MANUAL_ENTRY only, cleared after linking)
+                // ══════════════════════════════════════════════════════════
+
+                // Cross-verification fields
+                firstName: {
+                    type: String,
+                    trim: true,
+                },
+
+                lastName: {
+                    type: String,
+                    trim: true,
+                },
+
+                email: {
+                    type: String,
+                    lowercase: true,
+                    trim: true,
+                },
+
+                phoneNumber: {
+                    type: String,
+                    trim: true,
+                },
+
+                // Additional temporary fields
+                title: {
+                    type: String,
+                    trim: true,
+                },
+
+                department: {
+                    type: String,
+                    trim: true,
+                },
+
+                country: {
+                    type: String,
+                    trim: true,
+                },
+
+                orcid: {
+                    type: String,
+                    trim: true,
+                },
             },
-        }],
+        ],
 
         // ══════════════════════════════════════════════════════════
         // SUBMISSION STATUS & WORKFLOW
@@ -411,7 +412,7 @@ const submissionSchema = new Schema(
             fileSize: Number,
             mimeType: String,
             uploadedAt: Date,
-            isTemporary: { type: Boolean, default: true }, 
+            isTemporary: { type: Boolean, default: true },
             // isTemporary indicates if the file is still in temp storage 
             // and not yet associated with a final submission (deleted after 7 days if not submitted)
         },
@@ -479,76 +480,100 @@ const submissionSchema = new Schema(
         // STEP 5: REVIEWER SUGGESTIONS (Same pattern as co-authors)
         // ══════════════════════════════════════════════════════════
 
-        suggestedReviewers: [{
-            // Reference to User (null if outside reviewer until registration)
-            user: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-                default: null,
-            },
+        suggestedReviewers: [
+            {
+                _id: false,  // ✅ Disable auto-generated _id
 
-            // Manual entry fields
-            title: {
-                type: String,
-                enum: ["Dr.", "Prof.", "Mr.", "Mrs."],
-                required: true,
-            },
-            firstName: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            lastName: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            email: {
-                type: String,
-                required: true,
-                lowercase: true,
-                trim: true,
-            },
-            specialization: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            institution: {
-                type: String,
-                required: true,
-                trim: true,
-            },
-            country: {
-                type: String,
-                required: true,
-                trim: true,
-            },
+                // ══════════════════════════════════════════════════════════
+                // REFERENCE (Always present)
+                // ══════════════════════════════════════════════════════════
 
-            // Source tracking
-            source: {
-                type: String,
-                enum: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
-                default: "MANUAL_ENTRY",
-            },
+                user: {
+                    type: Schema.Types.ObjectId,
+                    ref: "User",
+                    default: null,
+                    index: true,
+                },
 
-            // Invitation tracking
-            invitationStatus: {
-                type: String,
-                enum: ["PENDING", "ACCEPTED", "DECLINED", "EXPIRED"],
-                default: "PENDING",
-            },
-            invitationToken: { type: String, select: false },
-            invitationTokenExpires: { type: Date, select: false },
-            invitationSentAt: Date,
-            invitationRespondedAt: Date,
+                source: {
+                    type: String,
+                    enum: {
+                        values: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
+                        message: "{VALUE} is not a valid source",
+                    },
+                    required: true,
+                },
 
-            // Editor approval flag (simple boolean)
-            editorApproved: {
-                type: Boolean,
-                default: false,
+                invitationStatus: {
+                    type: String,
+                    enum: {
+                        values: ["PENDING", "ACCEPTED", "DECLINED"],
+                        message: "{VALUE} is not a valid invitation status",
+                    },
+                    default: "PENDING",
+                },
+
+                editorApproved: {
+                    type: Boolean,
+                    default: false,
+                },
+
+                invitationToken: {
+                    type: String,
+                    select: false,
+                },
+
+                invitationTokenExpires: {
+                    type: Date,
+                },
+
+                invitationSentAt: {
+                    type: Date,
+                },
+
+                // ══════════════════════════════════════════════════════════
+                // TEMPORARY FIELDS (MANUAL_ENTRY only, cleared after linking)
+                // ══════════════════════════════════════════════════════════
+
+                // Cross-verification fields
+                firstName: {
+                    type: String,
+                    trim: true,
+                },
+
+                lastName: {
+                    type: String,
+                    trim: true,
+                },
+
+                email: {
+                    type: String,
+                    lowercase: true,
+                    trim: true,
+                },
+
+                // Additional temporary fields
+                title: {
+                    type: String,
+                    trim: true,
+                },
+
+                specialization: {
+                    type: String,
+                    trim: true,
+                },
+
+                institution: {
+                    type: String,
+                    trim: true,
+                },
+
+                country: {
+                    type: String,
+                    trim: true,
+                },
             },
-        }],
+        ],
 
         // ══════════════════════════════════════════════════════════
         // STEP 5: DECLARATIONS

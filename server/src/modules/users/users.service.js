@@ -229,9 +229,21 @@ const verifyOTP = async (email, otp) => {
 
                         for (const coAuthor of submission.coAuthors) {
                             if (coAuthor.email === user.email && !coAuthor.user) {
+                                // Link user
                                 coAuthor.user = user._id;
+
+                                // Clear temporary fields (keep only essential)
+                                coAuthor.firstName = undefined;
+                                coAuthor.lastName = undefined;
+                                coAuthor.email = undefined;
+                                coAuthor.phoneNumber = undefined;
+                                coAuthor.title = undefined;
+                                coAuthor.department = undefined;
+                                coAuthor.country = undefined;
+                                coAuthor.orcid = undefined;
+
                                 updated = true;
-                                console.log(`✅ [REGISTRATION] Linked co-author in submission ${submission.submissionNumber || submission._id}`);
+                                console.log(`✅ [REGISTRATION] Linked co-author & cleaned temp fields for submission ${submission.submissionNumber || submission._id}`);
                             }
                         }
 

@@ -2326,6 +2326,42 @@ const saveDraft = async (userId, payload) => {
             throw new AppError("User not found", STATUS_CODES.NOT_FOUND, "USER_NOT_FOUND");
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // CLEAN DATABASE_SEARCH DATA (Keep only minimal fields)
+        // ═══════════════════════════════════════════════════════════
+
+        if (payload.coAuthors && payload.coAuthors.length > 0) {
+            payload.coAuthors = payload.coAuthors.map(coAuthor => {
+                if (coAuthor.source === "DATABASE_SEARCH") {
+                    // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
+                    return {
+                        user: coAuthor.user || null,
+                        order: coAuthor.order,
+                        isCorresponding: coAuthor.isCorresponding,
+                        source: "DATABASE_SEARCH",
+                    };
+                }
+                // Keep all fields for MANUAL_ENTRY (needed for verification)
+                return coAuthor;
+            });
+        }
+
+        if (payload.suggestedReviewers && payload.suggestedReviewers.length > 0) {
+            payload.suggestedReviewers = payload.suggestedReviewers.map(reviewer => {
+                if (reviewer.source === "DATABASE_SEARCH") {
+                    // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
+                    return {
+                        user: reviewer.user || null,
+                        source: "DATABASE_SEARCH",
+                        invitationStatus: reviewer.invitationStatus || "PENDING",
+                        editorApproved: reviewer.editorApproved || false,
+                    };
+                }
+                // Keep all fields for MANUAL_ENTRY (needed for verification)
+                return reviewer;
+            });
+        }
+
         // Check if draft already exists
         const existingDraft = await Submission.findOne({
             author: userId,

@@ -1559,6 +1559,7 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
   const handleSelectCoAuthor = (user) => {
     setDraft((p) => ({
       ...p,
+      user: user.id,  // ✅ ADD THIS LINE - Store the ObjectId
       title: user.title || p.title,
       firstName: user.firstName || "",
       lastName: user.lastName || "",
@@ -2253,19 +2254,26 @@ const SubmitManuscript = () => {
 
           isCorrespondingAuthor: selfCorresponding,
 
-          coAuthors: authors.map((author, index) => ({
-            title: author.title,
-            firstName: author.firstName,
-            lastName: author.lastName,
-            email: author.email,
-            phoneNumber: author.phone,
-            department: author.department,
-            country: author.country,
-            orcid: author.ORCID || "",
-            order: index + 1,
-            isCorresponding: author.isCorresponding || false,
-            source: author.source || "MANUAL_ENTRY",
-          })),
+          coAuthors: authors.map((author, index) => {
+            const coAuthorData = {
+              title: author.title,
+              firstName: author.firstName,
+              lastName: author.lastName,
+              email: author.email,
+              phoneNumber: author.phone,
+              department: author.department,
+              country: author.country,
+              orcid: author.ORCID || "",
+              order: index + 1,
+              isCorresponding: author.isCorresponding || false,
+              source: author.source || "MANUAL_ENTRY",
+            };
+            // ✅ Include user field if from DATABASE_SEARCH (for linking)
+            if (author.user && author.source === "DATABASE_SEARCH") {
+              coAuthorData.user = author.user;
+            }
+            return coAuthorData;
+          }),
 
           coverLetter: files.coverLetter,
           blindManuscriptFile: files.blindManuscript,
