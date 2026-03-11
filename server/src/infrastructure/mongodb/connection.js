@@ -6,7 +6,7 @@ import { Submission } from "../../modules/submissions/submissions.model.js";
 import { User } from "../../modules/users/users.model.js";
 import { Consent } from "../../modules/consents/consent.model.js";
 import { ManuscriptVersion } from "../../modules/manuscriptVersions/manuscriptVersion.model.js";
-import { SubmissionCycle } from "../../modules/submissions/submissionCycles/submissionCycle.model.js";
+import { SubmissionCycle } from "../../modules/submissionCycles/submissionCycle.model.js";
 
 const connectDB = async () => {
     try {

@@ -4,7 +4,7 @@ import { Submission } from "./submissions.model.js";
 import { User } from "../users/users.model.js";
 import { sendEmail } from "../../infrastructure/email/email.service.js";
 import { CURRENT_CHECKLIST } from "../../common/constants/checklistQuestions.v1.0.0.js";
-import { SubmissionCycle } from "./submissionCycles/submissionCycle.model.js";
+import { SubmissionCycle } from "../submissionCycles/submissionCycle.model.js";
 import manuscriptVersionService from "../manuscriptVersions/manuscriptVersion.service.js";
 import consentService from "../consents/consent.service.js";
 
