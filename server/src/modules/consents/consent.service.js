@@ -132,7 +132,7 @@ const processConsentResponse = async (token, decision, remark = null) => {
         }
 
         // Update consent based on decision
-        if (decision === "APPROVE") {
+        if (decision === "ACCEPT") {
             consent.approve();
         } else if (decision === "REJECT") {
             consent.reject(remark);

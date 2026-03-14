@@ -514,9 +514,9 @@ export const assignEditorSchema = {
 
 export const coAuthorConsentSchema = {
     body: Joi.object({
-        consent: Joi.string().valid("APPROVE", "REJECT").required()
+        consent: Joi.string().valid("ACCEPT", "REJECT").required()
             .messages({
-                "any.only": "Consent must be either APPROVE or REJECT",
+                "any.only": "Consent must be either ACCEPT or REJECT",
             }),
         token: Joi.string().required()
             .messages({

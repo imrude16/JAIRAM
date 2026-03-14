@@ -81,7 +81,7 @@ const userSchema = new Schema(
                 "Nutrition", "Obstetrics & Gynecology", "Oncology",
                 "Ophthalmology/Optometry", "Orthopaedics", "Pathology",
                 "Pediatrics", "Pharmacology", "Physical Medicine & Rehabilitation",
-                "Psychiatry w/Addiction)", "Public Health", "Pulmonary",
+                "Psychiatry w/Addiction", "Public Health", "Pulmonary",
                 "Radiology", "Rheumatology", "Surgery (General)",
                 "Trauma", "Urology", "Other"
             ],

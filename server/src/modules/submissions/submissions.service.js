@@ -1198,7 +1198,7 @@ const processCoAuthorConsent = async (token, decision, remark = null) => {
         }
 
         return {
-            message: `Consent ${decision === "APPROVE" ? "accepted" : "rejected"} successfully`,
+            message: `Consent ${decision === "ACCEPT" ? "accepted" : "rejected"} successfully`,
             needsRegistration: !consent.coAuthorId, // ✅ Tell frontend if registration needed
         };
     } catch (error) {
