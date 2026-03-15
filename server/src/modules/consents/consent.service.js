@@ -263,10 +263,8 @@ const linkConsentToUser = async (user) => {
             // ✅ CROSS-VERIFICATION (4 fields)
             const emailMatch = consent.coAuthorEmail === user.email;
             const phoneMatch = consent.coAuthorPhoneNumber === user.mobileNumber;
-            const firstNameMatch = consent.coAuthorFirstName?.toLowerCase() === user.firstName?.toLowerCase();
-            const lastNameMatch = consent.coAuthorLastName?.toLowerCase() === user.lastName?.toLowerCase();
 
-            if (emailMatch && phoneMatch && firstNameMatch && lastNameMatch) {
+            if (emailMatch && phoneMatch) {
                 // Link user ObjectId
                 consent.coAuthorId = user._id;
 

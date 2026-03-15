@@ -12,20 +12,21 @@ import { ManuscriptVersion } from "./manuscriptVersion.model.js";
 // CREATE MANUSCRIPT VERSION
 // ================================================
 
-const createManuscriptVersion = async (submissionId, cycleId, uploadedBy, uploaderRole, fileRefs) => {
+const createManuscriptVersion = async (submissionId, cycleId, uploadedBy, uploaderRole, fileRefs, currentStage = "INITIAL_SUBMISSION") => {
     try {
         const versionCount = await ManuscriptVersion.countDocuments({ submissionId });
 
         const version = await ManuscriptVersion.create({
             submissionId,
-            cycleNumber: cycleId,
+            cycleId,
             fileRefs,
             uploadedBy,
             uploaderRole,
             versionNumber: versionCount + 1,
+            currentStage
         });
 
-        console.log(`🔵 [VERSION-SERVICE] Manuscript version ${versionCount + 1} created`);
+        console.log(`🔵 [VERSION-SERVICE] Manuscript version ${versionCount + 1} created (${currentStage})`);
         return version;
     } catch (error) {
         console.error("❌ [VERSION-SERVICE] Failed to create manuscript version:", error);

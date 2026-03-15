@@ -89,6 +89,20 @@ const submissionCycleSchema = new Schema(
             sentAt: Date,
         },
 
+
+        editorRemarksForAuthor: {
+            remarks: {
+                type: String,
+                trim: true,
+                maxlength: 2000,
+            },
+            attachments: [{
+                fileName: String,
+                fileUrl: String,
+            }],
+            sentAt: Date,
+        },
+
         // ══════════════════════════════════════════════════════════
         // EDITOR DECISION (ENHANCED)
         // ══════════════════════════════════════════════════════════

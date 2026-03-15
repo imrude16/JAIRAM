@@ -73,6 +73,16 @@ const validateCorrespondingAuthor = (submission) => {
     const isMainCorresponding = submission.isCorrespondingAuthor;
     const coAuthorCorresponding = submission.coAuthors?.filter(ca => ca.isCorresponding);
 
+    // Co-author required
+    if (!submission.coAuthors || submission.coAuthors.length === 0) {
+        throw new AppError(
+            "At least one co-author is required before submitting",
+            STATUS_CODES.BAD_REQUEST,
+            "CO_AUTHOR_REQUIRED"
+        );
+    }
+
+    // Corresponding author required
     if (!isMainCorresponding && (!coAuthorCorresponding || coAuthorCorresponding.length === 0)) {
         throw new AppError(
             "Please designate a corresponding author (either yourself or one co-author)",
@@ -81,6 +91,7 @@ const validateCorrespondingAuthor = (submission) => {
         );
     }
 
+    // Only one corresponding author allowed
     if (coAuthorCorresponding && coAuthorCorresponding.length > 1) {
         throw new AppError(
             "Only one corresponding author is allowed",
@@ -927,16 +938,20 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 { author: userId },
                 {
                     "coAuthors.user": userId,
-                    "coAuthors.consentStatus": "ACCEPTED"
+                    "coAuthors.consentStatus": "ACCEPTED",
+                    "coAuthors.isCorresponding": true
                 }
             ];
         } else if (userRole === "REVIEWER") {
             query["assignedReviewers.reviewer"] = userId;
+            query.status = { $ne: "DRAFT" };
         } else if (userRole === "TECHNICAL_EDITOR") {
             query["assignedTechnicalEditors.technicalEditor"] = userId;
-        } else if (userRole === "EDITOR") {
-            query.assignedEditor = userId;
+            query.status = { $ne: "DRAFT" };
+        } else if (userRole === "EDITOR" || userRole === "ADMIN") {
+            query.status = { $ne: "DRAFT" };
         }
+
 
         if (status) query.status = status;
         if (articleType) query.articleType = articleType;
@@ -1281,6 +1296,8 @@ const moveToReview = async (submissionId, userId, userRole) => {
 // SUBMIT REVISION (Editor/Tech Editor/Reviewer)
 // ================================================
 
+// ⬇️⬇️⬇️ REPLACE FROM HERE
+
 const submitRevision = async (userId, payload) => {
     try {
         console.log("🔵 [SERVICE] submitRevision started");
@@ -1293,9 +1310,12 @@ const submitRevision = async (userId, payload) => {
         // Validate submitterRoleType (isRevision = true)
         validateSubmitterRoleType(user, payload.submitterRoleType, true);
 
-        // Find original submission
-        const originalSubmission = await Submission.findById(payload.originalSubmissionId);
-        if (!originalSubmission) {
+        // ═══════════════════════════════════════════════════════════
+        // STEP 1: FIND ORIGINAL SUBMISSION
+        // ═══════════════════════════════════════════════════════════
+
+        const submission = await Submission.findById(payload.originalSubmissionId);
+        if (!submission) {
             throw new AppError(
                 "Original submission not found",
                 STATUS_CODES.NOT_FOUND,
@@ -1303,10 +1323,13 @@ const submitRevision = async (userId, payload) => {
             );
         }
 
-        // Verify user has permission to submit revision
+        // ═══════════════════════════════════════════════════════════
+        // STEP 2: VERIFY USER HAS PERMISSION FOR THIS STAGE
+        // ═══════════════════════════════════════════════════════════
+
         if (payload.submitterRoleType === "Editor") {
-            if (!originalSubmission.assignedEditor ||
-                originalSubmission.assignedEditor.toString() !== userId) {
+            if (!submission.assignedEditor ||
+                submission.assignedEditor.toString() !== userId) {
                 throw new AppError(
                     "You are not the assigned editor for this submission",
                     STATUS_CODES.FORBIDDEN,
@@ -1314,7 +1337,7 @@ const submitRevision = async (userId, payload) => {
                 );
             }
         } else if (payload.submitterRoleType === "Technical Editor") {
-            const isAssigned = originalSubmission.assignedTechnicalEditors.some(
+            const isAssigned = submission.assignedTechnicalEditors.some(
                 te => te.technicalEditor.toString() === userId
             );
             if (!isAssigned) {
@@ -1325,7 +1348,7 @@ const submitRevision = async (userId, payload) => {
                 );
             }
         } else if (payload.submitterRoleType === "Reviewer") {
-            const isAssigned = originalSubmission.assignedReviewers.some(
+            const isAssigned = submission.assignedReviewers.some(
                 r => r.reviewer.toString() === userId
             );
             if (!isAssigned) {
@@ -1337,74 +1360,163 @@ const submitRevision = async (userId, payload) => {
             }
         }
 
-        // Create revision submission
-        const revision = await Submission.create({
-            originalSubmissionId: payload.originalSubmissionId,
-            submitterRoleType: payload.submitterRoleType,
-            isRevision: true,
-            revisionStage: payload.revisionStage,
+        // ═══════════════════════════════════════════════════════════
+        // STEP 3: GET CURRENT CYCLE
+        // ═══════════════════════════════════════════════════════════
 
-            // Copy core fields from original
-            articleType: originalSubmission.articleType,
-            title: originalSubmission.title,
-            author: originalSubmission.author,
-
-            // Revision-specific data
-            blindManuscriptFile: payload.revisedManuscript,
-            supplementaryFiles: payload.attachments || [],
-
-            // Add remarks as internal note
-            internalNotes: [{
-                note: payload.remarks,
-                addedBy: userId,
-                addedAt: new Date(),
-                isConfidential: false,
-            }],
-
-            status: "SUBMITTED",
-            submittedAt: new Date(),
-        });
-
-        // Create new cycle and version for this revision
-        try {
-            const currentCycleNumber = await SubmissionCycle.countDocuments({
-                submissionId: payload.originalSubmissionId
-            });
-
-            const cycle = await SubmissionCycle.create({
-                submissionId: payload.originalSubmissionId,
-                cycleNumber: currentCycleNumber + 1,
-                status: "IN_PROGRESS",
-            });
-
-            revision.currentCycleId = cycle._id;
-
-            // Create manuscript version
-            const fileRefs = [];
-            if (payload.revisedManuscript) fileRefs.push(payload.revisedManuscript.fileUrl);
-            if (payload.attachments) fileRefs.push(...payload.attachments.map(a => a.fileUrl));
-
-            await manuscriptVersionService.createManuscriptVersion(
-                payload.originalSubmissionId,
-                cycle._id,
-                userId,
-                user.role,
-                fileRefs
+        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        if (!currentCycle) {
+            throw new AppError(
+                "No active cycle found for this submission",
+                STATUS_CODES.BAD_REQUEST,
+                "NO_ACTIVE_CYCLE"
             );
-
-            await revision.save();
-
-        } catch (cycleError) {
-            console.error("❌ [SERVICE] Failed to create cycle/version:", cycleError);
         }
 
-        await revision.populate("author", "firstName lastName email");
+        // ═══════════════════════════════════════════════════════════
+        // STEP 4: ENFORCE SINGLE SUBMISSION RULES
+        // ═══════════════════════════════════════════════════════════
+
+        if (payload.revisionStage === "TECH_EDITOR_TO_EDITOR") {
+            if (currentCycle.technicalEditorReview &&
+                currentCycle.technicalEditorReview.reviewedAt) {
+                throw new AppError(
+                    "Technical Editor has already submitted review for this cycle (only 1 chance allowed)",
+                    STATUS_CODES.FORBIDDEN,
+                    "TECH_EDITOR_ALREADY_SUBMITTED"
+                );
+            }
+        }
+
+        if (payload.revisionStage === "REVIEWER_TO_EDITOR") {
+            const alreadySubmitted = currentCycle.reviewerFeedback.some(
+                f => f.reviewer.toString() === userId
+            );
+            if (alreadySubmitted) {
+                throw new AppError(
+                    "You have already submitted your review for this cycle (only 1 chance allowed)",
+                    STATUS_CODES.FORBIDDEN,
+                    "REVIEWER_ALREADY_SUBMITTED"
+                );
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 5: BUILD FILE REFS
+        // ═══════════════════════════════════════════════════════════
+
+        const fileRefs = [];
+        if (payload.revisedManuscript) fileRefs.push(payload.revisedManuscript.fileUrl);
+        if (payload.attachments && payload.attachments.length > 0) {
+            fileRefs.push(...payload.attachments.map(a => a.fileUrl));
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 6: CREATE MANUSCRIPT VERSION
+        // ═══════════════════════════════════════════════════════════
+
+        const version = await manuscriptVersionService.createManuscriptVersion(
+            submission._id,
+            currentCycle._id,
+            userId,
+            user.role,
+            fileRefs,
+            payload.revisionStage,
+        );
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 7: UPDATE CYCLE BASED ON REVISION STAGE
+        // ═══════════════════════════════════════════════════════════
+
+        const attachmentRefs = payload.attachments
+            ? payload.attachments.map(a => a.fileUrl)
+            : [];
+
+        const attachmentObjects = payload.attachments
+            ? payload.attachments.map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl }))
+            : [];
+
+        switch (payload.revisionStage) {
+
+            case "EDITOR_TO_TECH_EDITOR":
+                currentCycle.editorRemarksForTechEditor = {
+                    remarks: payload.remarks,
+                    attachments: attachmentObjects,
+                    sentAt: new Date(),
+                };
+                break;
+
+            case "TECH_EDITOR_TO_EDITOR":
+                currentCycle.technicalEditorReview = {
+                    reviewedBy: userId,
+                    remarks: payload.remarks,
+                    attachmentRefs,
+                    reviewedAt: new Date(),
+                };
+                break;
+
+            case "EDITOR_TO_REVIEWER":
+                currentCycle.editorRemarksForReviewers = {
+                    remarks: payload.remarks,
+                    attachments: attachmentObjects,
+                    sentAt: new Date(),
+                };
+                break;
+
+            case "REVIEWER_TO_EDITOR":
+                currentCycle.reviewerFeedback.push({
+                    reviewer: userId,
+                    remarks: payload.remarks,
+                    attachmentRefs,
+                    reviewedAt: new Date(),
+                });
+                break;
+
+            case "EDITOR_TO_AUTHOR":
+                currentCycle.editorRemarksForAuthor = {
+                    remarks: payload.remarks,
+                    attachments: attachmentObjects,
+                    sentAt: new Date(),
+                };
+                break;
+
+            default:
+                throw new AppError(
+                    "Invalid revision stage",
+                    STATUS_CODES.BAD_REQUEST,
+                    "INVALID_REVISION_STAGE"
+                );
+        }
+
+        await currentCycle.save();
+        submission.revisionStage = payload.revisionStage;
+        await submission.save({ validateBeforeSave: false });
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 8: UPDATE SUBMISSION STATUS IF EDITOR_TO_AUTHOR
+        // ═══════════════════════════════════════════════════════════
+
+        if (payload.revisionStage === "EDITOR_TO_AUTHOR") {
+            submission.status = "REVISION_REQUESTED";
+            await submission.save({ validateBeforeSave: false });
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 9: BUILD AND RETURN RESPONSE
+        // ═══════════════════════════════════════════════════════════
 
         console.log("✅ [SERVICE] submitRevision completed successfully");
 
         return {
             message: "Revision submitted successfully",
-            revision,
+            revision: {
+                submissionId: submission._id,
+                submissionNumber: submission.submissionNumber,
+                revisionStage: payload.revisionStage,
+                cycle: currentCycle,
+                version,
+                submissionStatus: submission.status,
+            },
         };
 
     } catch (error) {
@@ -1418,6 +1530,8 @@ const submitRevision = async (userId, payload) => {
         );
     }
 };
+
+// ⬆️⬆️⬆️ REPLACE TO HERE
 
 // ================================================
 // EDITOR DECISION (Accept/Reject)

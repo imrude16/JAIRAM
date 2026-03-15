@@ -946,6 +946,7 @@ export const saveDraftSchema = {
                 orcid: Joi.string().optional().allow(""),
                 order: Joi.number().integer().optional(),
                 isCorresponding: Joi.boolean().optional(),
+                source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").optional(),
             }))
             .optional(),
 

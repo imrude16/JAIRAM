@@ -15,7 +15,7 @@ const manuscriptVersionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
         // CORE REFERENCES
         // ══════════════════════════════════════════════════════════
-        
+
         submissionId: {
             type: Schema.Types.ObjectId,
             ref: "Submission",
@@ -23,16 +23,16 @@ const manuscriptVersionSchema = new Schema(
             index: true,
         },
 
-        cycleNumber: {
+        cycleId: {
             type: Schema.Types.ObjectId,
             ref: "SubmissionCycle",
-            required: [true, "Cycle number reference is required"],
+            required: [true, "Cycle ID reference is required"],
         },
 
         // ══════════════════════════════════════════════════════════
         // FILE REFERENCES
         // ══════════════════════════════════════════════════════════
-        
+
         fileRefs: [{
             type: String,
             trim: true,
@@ -42,7 +42,7 @@ const manuscriptVersionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
         // REMARKS (From Editor/Technical Editor/Reviewer)
         // ══════════════════════════════════════════════════════════
-        
+
         remarks: [{
             type: String,
             trim: true,
@@ -52,7 +52,7 @@ const manuscriptVersionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
         // UPLOADER TRACKING
         // ══════════════════════════════════════════════════════════
-        
+
         uploadedBy: {
             type: Schema.Types.ObjectId,
             ref: "User",
@@ -71,11 +71,27 @@ const manuscriptVersionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
         // VERSION NUMBER
         // ══════════════════════════════════════════════════════════
-        
+
         versionNumber: {
             type: Number,
             required: true,
             min: 1,
+        },
+
+        currentStage: {
+            type: String,
+            enum: {
+                values: [
+                    "INITIAL_SUBMISSION",
+                    "EDITOR_TO_TECH_EDITOR",
+                    "TECH_EDITOR_TO_EDITOR",
+                    "EDITOR_TO_REVIEWER",
+                    "REVIEWER_TO_EDITOR",
+                    "EDITOR_TO_AUTHOR",
+                ],
+                message: "{VALUE} is not a valid revision stage",
+            },
+            default: "INITIAL_SUBMISSION",
         },
     },
     {
@@ -90,16 +106,15 @@ const manuscriptVersionSchema = new Schema(
 // ══════════════════════════════════════════════════════════════════
 manuscriptVersionSchema.index({ submissionId: 1, versionNumber: 1 }, { unique: true });
 manuscriptVersionSchema.index({ uploadedBy: 1 });
-manuscriptVersionSchema.index({ cycleNumber: 1 });
+manuscriptVersionSchema.index({ cycleId: 1 });
 
 // ══════════════════════════════════════════════════════════════════
 // STATIC METHODS
 // ══════════════════════════════════════════════════════════════════
-
 manuscriptVersionSchema.statics.findBySubmission = async function (submissionId) {
     return this.find({ submissionId })
         .populate("uploadedBy", "firstName lastName email role")
-        .populate("cycleNumber")
+        .populate("cycleId")
         .sort({ versionNumber: 1 });
 };
 
@@ -107,7 +122,7 @@ manuscriptVersionSchema.statics.getLatestVersion = async function (submissionId)
     return this.findOne({ submissionId })
         .sort({ versionNumber: -1 })
         .populate("uploadedBy", "firstName lastName email role")
-        .populate("cycleNumber");
+        .populate("cycleId");
 };
 
 const ManuscriptVersion = model("ManuscriptVersion", manuscriptVersionSchema);
