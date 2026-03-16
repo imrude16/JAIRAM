@@ -2432,6 +2432,28 @@ const SubmitManuscript = () => {
           setSelfCorresponding(draft.isCorrespondingAuthor);
         }
 
+        // Restore suggested reviewers
+        if (draft.suggestedReviewers?.length) {
+          const restoredReviewers = draft.suggestedReviewers.map(r => ({
+            id: r.user || null,
+            title: r.title || 'Dr.',
+            firstName: r.firstName || '',
+            lastName: r.lastName || '',
+            email: r.email || '',
+            specialization: r.specialization || '',
+            institution: r.institution || '',
+            country: r.country || '',
+            source: r.source || 'MANUAL_ENTRY',
+          }));
+          setReviewers(restoredReviewers);
+        }
+
+        // Restore conflict of interest
+        if (draft.conflictOfInterest?.hasConflict !== undefined) {
+          setConflictHasConflict(draft.conflictOfInterest.hasConflict === true ? "Yes" : "No");
+          setConflictDetails(draft.conflictOfInterest.details || '');
+        }
+
         setLastSaved(new Date(draft.lastModifiedAt || draft.createdAt));
 
         toast.success('Draft loaded successfully', { duration: 2000 });
@@ -2491,6 +2513,23 @@ const SubmitManuscript = () => {
           order: index + 1,
           isCorresponding: author.isCorresponding || false,
         })) : undefined,
+
+        suggestedReviewers: reviewers.filter(r => r.firstName || r.email).length > 0
+          ? reviewers.filter(r => r.firstName || r.email).map(r => ({
+            title: r.title,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            email: r.email,
+            specialization: r.specialization,
+            institution: r.institution,
+            country: r.country,
+          })) : undefined,
+
+        conflictOfInterest: conflictHasConflict ? {
+          hasConflict: conflictHasConflict === "Yes",
+          details: conflictHasConflict === "Yes" ? conflictDetails : "",
+        } : undefined,
+
       };
 
       // Remove undefined values

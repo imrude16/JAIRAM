@@ -31,7 +31,6 @@ const createConsent = async (submissionId, coAuthorData) => {
             emailSentAt: new Date(),
             lastEmailSentAt: new Date(),
             emailResendCount: 0,
-            source: coAuthorData.source,
             coAuthorEmail: coAuthorData.email,
         };
 

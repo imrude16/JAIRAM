@@ -584,7 +584,7 @@ export const submitRevisionSchema = {
     body: Joi.object({
         // Original submission being revised
         originalSubmissionId: objectIdField("Original Submission ID").required(),
-        
+
         // Who is submitting this revision?
         submitterRoleType: Joi.string()
             .valid("Editor", "Technical Editor", "Reviewer")
@@ -593,7 +593,7 @@ export const submitRevisionSchema = {
                 "any.only": "Only Editor, Technical Editor, or Reviewer can submit revisions",
                 "any.required": "Submitter role type is required",
             }),
-        
+
         // Which stage of revision?
         revisionStage: Joi.string()
             .valid(
@@ -604,7 +604,7 @@ export const submitRevisionSchema = {
                 "EDITOR_TO_AUTHOR"
             )
             .required(),
-        
+
         // Remarks (required)
         remarks: Joi.string()
             .trim()
@@ -616,7 +616,7 @@ export const submitRevisionSchema = {
                 "string.max": "Remarks cannot exceed 5000 characters",
                 "any.required": "Remarks are required",
             }),
-        
+
         // File uploads (optional)
         revisedManuscript: fileSchema.optional(),
         attachments: Joi.array().items(fileSchema).max(10).optional(),
@@ -631,7 +631,7 @@ export const editorDecisionSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),
-    
+
     body: Joi.object({
         decision: Joi.string()
             .valid("ACCEPT", "REJECT")
@@ -640,7 +640,7 @@ export const editorDecisionSchema = {
                 "any.only": "Decision must be either ACCEPT or REJECT",
                 "any.required": "Decision is required",
             }),
-        
+
         decisionStage: Joi.string()
             .valid(
                 "INITIAL_SCREENING",
@@ -653,14 +653,14 @@ export const editorDecisionSchema = {
                 "any.only": "Invalid decision stage",
                 "any.required": "Decision stage is required",
             }),
-        
+
         remarks: Joi.string()
             .trim()
             .min(10)
             .max(5000)
             .optional()
             .allow(""),
-        
+
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
@@ -673,7 +673,7 @@ export const technicalEditorDecisionSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),
-    
+
     body: Joi.object({
         decision: Joi.string()
             .valid("ACCEPT", "REJECT")
@@ -682,7 +682,7 @@ export const technicalEditorDecisionSchema = {
                 "any.only": "Decision must be either ACCEPT or REJECT",
                 "any.required": "Decision is required",
             }),
-        
+
         remarks: Joi.string()
             .trim()
             .min(10)
@@ -692,7 +692,7 @@ export const technicalEditorDecisionSchema = {
                 "string.min": "Remarks must be at least 10 characters",
                 "any.required": "Remarks are required for your decision",
             }),
-        
+
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
@@ -729,7 +729,7 @@ export const editorApproveConsentOverrideSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),
-    
+
     body: Joi.object({
         resolutionNote: Joi.string()
             .trim()
@@ -756,10 +756,10 @@ export const assignTechnicalEditorSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),
-    
+
     body: Joi.object({
         technicalEditorId: objectIdField("Technical Editor ID").required(),
-        
+
         remarks: Joi.string()
             .trim()
             .min(10)
@@ -770,7 +770,7 @@ export const assignTechnicalEditorSchema = {
                 "string.max": "Remarks cannot exceed 2000 characters",
                 "any.required": "Remarks for technical editor are required",
             }),
-        
+
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
@@ -783,7 +783,7 @@ export const assignReviewersSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),
-    
+
     body: Joi.object({
         reviewerIds: Joi.array()
             .items(objectIdField("Reviewer ID"))
@@ -795,7 +795,7 @@ export const assignReviewersSchema = {
                 "array.max": "Maximum 5 reviewers allowed",
                 "any.required": "Reviewer IDs are required",
             }),
-        
+
         remarks: Joi.string()
             .trim()
             .min(10)
@@ -806,7 +806,7 @@ export const assignReviewersSchema = {
                 "string.max": "Remarks cannot exceed 2000 characters",
                 "any.required": "Remarks for reviewers are required",
             }),
-        
+
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
@@ -825,13 +825,13 @@ export const generateUploadUrlSchema = {
                 "string.max": "File name cannot exceed 255 characters",
                 "any.required": "File name is required",
             }),
-        
+
         fileType: Joi.string()
             .required()
             .messages({
                 "any.required": "File type is required",
             }),
-        
+
         uploadType: Joi.string()
             .valid(
                 "coverLetter",
@@ -864,7 +864,7 @@ export const searchAuthorsSchema = {
                 "string.max": "Search query cannot exceed 100 characters",
                 "any.required": "Search query is required",
             }),
-        
+
         exclude: Joi.string()
             .optional()
             .allow("")
@@ -890,7 +890,7 @@ export const searchReviewersSchema = {
                 "string.max": "Search query cannot exceed 100 characters",
                 "any.required": "Search query is required",
             }),
-        
+
         exclude: Joi.string()
             .optional()
             .allow("")
@@ -946,9 +946,38 @@ export const saveDraftSchema = {
                 orcid: Joi.string().optional().allow(""),
                 order: Joi.number().integer().optional(),
                 isCorresponding: Joi.boolean().optional(),
-                source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").optional(),
+                source: Joi.string()
+                    .valid("DATABASE_SEARCH", "MANUAL_ENTRY")
+                    .optional()
+                    .messages({
+                        "any.only": "Co-author source must be either DATABASE_SEARCH or MANUAL_ENTRY",
+                    }),
             }))
             .optional(),
+
+        suggestedReviewers: Joi.array()
+            .items(Joi.object({
+                user: Joi.string().hex().length(24).optional().allow(null),
+                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").optional(),
+                firstName: Joi.string().optional(),
+                lastName: Joi.string().optional(),
+                email: Joi.string().email().optional(),
+                specialization: Joi.string().optional().allow(""),
+                institution: Joi.string().optional().allow(""),
+                country: Joi.string().optional().allow(""),
+                source: Joi.string()
+                    .valid("DATABASE_SEARCH", "MANUAL_ENTRY")
+                    .optional()
+                    .messages({
+                        "any.only": "Reviewer source must be either DATABASE_SEARCH or MANUAL_ENTRY",
+                    }),
+            }))
+            .optional(),
+
+        conflictOfInterest: Joi.object({
+            hasConflict: Joi.boolean().optional(),
+            details: Joi.string().trim().max(2000).optional().allow(""),
+        }).optional(),
 
         coverLetter: Joi.object({
             fileName: Joi.string().optional(),

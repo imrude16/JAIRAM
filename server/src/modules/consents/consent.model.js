@@ -63,13 +63,6 @@ const consentSchema = new Schema(
             trim: true,
         },
 
-        // Source tracking
-        source: {
-            type: String,
-            enum: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
-            required: true,
-        },
-
         // ══════════════════════════════════════════════════════════
         // CONSENT STATUS
         // ══════════════════════════════════════════════════════════

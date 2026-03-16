@@ -310,7 +310,7 @@ const searchReviewers = async (searchQuery, excludeEmails = "") => {
                 { institution: { $regex: searchQuery, $options: "i" } },
             ],
         })
-            .select("firstName lastName email primarySpecialty institution address.country")
+            .select("firstName lastName email primarySpecialty otherPrimarySpecialty institution address.country")
             .limit(10);
 
         console.log(`✅ [SERVICE] Found ${users.length} reviewers`);
@@ -322,11 +322,14 @@ const searchReviewers = async (searchQuery, excludeEmails = "") => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                primarySpecialty: user.primarySpecialty,
+                primarySpecialty: user.primarySpecialty === "Other"
+                    ? user.otherPrimarySpecialty
+                    : user.primarySpecialty,
                 institution: user.institution,
                 country: user.address?.country,
             })),
         };
+
     } catch (error) {
         console.error("❌ [SERVICE] Error in searchReviewers:", error);
         throw new AppError(
