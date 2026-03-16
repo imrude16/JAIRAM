@@ -109,19 +109,16 @@ const submissionSchema = new Schema(
         // Conditional Registration Numbers
         iecApproval: {
             hasIEC: { type: Boolean, default: false },
-            iecNumber: { type: String, trim: true },
             iecDetails: { type: String, trim: true, maxlength: 1000 },
         },
 
         prosperoRegistration: {
             hasProspero: { type: Boolean, default: false },
-            prosperoNumber: { type: String, trim: true },
             prosperoDetails: { type: String, trim: true, maxlength: 1000 },
         },
 
         trialRegistration: {
             hasTrial: { type: Boolean, default: false },
-            trialNumber: { type: String, trim: true },
             trialDetails: { type: String, trim: true, maxlength: 1000 },
         },
 
@@ -427,6 +424,7 @@ const submissionSchema = new Schema(
         },
 
         figures: [{
+            _id: false,
             fileName: String,
             fileUrl: String,
             fileSize: Number,
@@ -436,6 +434,7 @@ const submissionSchema = new Schema(
         }],
 
         tables: [{
+            _id: false,
             fileName: String,
             fileUrl: String,
             fileSize: Number,
@@ -445,6 +444,7 @@ const submissionSchema = new Schema(
         }],
 
         supplementaryFiles: [{
+            _id: false,
             fileName: String,
             fileUrl: String,
             fileSize: Number,
@@ -464,6 +464,7 @@ const submissionSchema = new Schema(
                 default: "1.0.0",
             },
             responses: [{
+                _id: false,
                 questionId: { type: String, required: true },
                 categoryId: { type: String, required: true },
                 response: {

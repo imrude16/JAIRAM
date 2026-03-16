@@ -2079,9 +2079,9 @@ const SubmitManuscript = () => {
       else if (wc > 250) e.abstract = "Abstract must not exceed 250 words";
       if (!formData.keywords) e.keywords = "Keywords are required";
       if (!formData.totalWordCount) e.totalWordCount = "Word count is required";
-      if (!formData.bwFigures) e.bwFigures = "Required";
-      if (!formData.colorFigures) e.colorFigures = "Required";
-      if (!formData.tables) e.tables = "Required";
+      // if (!formData.bwFigures) e.bwFigures = "Required";
+      // if (!formData.colorFigures) e.colorFigures = "Required";
+      // if (!formData.tables) e.tables = "Required";
       if (!formData.pages) e.pages = "Required";
       if (
         ["Original Article", "Case Report", "Case Series", "Editorial"].includes(
@@ -2237,19 +2237,19 @@ const SubmitManuscript = () => {
             numberOfPages: parseInt(formData.pages) || 1,
           },
 
-          iecApproval: formData.iecNumber ? {
-            hasIEC: formData.iecNumber === "Yes",
-            iecNumber: formData.iecNumberDetails || "",
-          } : undefined,
-
           prosperoRegistration: formData.prosperoRegistration ? {
             hasProspero: formData.prosperoRegistration === "Yes",
-            prosperoNumber: formData.prosperoRegistrationDetails || "",
+            prosperoDetails: formData.prosperoRegistrationDetails || "",
           } : undefined,
 
           trialRegistration: formData.trialRegistration ? {
             hasTrial: formData.trialRegistration === "Yes",
-            trialNumber: formData.trialRegistrationDetails || "",
+            trialDetails: formData.trialRegistrationDetails || "",
+          } : undefined,
+
+          iecApproval: formData.iecNumber ? {
+            hasIEC: formData.iecNumber === "Yes",
+            iecDetails: formData.iecNumberDetails || "",
           } : undefined,
 
           isCorrespondingAuthor: selfCorresponding,
@@ -2389,12 +2389,18 @@ const SubmitManuscript = () => {
             colorFigures: draft.manuscriptDetails?.numberOfColorFigures?.toString() || '',
             tables: draft.manuscriptDetails?.numberOfTables?.toString() || '',
             pages: draft.manuscriptDetails?.numberOfPages?.toString() || '',
-            trialRegistration: draft.trialRegistration || '',
-            trialRegistrationDetails: draft.trialRegistrationDetails || '',
-            iecNumber: draft.iecNumber || '',
-            iecNumberDetails: draft.iecNumberDetails || '',
-            prosperoRegistration: draft.prosperoRegistration || '',
-            prosperoRegistrationDetails: draft.prosperoRegistrationDetails || '',
+            iecNumber: draft.iecApproval?.hasIEC === true ? "Yes"
+              : draft.iecApproval?.hasIEC === false ? "No"
+                : "",
+            iecNumberDetails: draft.iecApproval?.iecDetails || "",
+            prosperoRegistration: draft.prosperoRegistration?.hasProspero === true ? "Yes"
+              : draft.prosperoRegistration?.hasProspero === false ? "No"
+                : "",
+            prosperoRegistrationDetails: draft.prosperoRegistration?.prosperoDetails || "",
+            trialRegistration: draft.trialRegistration?.hasTrial === true ? "Yes"
+              : draft.trialRegistration?.hasTrial === false ? "No"
+                : "",
+            trialRegistrationDetails: draft.trialRegistration?.trialDetails || "",
           }));
         }
 
@@ -2423,6 +2429,8 @@ const SubmitManuscript = () => {
             country: ca.country || '',
             ORCID: ca.orcid || '',
             isCorresponding: ca.isCorresponding || false,
+            source: ca.source || 'MANUAL_ENTRY',
+            user: ca.user || null,
           }));
           setAuthors(restoredAuthors);
         }
@@ -2486,12 +2494,20 @@ const SubmitManuscript = () => {
           numberOfPages: formData.pages ? parseInt(formData.pages) : undefined,
         },
 
-        trialRegistration: formData.trialRegistration || undefined,
-        trialRegistrationDetails: formData.trialRegistrationDetails || undefined,
-        iecNumber: formData.iecNumber || undefined,
-        iecNumberDetails: formData.iecNumberDetails || undefined,
-        prosperoRegistration: formData.prosperoRegistration || undefined,
-        prosperoRegistrationDetails: formData.prosperoRegistrationDetails || undefined,
+        iecApproval: formData.iecNumber ? {
+          hasIEC: formData.iecNumber === "Yes",
+          iecDetails: formData.iecNumberDetails || "",
+        } : undefined,
+
+        prosperoRegistration: formData.prosperoRegistration ? {
+          hasProspero: formData.prosperoRegistration === "Yes",
+          prosperoDetails: formData.prosperoRegistrationDetails || "",
+        } : undefined,
+
+        trialRegistration: formData.trialRegistration ? {
+          hasTrial: formData.trialRegistration === "Yes",
+          trialDetails: formData.trialRegistrationDetails || "",
+        } : undefined,
 
         coverLetter: files.coverLetter || undefined,
         blindManuscriptFile: files.blindManuscript || undefined,
@@ -2512,6 +2528,10 @@ const SubmitManuscript = () => {
           orcid: author.ORCID || '',
           order: index + 1,
           isCorresponding: author.isCorresponding || false,
+          source: author.source || "MANUAL_ENTRY",
+          ...(author.source === "DATABASE_SEARCH" && author.user
+            ? { user: author.user }
+            : {}),
         })) : undefined,
 
         suggestedReviewers: reviewers.filter(r => r.firstName || r.email).length > 0
@@ -3255,32 +3275,12 @@ const SubmitManuscript = () => {
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
                       {[
-                        {
-                          field: "totalWordCount",
-                          label: "Word Count",
-                          errKey: "totalWordCount",
-                        },
-                        {
-                          field: "bwFigures",
-                          label: "No. of Black and White Figures",
-                          errKey: "bwFigures",
-                        },
-                        {
-                          field: "colorFigures",
-                          label: "No. of Color Figures",
-                          errKey: "colorFigures",
-                        },
-                        {
-                          field: "tables",
-                          label: "No. of Tables",
-                          errKey: "tables",
-                        },
-                        {
-                          field: "pages",
-                          label: "No. of Pages",
-                          errKey: "pages",
-                        },
-                      ].map(({ field, label, errKey }) => (
+                        { field: "totalWordCount", label: "Word Count", errKey: "totalWordCount", required: true },
+                        { field: "bwFigures", label: "No. of Black and White Figures", errKey: "bwFigures", required: false },
+                        { field: "colorFigures", label: "No. of Color Figures", errKey: "colorFigures", required: false },
+                        { field: "tables", label: "No. of Tables", errKey: "tables", required: false },
+                        { field: "pages", label: "No. of Pages", errKey: "pages", required: true },
+                      ].map(({ field, label, errKey, required }) => (
                         <div key={field} className="text-center">
                           <label
                             className="block text-xs font-semibold text-gray-500 mb-2.5 uppercase tracking-wide leading-tight text-center"
@@ -3293,7 +3293,7 @@ const SubmitManuscript = () => {
                             }}
                           >
                             {label}{" "}
-                            <span className="text-red-500 ml-0.5">*</span>
+                            {required && <span className="text-red-500 ml-0.5">*</span>}
                           </label>
                           <input
                             type="text"

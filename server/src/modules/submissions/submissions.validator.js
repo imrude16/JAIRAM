@@ -175,12 +175,11 @@ export const createSubmissionSchema = {
             is: Joi.valid("Original Article", "Case Report", "Case Series", "Editorial"),
             then: Joi.object({
                 hasIEC: Joi.boolean().required(),
-                iecNumber: Joi.when("hasIEC", {
+                iecDetails: Joi.when("hasIEC", {
                     is: true,
-                    then: Joi.string().trim().required(),
+                    then: Joi.string().trim().max(1000).required(),
                     otherwise: Joi.optional().allow(""),
                 }),
-                iecDetails: Joi.string().trim().max(1000).optional().allow(""),
             }),
             otherwise: Joi.optional(),
         }),
@@ -189,12 +188,11 @@ export const createSubmissionSchema = {
             is: Joi.valid("Meta-Analysis", "Review Article / Systematic Review"),
             then: Joi.object({
                 hasProspero: Joi.boolean().required(),
-                prosperoNumber: Joi.when("hasProspero", {
+                prosperoDetails: Joi.when("hasProspero", {
                     is: true,
-                    then: Joi.string().trim().required(),
+                    then: Joi.string().trim().max(1000).required(),
                     otherwise: Joi.optional().allow(""),
                 }),
-                prosperoDetails: Joi.string().trim().max(1000).optional().allow(""),
             }),
             otherwise: Joi.optional(),
         }),
@@ -203,16 +201,14 @@ export const createSubmissionSchema = {
             is: "Clinical Trial",
             then: Joi.object({
                 hasTrial: Joi.boolean().required(),
-                trialNumber: Joi.when("hasTrial", {
+                trialDetails: Joi.when("hasTrial", {
                     is: true,
-                    then: Joi.string().trim().required(),
+                    then: Joi.string().trim().max(1000).required(),
                     otherwise: Joi.optional().allow(""),
                 }),
-                trialDetails: Joi.string().trim().max(1000).optional().allow(""),
             }),
             otherwise: Joi.optional(),
         }),
-
         // Corresponding Author Flag
         isCorrespondingAuthor: Joi.boolean().default(false),
 
@@ -283,19 +279,16 @@ export const updateSubmissionSchema = {
 
         iecApproval: Joi.object({
             hasIEC: Joi.boolean().optional(),
-            iecNumber: Joi.string().trim().optional().allow(""),
             iecDetails: Joi.string().trim().max(1000).optional().allow(""),
         }).optional(),
 
         prosperoRegistration: Joi.object({
             hasProspero: Joi.boolean().optional(),
-            prosperoNumber: Joi.string().trim().optional().allow(""),
             prosperoDetails: Joi.string().trim().max(1000).optional().allow(""),
         }).optional(),
 
         trialRegistration: Joi.object({
             hasTrial: Joi.boolean().optional(),
-            trialNumber: Joi.string().trim().optional().allow(""),
             trialDetails: Joi.string().trim().max(1000).optional().allow(""),
         }).optional(),
 
@@ -304,19 +297,20 @@ export const updateSubmissionSchema = {
         coAuthors: Joi.array()
             .items(Joi.object({
                 user: objectIdField("User ID").optional().allow(null),
-                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").required(),
-                firstName: nameField("First name"),
-                lastName: nameField("Last name"),
-                email: emailField,
-                phoneNumber: Joi.string().trim().required(),
-                department: Joi.string().trim().required(),
-                country: Joi.string().trim().required(),
+                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").optional().allow(""),
+                firstName: Joi.string().optional().allow(""),
+                lastName: Joi.string().optional().allow(""),
+                email: Joi.string().email().optional().allow(""),
+                phoneNumber: Joi.string().trim().optional().allow(""),
+                department: Joi.string().trim().optional().allow(""),
+                country: Joi.string().trim().optional().allow(""),
                 orcid: orcidField,
-                order: Joi.number().integer().min(1).required(),
+                order: Joi.number().integer().min(1).optional(),
                 isCorresponding: Joi.boolean().optional(),
                 source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").optional(),
             }))
             .optional(),
+
 
         // File uploads
         coverLetter: fileSchema.optional(),
@@ -931,18 +925,33 @@ export const saveDraftSchema = {
             numberOfPages: Joi.number().integer().min(1).optional(),
         }).optional(),
 
+        iecApproval: Joi.object({
+            hasIEC: Joi.boolean().optional(),
+            iecDetails: Joi.string().trim().max(1000).optional().allow(""),
+        }).optional(),
+
+        prosperoRegistration: Joi.object({
+            hasProspero: Joi.boolean().optional(),
+            prosperoDetails: Joi.string().trim().max(1000).optional().allow(""),
+        }).optional(),
+
+        trialRegistration: Joi.object({
+            hasTrial: Joi.boolean().optional(),
+            trialDetails: Joi.string().trim().max(1000).optional().allow(""),
+        }).optional(),
+
         isCorrespondingAuthor: Joi.boolean().optional(),
 
         coAuthors: Joi.array()
             .items(Joi.object({
                 user: Joi.string().hex().length(24).optional().allow(null),
-                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").optional(),
-                firstName: Joi.string().optional(),
-                lastName: Joi.string().optional(),
-                email: Joi.string().email().optional(),
-                phoneNumber: Joi.string().optional(),
-                department: Joi.string().optional(),
-                country: Joi.string().optional(),
+                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").optional().allow(""),
+                firstName: Joi.string().optional().allow(""),
+                lastName: Joi.string().optional().allow(""),
+                email: Joi.string().email().optional().allow(""),
+                phoneNumber: Joi.string().optional().allow(""),
+                department: Joi.string().optional().allow(""),
+                country: Joi.string().optional().allow(""),
                 orcid: Joi.string().optional().allow(""),
                 order: Joi.number().integer().optional(),
                 isCorresponding: Joi.boolean().optional(),

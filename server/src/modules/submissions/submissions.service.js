@@ -2477,21 +2477,21 @@ const saveDraft = async (userId, payload) => {
         // CLEAN DATABASE_SEARCH DATA (Keep only minimal fields)
         // ═══════════════════════════════════════════════════════════
 
-        if (payload.coAuthors && payload.coAuthors.length > 0) {
-            payload.coAuthors = payload.coAuthors.map(coAuthor => {
-                if (coAuthor.source === "DATABASE_SEARCH") {
-                    // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
-                    return {
-                        user: coAuthor.user || null,
-                        order: coAuthor.order,
-                        isCorresponding: coAuthor.isCorresponding,
-                        source: "DATABASE_SEARCH",
-                    };
-                }
-                // Keep all fields for MANUAL_ENTRY (needed for verification)
-                return coAuthor;
-            });
-        }
+        // if (payload.coAuthors && payload.coAuthors.length > 0) {
+        //     payload.coAuthors = payload.coAuthors.map(coAuthor => {
+        //         if (coAuthor.source === "DATABASE_SEARCH") {
+        //             // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
+        //             return {
+        //                 user: coAuthor.user || null,
+        //                 order: coAuthor.order,
+        //                 isCorresponding: coAuthor.isCorresponding,
+        //                 source: "DATABASE_SEARCH",
+        //             };
+        //         }
+        //         // Keep all fields for MANUAL_ENTRY (needed for verification)
+        //         return coAuthor;
+        //     });
+        // }
 
         if (payload.suggestedReviewers && payload.suggestedReviewers.length > 0) {
             payload.suggestedReviewers = payload.suggestedReviewers.map(reviewer => {
