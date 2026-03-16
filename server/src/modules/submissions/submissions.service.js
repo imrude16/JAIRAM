@@ -715,14 +715,13 @@ const submitManuscript = async (submissionId, userId, payload) => {
         submission.conflictOfInterest = payload.conflictOfInterest;
         submission.copyrightAgreement = payload.copyrightAgreement;
         submission.pdfPreviewConfirmed = payload.pdfPreviewConfirmed;
-        submission.suggestedReviewers = payload.suggestedReviewers;
 
         // Initialize suggested reviewer responses tracking
         submission.suggestedReviewerResponses = {
-            totalSuggested: payload.suggestedReviewers.length,
+            totalSuggested: submission.suggestedReviewers.length,
             accepted: 0,
             declined: 0,
-            pending: payload.suggestedReviewers.length,
+            pending: submission.suggestedReviewers.length,
             majorityMet: false,
         };
 
@@ -2493,21 +2492,21 @@ const saveDraft = async (userId, payload) => {
         //     });
         // }
 
-        if (payload.suggestedReviewers && payload.suggestedReviewers.length > 0) {
-            payload.suggestedReviewers = payload.suggestedReviewers.map(reviewer => {
-                if (reviewer.source === "DATABASE_SEARCH") {
-                    // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
-                    return {
-                        user: reviewer.user || null,
-                        source: "DATABASE_SEARCH",
-                        invitationStatus: reviewer.invitationStatus || "PENDING",
-                        editorApproved: reviewer.editorApproved || false,
-                    };
-                }
-                // Keep all fields for MANUAL_ENTRY (needed for verification)
-                return reviewer;
-            });
-        }
+        // if (payload.suggestedReviewers && payload.suggestedReviewers.length > 0) {
+        //     payload.suggestedReviewers = payload.suggestedReviewers.map(reviewer => {
+        //         if (reviewer.source === "DATABASE_SEARCH") {
+        //             // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
+        //             return {
+        //                 user: reviewer.user || null,
+        //                 source: "DATABASE_SEARCH",
+        //                 invitationStatus: reviewer.invitationStatus || "PENDING",
+        //                 editorApproved: reviewer.editorApproved || false,
+        //             };
+        //         }
+        //         // Keep all fields for MANUAL_ENTRY (needed for verification)
+        //         return reviewer;
+        //     });
+        // }
 
         // Check if draft already exists
         const existingDraft = await Submission.findOne({

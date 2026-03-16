@@ -407,26 +407,26 @@ export const submitManuscriptSchema = {
                 "any.only": "Please confirm you have reviewed the PDF preview",
             }),
 
-        // Suggested Reviewers
-        suggestedReviewers: Joi.array()
-            .items(Joi.object({
-                user: objectIdField("User ID").optional().allow(null),
-                title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").required(),
-                firstName: nameField("First name"),
-                lastName: nameField("Last name"),
-                email: emailField,
-                specialization: Joi.string().trim().required(),
-                institution: Joi.string().trim().required(),
-                country: Joi.string().trim().required(),
-                source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").default("MANUAL_ENTRY"),
-            }))
-            .min(1)
-            .max(5)
-            .required()
-            .messages({
-                "array.min": "At least 1 reviewer suggestion is required",
-                "array.max": "Maximum 5 reviewer suggestions allowed",
-            }),
+        // // Suggested Reviewers
+        // suggestedReviewers: Joi.array()
+        //     .items(Joi.object({
+        //         user: objectIdField("User ID").optional().allow(null),
+        //         title: Joi.string().valid("Dr.", "Prof.", "Mr.", "Mrs.").required(),
+        //         firstName: nameField("First name"),
+        //         lastName: nameField("Last name"),
+        //         email: emailField,
+        //         specialization: Joi.string().trim().required(),
+        //         institution: Joi.string().trim().required(),
+        //         country: Joi.string().trim().required(),
+        //         source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").default("MANUAL_ENTRY"),
+        //     }))
+        //     .min(1)
+        //     .max(5)
+        //     .required()
+        //     .messages({
+        //         "array.min": "At least 1 reviewer suggestion is required",
+        //         "array.max": "Maximum 5 reviewer suggestions allowed",
+        //     }),
     }),
 };
 

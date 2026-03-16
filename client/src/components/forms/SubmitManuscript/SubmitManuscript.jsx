@@ -2200,19 +2200,19 @@ const SubmitManuscript = () => {
         // PDF Preview Confirmation
         pdfPreviewConfirmed: previewConfirmed,
 
-        // Suggested Reviewers
-        suggestedReviewers: reviewers
-          .filter(r => r.firstName && r.email) // Only filled reviewers
-          .map((r, idx) => ({
-            title: r.title,
-            firstName: r.firstName,
-            lastName: r.lastName,
-            email: r.email,
-            specialization: r.specialization,
-            institution: r.institution,
-            country: r.country,
-            source: r.source || "MANUAL_ENTRY",
-          })),
+        //   // Suggested Reviewers
+        //   suggestedReviewers: reviewers
+        //     .filter(r => r.firstName && r.email) // Only filled reviewers
+        //     .map((r, idx) => ({
+        //       title: r.title,
+        //       firstName: r.firstName,
+        //       lastName: r.lastName,
+        //       email: r.email,
+        //       specialization: r.specialization,
+        //       institution: r.institution,
+        //       country: r.country,
+        //       source: r.source || "MANUAL_ENTRY",
+        //     })),
       };
 
       // ══════════════════════════════════════════════════════════
@@ -2543,7 +2543,10 @@ const SubmitManuscript = () => {
             specialization: r.specialization,
             institution: r.institution,
             country: r.country,
-          })) : undefined,
+            source: r.source || "MANUAL_ENTRY",
+            ...(r.source === "DATABASE_SEARCH" && r.id ? { user: r.id } : {}),
+          }))
+          : undefined,
 
         conflictOfInterest: conflictHasConflict ? {
           hasConflict: conflictHasConflict === "Yes",
@@ -2585,7 +2588,7 @@ const SubmitManuscript = () => {
     } finally {
       if (showToast) setAutoSaving(false);
     }
-  }, [formData, files, authors, selfCorresponding]);
+  }, [formData, files, authors, selfCorresponding, reviewers, conflictHasConflict, conflictDetails]);
 
   // Optional: Delete draft function (not currently used in UI)
   // const deleteDraft = useCallback(async () => {
@@ -2626,7 +2629,7 @@ const SubmitManuscript = () => {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [formData, files, authors, selfCorresponding, draftLoading, saveDraft]);
+  }, [formData, files, authors, selfCorresponding, reviewers, conflictHasConflict, conflictDetails, draftLoading, saveDraft]);
 
   const handlePreviewManuscript = () => {
     const corrAuthor = (() => {
