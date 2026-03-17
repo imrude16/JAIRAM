@@ -150,9 +150,9 @@ const submissionCycleSchema = new Schema(
                 type: Schema.Types.ObjectId,
                 ref: "User",
             },
-            decision: {
+            recommendation: {
                 type: String,
-                enum: ["ACCEPT", "REJECT"],
+                enum: ["ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT"],
             },
             remarks: {
                 type: String,
@@ -174,6 +174,10 @@ const submissionCycleSchema = new Schema(
             reviewer: {
                 type: Schema.Types.ObjectId,
                 ref: "User",
+            },
+            recommendation: {
+                type: String,
+                enum: ["ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT"],
             },
             remarks: {
                 type: String,

@@ -256,12 +256,12 @@ const makeEditorDecision = async (req, res) => {
 
 const makeTechnicalEditorDecision = async (req, res) => {
     const { id } = req.params;
-    const { decision, remarks, attachments } = req.body;
+    const { recommendation, remarks, attachments } = req.body;
 
     const result = await submissionService.makeTechnicalEditorDecision(
         id,
         req.user.id,
-        decision,
+        recommendation,
         remarks,
         attachments
     );

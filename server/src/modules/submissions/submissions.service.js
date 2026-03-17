@@ -1451,6 +1451,7 @@ const submitRevision = async (userId, payload) => {
             case "TECH_EDITOR_TO_EDITOR":
                 currentCycle.technicalEditorReview = {
                     reviewedBy: userId,
+                    recommendation: payload.recommendation,
                     remarks: payload.remarks,
                     attachmentRefs,
                     reviewedAt: new Date(),
@@ -1468,6 +1469,7 @@ const submitRevision = async (userId, payload) => {
             case "REVIEWER_TO_EDITOR":
                 currentCycle.reviewerFeedback.push({
                     reviewer: userId,
+                    recommendation: payload.recommendation,
                     remarks: payload.remarks,
                     attachmentRefs,
                     reviewedAt: new Date(),
@@ -1640,7 +1642,7 @@ const makeEditorDecision = async (submissionId, editorId, decision, decisionStag
 // TECHNICAL EDITOR DECISION
 // ================================================
 
-const makeTechnicalEditorDecision = async (submissionId, techEditorId, decision, remarks, attachments) => {
+const makeTechnicalEditorDecision = async (submissionId, techEditorId, recommendation, remarks, attachments) => {
     try {
         console.log("🔵 [SERVICE] makeTechnicalEditorDecision started");
 
@@ -1674,7 +1676,7 @@ const makeTechnicalEditorDecision = async (submissionId, techEditorId, decision,
         // Check if tech editor has already decided (only 1 chance)
         const existingDecision = await SubmissionCycle.findOne({
             submissionId: submission._id,
-            "technicalEditorReview.decision": { $exists: true }
+            "technicalEditorReview.recommendation": { $exists: true }
         });
 
         if (existingDecision) {
@@ -1682,7 +1684,7 @@ const makeTechnicalEditorDecision = async (submissionId, techEditorId, decision,
                 "Technical Editor has already made a decision (only 1 chance allowed)",
                 STATUS_CODES.FORBIDDEN,
                 "TECH_EDITOR_ALREADY_DECIDED",
-                { previousDecision: existingDecision.technicalEditorReview.decision }
+                { previousRecommendation: existingDecision.technicalEditorReview.recommendation }
             );
         }
 
@@ -1700,7 +1702,7 @@ const makeTechnicalEditorDecision = async (submissionId, techEditorId, decision,
         // Record decision in SubmissionCycle
         currentCycle.technicalEditorReview = {
             reviewedBy: techEditorId,
-            decision: decision,
+            recommendation: recommendation,
             remarks: remarks,
             attachmentRefs: attachments ? attachments.map(a => a.fileUrl) : [],
             reviewedAt: new Date(),
@@ -1708,19 +1710,19 @@ const makeTechnicalEditorDecision = async (submissionId, techEditorId, decision,
 
         await currentCycle.save();
 
-        // If REJECT, end the process immediately
-        if (decision === "REJECT") {
-            submission.status = "REJECTED";
-            submission.rejectedAt = new Date();
-            await submission.save();
-        }
+        // // If REJECT, end the process immediately
+        // if (decision === "REJECT") {
+        //     submission.status = "REJECTED";
+        //     submission.rejectedAt = new Date();
+        //     await submission.save();
+        // }
 
         console.log("✅ [SERVICE] makeTechnicalEditorDecision completed successfully");
 
         return {
-            message: `Submission ${decision === "ACCEPT" ? "accepted" : "rejected"} by Technical Editor`,
+            message: `Technical Editor recommendation submitted: ${recommendation}`,
             submission,
-            note: "Technical Editor has used their only decision chance",
+            note: "Technical Editor has used their only recommendation chance",
         };
 
     } catch (error) {

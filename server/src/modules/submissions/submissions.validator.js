@@ -611,6 +611,19 @@ export const submitRevisionSchema = {
                 "any.required": "Remarks are required",
             }),
 
+        // Recommendation (optional)
+        recommendation: Joi.string()
+            .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
+            .when("revisionStage", {
+                is: Joi.valid("TECH_EDITOR_TO_EDITOR", "REVIEWER_TO_EDITOR"),
+                then: Joi.required(),
+                otherwise: Joi.optional(),
+            })
+            .messages({
+                "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
+                "any.required": "Recommendation is required for this stage",
+            }),
+
         // File uploads (optional)
         revisedManuscript: fileSchema.optional(),
         attachments: Joi.array().items(fileSchema).max(10).optional(),
@@ -669,12 +682,12 @@ export const technicalEditorDecisionSchema = {
     }),
 
     body: Joi.object({
-        decision: Joi.string()
-            .valid("ACCEPT", "REJECT")
+        recommendation: Joi.string()
+            .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
             .required()
             .messages({
-                "any.only": "Decision must be either ACCEPT or REJECT",
-                "any.required": "Decision is required",
+                "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
+                "any.required": "Recommendation is required",
             }),
 
         remarks: Joi.string()
