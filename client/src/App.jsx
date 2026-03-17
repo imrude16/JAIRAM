@@ -23,6 +23,7 @@ import EditorialBoard from "./pages/Editor-Board/EditorialBoard";
 import ManuscriptSubmissionPortal from "./pages/ManuscriptSubmissionPortal/ManuscriptSubmissionPortal";
 import PoweredTrustPage from "./pages/PoweredTrustPage/PoweredTrustPage";
 import OtpVerificationPage from "./pages/OtpVerificationPage/OtpVerificationPage";
+import ReviewerChecklist from "./pages/ReviewerChecklist/ReviewerChecklist";
 
 // import SearchResults from "./pages/SearchResults/SearchResults";
 // import NotFound from "./pages/NotFound/NotFound";
@@ -205,6 +206,17 @@ function App() {
             </Layout>
           }
         />
+        {/* Reviewer Checklist Route */}
+        <Route
+          path="/reviewer-checklist"
+          element={
+           
+              <PageTransition>
+                <ReviewerChecklist />
+              </PageTransition>
+           
+          }
+        />
 
         {/* Article Processing Charge Routes */}
         <Route
@@ -243,12 +255,7 @@ function App() {
         {/* Auth Route */}
         {/* Redirect /auth to login */}
         <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
-        <Route
-          path="/auth/login"
-          element={
-             <AuthPage mode="login" />
-           }
-        />
+        <Route path="/auth/login" element={<AuthPage mode="login" />} />
         <Route
           path="/auth/register"
           element={
