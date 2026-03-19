@@ -1182,6 +1182,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
         p.map((r, idx) =>
           idx === emptyIdx
             ? {
+              user: user._id || user.id,
               title: user.title,
               firstName: user.firstName,
               lastName: user.lastName,
@@ -1198,6 +1199,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
       setReviewers((p) => [
         ...p,
         {
+          user: user._id || user.id,
           title: user.title,
           firstName: user.firstName,
           lastName: user.lastName,

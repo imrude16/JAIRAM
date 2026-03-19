@@ -254,29 +254,29 @@ const makeEditorDecision = async (req, res) => {
     );
 };
 
-const makeTechnicalEditorDecision = async (req, res) => {
-    const { id } = req.params;
-    const { recommendation, remarks, attachments } = req.body;
+// const makeTechnicalEditorDecision = async (req, res) => {
+//     const { id } = req.params;
+//     const { recommendation, remarks, attachments } = req.body;
 
-    const result = await submissionService.makeTechnicalEditorDecision(
-        id,
-        req.user.id,
-        recommendation,
-        remarks,
-        attachments
-    );
+//     const result = await submissionService.makeTechnicalEditorDecision(
+//         id,
+//         req.user.id,
+//         recommendation,
+//         remarks,
+//         attachments
+//     );
 
-    sendSuccess(
-        res,
-        result.message,
-        {
-            submission: result.submission,
-            note: result.note
-        },
-        null,
-        STATUS_CODES.OK
-    );
-};
+//     sendSuccess(
+//         res,
+//         result.message,
+//         {
+//             submission: result.submission,
+//             note: result.note
+//         },
+//         null,
+//         STATUS_CODES.OK
+//     );
+// };
 
 const checkCoAuthorConsent = async (req, res) => {
     const { id } = req.params;
@@ -488,7 +488,6 @@ export default {
     // NEW EXPORTS (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
-    makeTechnicalEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
     // NEW EXPORTS (Consent Management):

@@ -605,6 +605,7 @@ const submissionSchema = new Schema(
         assignedEditorDate: Date,
 
         assignedTechnicalEditors: [{
+            _id: false,
             technicalEditor: {
                 type: Schema.Types.ObjectId,
                 ref: "User",
@@ -614,24 +615,6 @@ const submissionSchema = new Schema(
                 type: String,
                 enum: ["PENDING", "IN_PROGRESS", "COMPLETED"],
                 default: "PENDING",
-            },
-        }],
-
-        assignedReviewers: [{
-            reviewer: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-            },
-            assignedDate: Date,
-            dueDate: Date,
-            status: {
-                type: String,
-                enum: ["PENDING", "IN_PROGRESS", "COMPLETED"],
-                default: "PENDING",
-            },
-            isAnonymous: {
-                type: Boolean,
-                default: true,
             },
         }],
 
@@ -649,6 +632,7 @@ const submissionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
 
         internalNotes: [{
+             _id: false,
             note: String,
             addedBy: {
                 type: Schema.Types.ObjectId,
@@ -740,7 +724,6 @@ submissionSchema.pre("save", async function (next) {
                 "internalNotes",
                 "assignedEditor",
                 "assignedEditorDate",
-                "assignedReviewers",
                 "assignedTechnicalEditors",
                 "acceptedAt",
                 "rejectedAt",
@@ -824,7 +807,6 @@ submissionSchema.methods.canView = function (userId) {
 
     if (this.assignedEditor && this.assignedEditor.toString() === userId.toString()) return true;
 
-    if (this.assignedReviewers.some(r => r.reviewer.toString() === userId.toString())) return true;
     if (this.assignedTechnicalEditors.some(r => r.technicalEditor.toString() === userId.toString())) return true;
 
     return false;
@@ -985,7 +967,6 @@ submissionSchema.methods.canUserView = function (userId, userRole) {
     if (this.isUserCoAuthor(userId)) return true;
 
     // Assigned reviewers/technical editors can view
-    if (this.assignedReviewers.some(r => r.reviewer.toString() === userId)) return true;
     if (this.assignedTechnicalEditors.some(r => r.technicalEditor.toString() === userId)) return true;
 
     return false;
@@ -1017,12 +998,12 @@ submissionSchema.methods.hasTechnicalEditorDecided = async function () {
 
     const cycle = await SubmissionCycle.findOne({
         submissionId: this._id,
-        "technicalEditorReview.decision": { $exists: true }
+        "technicalEditorReview.recommendation": { $exists: true }
     });
 
     return {
         hasDecided: !!cycle,
-        decision: cycle?.technicalEditorReview?.decision,
+        recommendation: cycle?.technicalEditorReview?.recommendation,
         cycleNumber: cycle?.cycleNumber,
     };
 };
@@ -1034,14 +1015,14 @@ submissionSchema.methods.getDecisionHistory = async function () {
     const cycles = await SubmissionCycle.find({ submissionId: this._id })
         .sort({ cycleNumber: 1 })
         .populate("technicalEditorReview.reviewedBy", "firstName lastName")
-        .populate("reviewerFeedback.reviewer", "firstName lastName");
 
     return cycles.map(cycle => ({
         cycleNumber: cycle.cycleNumber,
         editorDecision: cycle.editorDecision,
         technicalEditorReview: cycle.technicalEditorReview,
-        reviewerFeedback: cycle.reviewerFeedback,
         status: cycle.status,
+        // NOTE: reviewerFeedback now lives in Reviewer collection
+        // Use Reviewer.findBySubmission(submissionId) to get reviewer feedback
     }));
 };
 
@@ -1125,7 +1106,7 @@ submissionSchema.methods.checkReviewerMajority = function () {
 };
 
 // ✅ NEW METHOD - FIXED VIEW PERMISSION CHECK
-submissionSchema.methods.canUserViewSubmission = function (userId, userRole, userEmail) {
+submissionSchema.methods.canUserViewSubmission = function (userId, userRole, userEmail, isAssignedReviewer = false ) {
     // Admin and Editor can view all submissions
     if (userRole === "ADMIN" || userRole === "EDITOR") {
         return { canView: true, viewLevel: "FULL" };
@@ -1150,15 +1131,9 @@ submissionSchema.methods.canUserViewSubmission = function (userId, userRole, use
         }
     }
 
-    // Reviewer can view if assigned
-    if (userRole === "REVIEWER" && this.assignedReviewers) {
-        const isAssigned = this.assignedReviewers.some(r => {
-            const reviewerId = r.reviewer?._id || r.reviewer;
-            return reviewerId.toString() === userId.toString();
-        });
-        if (isAssigned) {
-            return { canView: true, viewLevel: "FULL" };
-        }
+    // Reviewer can view if assigned (checked via Reviewer collection in service layer)
+    if (userRole === "REVIEWER" && isAssignedReviewer) {
+        return { canView: true, viewLevel: "FULL" };
     }
 
     // Co-author access
@@ -1169,7 +1144,7 @@ submissionSchema.methods.canUserViewSubmission = function (userId, userRole, use
             const isUserLinked = ca.user && (ca.user._id || ca.user).toString() === userId.toString();
 
             // Must have accepted consent
-            return (isUserEmail || isUserLinked) && ca.consentStatus === "ACCEPTED";
+            return (isUserEmail || isUserLinked);
         });
 
         if (userCoAuthor) {

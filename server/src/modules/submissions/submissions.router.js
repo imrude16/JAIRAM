@@ -18,7 +18,6 @@ import {
     // NEW IMPORTS (Revisions & Decisions):
     submitRevisionSchema,
     editorDecisionSchema,
-    technicalEditorDecisionSchema,
     checkCoAuthorConsentSchema,
     checkReviewerMajoritySchema,
     // NEW IMPORTS (Consent Management):
@@ -60,7 +59,6 @@ const {
     // NEW DESTRUCTURING (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
-    makeTechnicalEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
     // NEW DESTRUCTURING (Consent Management):
@@ -687,13 +685,13 @@ router.post(
  * 
  * Important: Unlike Editor who gets 4 chances, Tech Editor gets ONLY 1
  */
-router.post(
-    "/:id/tech-editor-decision",
-    requireAuth,
-    allowRoles(ROLES.TECHNICAL_EDITOR, ROLES.ADMIN),
-    validateRequest(technicalEditorDecisionSchema),
-    asyncHandler(makeTechnicalEditorDecision)
-);
+// router.post(
+//     "/:id/tech-editor-decision",
+//     requireAuth,
+//     allowRoles(ROLES.TECHNICAL_EDITOR, ROLES.ADMIN),
+//     validateRequest(technicalEditorDecisionSchema),
+//     asyncHandler(makeTechnicalEditorDecision)
+// );
 
 /**
  * CHECK CO-AUTHOR CONSENT STATUS

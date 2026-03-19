@@ -7,6 +7,7 @@ import { User } from "../../modules/users/users.model.js";
 import { Consent } from "../../modules/consents/consent.model.js";
 import { ManuscriptVersion } from "../../modules/manuscriptVersions/manuscriptVersion.model.js";
 import { SubmissionCycle } from "../../modules/submissionCycles/submissionCycle.model.js";
+import { Reviewer } from "../../modules/reviewers/reviewer.model.js";
 
 const connectDB = async () => {
     try {
@@ -23,6 +24,7 @@ const connectDB = async () => {
         await syncModelIndexes(Consent, "Consent");
         await syncModelIndexes(ManuscriptVersion, "ManuscriptVersion");
         await syncModelIndexes(SubmissionCycle, "SubmissionCycle");
+        await syncModelIndexes(Reviewer, "Reviewer");
 
         console.log("✅ [INDEX-SYNC] All indexes synced");
     } catch (err) {

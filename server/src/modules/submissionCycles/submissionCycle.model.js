@@ -54,11 +54,6 @@ const submissionCycleSchema = new Schema(
             ref: "User",
         },
 
-        reviewersId: [{
-            type: Schema.Types.ObjectId,
-            ref: "User",
-        }],
-
         // ══════════════════════════════════════════════════════════════
         // EDITOR REMARKS TO TECHNICAL EDITOR/REVIEWERS (NEW)
         // ══════════════════════════════════════════════════════════════
@@ -167,31 +162,6 @@ const submissionCycleSchema = new Schema(
         },
 
         // ══════════════════════════════════════════════════════════
-        // REVIEWER FEEDBACK (NEW)
-        // ══════════════════════════════════════════════════════════
-
-        reviewerFeedback: [{
-            reviewer: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-            },
-            recommendation: {
-                type: String,
-                enum: ["ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT"],
-            },
-            remarks: {
-                type: String,
-                trim: true,
-                maxlength: 5000,
-            },
-            attachmentRefs: [{
-                type: String,
-                trim: true,
-            }],
-            reviewedAt: Date,
-        }],
-
-        // ══════════════════════════════════════════════════════════
         // STATUS TRACKING
         // ══════════════════════════════════════════════════════════
 
@@ -220,7 +190,6 @@ const submissionCycleSchema = new Schema(
 // ══════════════════════════════════════════════════════════════════
 submissionCycleSchema.index({ submissionId: 1, cycleNumber: 1 }, { unique: true });
 submissionCycleSchema.index({ technicalEditorId: 1 });
-submissionCycleSchema.index({ reviewersId: 1 });
 
 // ══════════════════════════════════════════════════════════════════
 // STATIC METHODS
@@ -229,9 +198,7 @@ submissionCycleSchema.index({ reviewersId: 1 });
 submissionCycleSchema.statics.findBySubmission = async function (submissionId) {
     return this.find({ submissionId })
         .populate("technicalEditorId", "firstName lastName email")
-        .populate("reviewersId", "firstName lastName email")
         .populate("technicalEditorReview.reviewedBy", "firstName lastName email")
-        .populate("reviewerFeedback.reviewer", "firstName lastName email")
         .populate("manuscriptVersionId")
         .sort({ cycleNumber: 1 });
 };
@@ -240,9 +207,7 @@ submissionCycleSchema.statics.getCurrentCycle = async function (submissionId) {
     return this.findOne({ submissionId })
         .sort({ cycleNumber: -1 })
         .populate("technicalEditorId", "firstName lastName email")
-        .populate("reviewersId", "firstName lastName email")
         .populate("technicalEditorReview.reviewedBy", "firstName lastName email")
-        .populate("reviewerFeedback.reviewer", "firstName lastName email")
         .populate("manuscriptVersionId");
 };
 

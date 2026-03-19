@@ -676,33 +676,33 @@ export const editorDecisionSchema = {
 // TECHNICAL EDITOR DECISION SCHEMA
 // ================================================
 
-export const technicalEditorDecisionSchema = {
-    params: Joi.object({
-        id: objectIdField("Submission ID").required(),
-    }),
+// export const technicalEditorDecisionSchema = {
+//     params: Joi.object({
+//         id: objectIdField("Submission ID").required(),
+//     }),
 
-    body: Joi.object({
-        recommendation: Joi.string()
-            .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
-            .required()
-            .messages({
-                "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
-                "any.required": "Recommendation is required",
-            }),
+//     body: Joi.object({
+//         recommendation: Joi.string()
+//             .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
+//             .required()
+//             .messages({
+//                 "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
+//                 "any.required": "Recommendation is required",
+//             }),
 
-        remarks: Joi.string()
-            .trim()
-            .min(10)
-            .max(5000)
-            .required()
-            .messages({
-                "string.min": "Remarks must be at least 10 characters",
-                "any.required": "Remarks are required for your decision",
-            }),
+//         remarks: Joi.string()
+//             .trim()
+//             .min(10)
+//             .max(5000)
+//             .required()
+//             .messages({
+//                 "string.min": "Remarks must be at least 10 characters",
+//                 "any.required": "Remarks are required for your decision",
+//             }),
 
-        attachments: Joi.array().items(fileSchema).max(5).optional(),
-    }),
-};
+//         attachments: Joi.array().items(fileSchema).max(5).optional(),
+//     }),
+// };
 
 // ================================================
 // CO-AUTHOR CONSENT CHECK SCHEMA

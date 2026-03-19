@@ -780,7 +780,7 @@ const ReviewerChecklist = () => {
             </SectionCard>
 
             {/* Section VII: File Uploads */}
-            <SectionCard title="VII. File Uploads *" icon={Upload} teal>
+            <SectionCard title=" File Uploads *" icon={Upload} teal>
               {/* Instructions */}
               <div className="bg-[#e0f2fe] border border-[#a0d4e8] rounded-xl px-5 py-4 mb-6">
                 <p className="text-xs font-bold text-[#0c4a6e] mb-1">Upload Instructions</p>
@@ -812,7 +812,7 @@ const ReviewerChecklist = () => {
                 <div>
                   <FieldLabel required>2. Response to Editor's Comments</FieldLabel>
                   <p className="text-xs text-gray-500 mb-3">
-                    Upload a point-by-point response addressing each of the editor's and reviewers' comments — Word document only.
+                    Upload a point-by-point response addressing each of the editor's comments — Word document only.
                   </p>
                   <FileUploadBox
                     file={files.response}
