@@ -483,7 +483,7 @@ const submissionSchema = new Schema(
 
         suggestedReviewers: [
             {
-                _id: false,  // ✅ Disable auto-generated _id
+                _id: false,  
 
                 // ══════════════════════════════════════════════════════════
                 // REFERENCE (Always present)
@@ -604,20 +604,6 @@ const submissionSchema = new Schema(
         },
         assignedEditorDate: Date,
 
-        assignedTechnicalEditors: [{
-            _id: false,
-            technicalEditor: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-            },
-            assignedDate: Date,
-            status: {
-                type: String,
-                enum: ["PENDING", "IN_PROGRESS", "COMPLETED"],
-                default: "PENDING",
-            },
-        }],
-
         // ══════════════════════════════════════════════════════════
         // DATES
         // ══════════════════════════════════════════════════════════
@@ -632,7 +618,7 @@ const submissionSchema = new Schema(
         // ══════════════════════════════════════════════════════════
 
         internalNotes: [{
-             _id: false,
+            _id: false,
             note: String,
             addedBy: {
                 type: Schema.Types.ObjectId,
@@ -724,17 +710,18 @@ submissionSchema.pre("save", async function (next) {
                 "internalNotes",
                 "assignedEditor",
                 "assignedEditorDate",
-                "assignedTechnicalEditors",
                 "acceptedAt",
                 "rejectedAt",
                 "consentDeadlineStatus",
                 "consentIssues",
-                "coAuthors",                 // NEW - for processing co-author responses
+                "coAuthors",                 
                 "status",
                 "lastModifiedAt",
                 "updatedAt",
                 "currentCycleId",
                 "revisionStage",
+                "suggestedReviewers",
+                "suggestedReviewerResponses",
             ];
 
             const allowedFields = isStatusChange
@@ -806,8 +793,6 @@ submissionSchema.methods.canView = function (userId) {
     )) return true;
 
     if (this.assignedEditor && this.assignedEditor.toString() === userId.toString()) return true;
-
-    if (this.assignedTechnicalEditors.some(r => r.technicalEditor.toString() === userId.toString())) return true;
 
     return false;
 };
@@ -966,9 +951,6 @@ submissionSchema.methods.canUserView = function (userId, userRole) {
     // Accepted co-authors can view
     if (this.isUserCoAuthor(userId)) return true;
 
-    // Assigned reviewers/technical editors can view
-    if (this.assignedTechnicalEditors.some(r => r.technicalEditor.toString() === userId)) return true;
-
     return false;
 };
 
@@ -1106,7 +1088,7 @@ submissionSchema.methods.checkReviewerMajority = function () {
 };
 
 // ✅ NEW METHOD - FIXED VIEW PERMISSION CHECK
-submissionSchema.methods.canUserViewSubmission = function (userId, userRole, userEmail, isAssignedReviewer = false ) {
+submissionSchema.methods.canUserViewSubmission = function (userId, userRole, userEmail, isAssignedReviewer = false) {
     // Admin and Editor can view all submissions
     if (userRole === "ADMIN" || userRole === "EDITOR") {
         return { canView: true, viewLevel: "FULL" };
@@ -1121,15 +1103,15 @@ submissionSchema.methods.canUserViewSubmission = function (userId, userRole, use
     }
 
     // Technical Editor can view if assigned
-    if (userRole === "TECHNICAL_EDITOR" && this.assignedTechnicalEditors) {
-        const isAssigned = this.assignedTechnicalEditors.some(te => {
-            const techEditorId = te.technicalEditor?._id || te.technicalEditor;
-            return techEditorId.toString() === userId.toString();
-        });
-        if (isAssigned) {
-            return { canView: true, viewLevel: "FULL" };
-        }
-    }
+    // if (userRole === "TECHNICAL_EDITOR" && this.assignedTechnicalEditors) {
+    //     const isAssigned = this.assignedTechnicalEditors.some(te => {
+    //         const techEditorId = te.technicalEditor?._id || te.technicalEditor;
+    //         return techEditorId.toString() === userId.toString();
+    //     });
+    //     if (isAssigned) {
+    //         return { canView: true, viewLevel: "FULL" };
+    //     }
+    // }
 
     // Reviewer can view if assigned (checked via Reviewer collection in service layer)
     if (userRole === "REVIEWER" && isAssignedReviewer) {

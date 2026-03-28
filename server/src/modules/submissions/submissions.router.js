@@ -20,15 +20,15 @@ import {
     editorDecisionSchema,
     checkCoAuthorConsentSchema,
     checkReviewerMajoritySchema,
-    // NEW IMPORTS (Consent Management):
+    tokenInfoSchema,
+    reviewerInvitationResponseSchema,
     editorApproveConsentOverrideSchema,
-    // NEW IMPORTS (Editor Assignment):
     assignTechnicalEditorSchema,
     assignReviewersSchema,
     generateUploadUrlSchema,
     searchAuthorsSchema,
     searchReviewersSchema,
-    saveDraftSchema,        
+    saveDraftSchema,
     deleteDraftSchema,
 } from "./submissions.validator.js";
 
@@ -56,23 +56,22 @@ const {
     processCoAuthorConsent,
     moveToReview,
     getSubmissionTimeline,
-    // NEW DESTRUCTURING (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
-    // NEW DESTRUCTURING (Consent Management):
+    getTokenInfo,
+    reviewerInvitationResponse,
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
-    // NEW DESTRUCTURING (Editor Assignment):
     assignTechnicalEditor,
     assignReviewers,
     generateUploadUrl,
     searchAuthors,
     searchReviewers,
-    saveDraft,           
-    getLatestDraft,      
-    deleteDraft,   
+    saveDraft,
+    getLatestDraft,
+    deleteDraft,
 } = submissionController;
 
 const router = Router();
@@ -142,6 +141,12 @@ router.get(
     requireAuth,
     validateRequest(searchReviewersSchema),
     asyncHandler(searchReviewers)
+);
+
+router.get(
+    "/token-info",
+    validateRequest(tokenInfoSchema),
+    asyncHandler(getTokenInfo)
 );
 
 // ════════════════════════════════════════════════════════════════
@@ -378,6 +383,12 @@ router.post(
     "/coauthor-consent",
     validateRequest(coAuthorConsentSchema),
     asyncHandler(processCoAuthorConsent)
+);
+
+router.post(
+    "/reviewer-invitation-response",
+    validateRequest(reviewerInvitationResponseSchema),
+    asyncHandler(reviewerInvitationResponse)
 );
 
 /**

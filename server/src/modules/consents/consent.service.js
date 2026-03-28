@@ -69,7 +69,7 @@ const sendConsentEmail = async (submission, coAuthorData, token) => {
         const email = coAuthorData.email;
         const name = `${coAuthorData.firstName} ${coAuthorData.lastName}`;
         
-        const consentUrl = `${process.env.FRONTEND_URL}/submissions/${submission._id}/coauthor-consent?token=${token}`;
+       const consentUrl = `${process.env.FRONTEND_URL}/coauthor-consent?token=${token}`;
 
         const emailHtml = `
             <h2>Co-Author Consent Request</h2>

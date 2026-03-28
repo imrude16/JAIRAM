@@ -179,10 +179,10 @@ const reviewerSchema = new Schema(
 
                 // "Comments for Author" textarea
                 // Constructive feedback visible to the author after review
-                commentsForAuthor: {
+                remarks: {
                     type: String,
                     trim: true,
-                    maxlength: [10000, "Comments for author cannot exceed 10000 characters"],
+                    maxlength: [10000, "Remarks for author cannot exceed 10000 characters"],
                 },
 
                 // "Confidential Letter for Editor" textarea

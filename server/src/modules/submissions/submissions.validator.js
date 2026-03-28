@@ -624,6 +624,25 @@ export const submitRevisionSchema = {
                 "any.required": "Recommendation is required for this stage",
             }),
 
+        // Reviewer Checklist (required for REVIEWER_TO_EDITOR)
+        reviewerChecklist: Joi.object({
+            checklistVersion: Joi.string().default("1.0.0"),
+            responses: Joi.array().items(
+                Joi.object({
+                    questionId: Joi.string().required(),
+                    sectionId: Joi.string().required(),
+                    response: Joi.alternatives()
+                        .try(Joi.boolean(), Joi.string())
+                        .required(),
+                })
+            ).min(1).required(),
+            completedAt: Joi.date().optional(),
+        }).when("revisionStage", {
+            is: "REVIEWER_TO_EDITOR",
+            then: Joi.required(),
+            otherwise: Joi.optional(),
+        }),
+
         // File uploads (optional)
         revisedManuscript: fileSchema.optional(),
         attachments: Joi.array().items(fileSchema).max(10).optional(),
@@ -903,6 +922,28 @@ export const searchReviewersSchema = {
             .allow("")
             .messages({
                 "string.base": "Exclude must be a comma-separated list of emails",
+            }),
+    }),
+};
+
+export const tokenInfoSchema = {
+    query: Joi.object({
+        token: Joi.string().required(),
+        type: Joi.string().valid("consent", "reviewer-invitation").required(),
+    }),
+};
+
+export const reviewerInvitationResponseSchema = {
+    body: Joi.object({
+        token: Joi.string().required().messages({
+            "any.required": "Token is required",
+        }),
+        response: Joi.string()
+            .valid("ACCEPT", "DECLINE")
+            .required()
+            .messages({
+                "any.only": "Response must be ACCEPT or DECLINE",
+                "any.required": "Response is required",
             }),
     }),
 };

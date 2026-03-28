@@ -24,6 +24,8 @@ import ManuscriptSubmissionPortal from "./pages/ManuscriptSubmissionPortal/Manus
 import PoweredTrustPage from "./pages/PoweredTrustPage/PoweredTrustPage";
 import OtpVerificationPage from "./pages/OtpVerificationPage/OtpVerificationPage";
 import ReviewerChecklist from "./pages/ReviewerChecklist/ReviewerChecklist";
+import CoAuthorConsentPage from "./pages/CoAuthorConsentPage/CoAuthorConsentPage";
+import ReviewerInvitationPage from "./pages/ReviewerInvitationPage/ReviewerInvitationPage";
 
 // import SearchResults from "./pages/SearchResults/SearchResults";
 // import NotFound from "./pages/NotFound/NotFound";
@@ -210,11 +212,11 @@ function App() {
         <Route
           path="/reviewer-checklist"
           element={
-           
-              <PageTransition>
-                <ReviewerChecklist />
-              </PageTransition>
-           
+
+            <PageTransition>
+              <ReviewerChecklist />
+            </PageTransition>
+
           }
         />
 
@@ -262,6 +264,22 @@ function App() {
             <Layout minimal>
               <AuthPage mode="register" />
             </Layout>
+          }
+        />
+        <Route
+          path="/coauthor-consent"
+          element={
+            <PageTransition>
+              <CoAuthorConsentPage />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/reviewer-invitation"
+          element={
+            <PageTransition>
+              <ReviewerInvitationPage />
+            </PageTransition>
           }
         />
         <Route

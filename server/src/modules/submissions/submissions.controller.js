@@ -306,6 +306,20 @@ const checkReviewerMajority = async (req, res) => {
     );
 };
 
+const reviewerInvitationResponse = async (req, res) => {
+    const { token, response } = req.body;
+
+    const result = await submissionService.reviewerInvitationResponse(token, response);
+
+    sendSuccess(
+        res,
+        result.message,
+        null,
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 // ════════════════════════════════════════════════════════════════
 // NEW CONTROLLERS FOR CONSENT MANAGEMENT
 // ════════════════════════════════════════════════════════════════
@@ -436,6 +450,20 @@ const searchReviewers = async (req, res) => {
     );
 };
 
+const getTokenInfo = async (req, res) => {
+    const { token, type } = req.query;
+
+    const result = await submissionService.getTokenInfo(token, type);
+
+    sendSuccess(
+        res,
+        result.message,
+        { info: result.info },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const saveDraft = async (req, res) => {
     const result = await submissionService.saveDraft(req.user.id, req.body);
 
@@ -490,12 +518,13 @@ export default {
     makeEditorDecision,
     checkCoAuthorConsent,
     checkReviewerMajority,
-    // NEW EXPORTS (Consent Management):
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
     assignTechnicalEditor,
     assignReviewers,
     generateUploadUrl,
+    getTokenInfo,
+    reviewerInvitationResponse,
     searchAuthors,
     searchReviewers,
     saveDraft,

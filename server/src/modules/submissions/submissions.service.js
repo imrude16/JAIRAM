@@ -7,6 +7,7 @@ import { CURRENT_CHECKLIST } from "../../common/constants/checklistQuestions.v1.
 import { SubmissionCycle } from "../submissionCycles/submissionCycle.model.js";
 import manuscriptVersionService from "../manuscriptVersions/manuscriptVersion.service.js";
 import consentService from "../consents/consent.service.js";
+import { TechnicalEditor } from "../technicalEditors/technicalEditor.model.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
@@ -39,7 +40,6 @@ const findSubmissionById = async (submissionId, options = {}) => {
                 .populate("author", "firstName lastName email")
                 .populate("coAuthors.user", "firstName lastName email")
                 .populate("assignedEditor", "firstName lastName email")
-                .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email");
         }
 
         const submission = await query;
@@ -339,12 +339,84 @@ const searchReviewers = async (searchQuery, excludeEmails = "") => {
         );
     }
 };
+
+const getTokenInfo = async (token, type) => {
+    try {
+        console.log("🔵 [SERVICE] getTokenInfo started");
+
+        let submission = null;
+
+        if (type === "consent") {
+            const { Consent } = await import("../consents/consent.model.js");
+            const consent = await Consent.findOne({ consentToken: token })
+                .select("+consentToken +consentTokenExpires");
+
+            if (!consent) {
+                throw new AppError("Invalid or expired token", STATUS_CODES.BAD_REQUEST, "INVALID_TOKEN");
+            }
+
+            if (consent.consentTokenExpires < new Date()) {
+                throw new AppError("This consent link has expired", STATUS_CODES.BAD_REQUEST, "TOKEN_EXPIRED");
+            }
+
+            submission = await Submission.findById(consent.submissionId)
+                .select("title submissionNumber status");
+
+        } else if (type === "reviewer-invitation") {
+            submission = await Submission.findOne({
+                "suggestedReviewers.invitationToken": token,
+            }).select("title submissionNumber suggestedReviewers");
+
+            if (!submission) {
+                throw new AppError("Invalid or expired token", STATUS_CODES.BAD_REQUEST, "INVALID_TOKEN");
+            }
+
+            const reviewer = submission.suggestedReviewers.find(
+                r => r.invitationToken === token
+            );
+
+            if (!reviewer) {
+                throw new AppError("Invalid or expired token", STATUS_CODES.BAD_REQUEST, "INVALID_TOKEN");
+            }
+
+            if (reviewer.invitationTokenExpires < new Date()) {
+                throw new AppError("This invitation link has expired", STATUS_CODES.BAD_REQUEST, "TOKEN_EXPIRED");
+            }
+
+            if (reviewer.invitationStatus !== "PENDING") {
+                throw new AppError(
+                    `You have already ${reviewer.invitationStatus.toLowerCase()} this invitation`,
+                    STATUS_CODES.BAD_REQUEST,
+                    "ALREADY_RESPONDED"
+                );
+            }
+        }
+
+        return {
+            message: "Token info retrieved successfully",
+            info: {
+                submissionNumber: submission.submissionNumber,
+                title: submission.title,
+            },
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError(
+            "Failed to retrieve token info",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "TOKEN_INFO_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
     try {
         const email = reviewer.email;
         const name = `${reviewer.firstName} ${reviewer.lastName}`;
 
-        const invitationUrl = `${process.env.FRONTEND_URL}/submissions/${submission._id}/reviewer-invitation/${reviewer._id}?token=${token}`;
+        const invitationUrl = `${process.env.FRONTEND_URL}/reviewer-invitation?token=${token}`;
 
         const emailHtml = `
             <h2>Manuscript Review Invitation</h2>
@@ -446,7 +518,6 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         const submission = await Submission.findById(submissionId)
             .populate("author", "firstName lastName email")
             .populate("assignedEditor", "firstName lastName email")
-            .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")
             .select("+coAuthors.consentToken +coAuthors.consentTokenExpires"); // Include hidden fields for permission check
 
         if (!submission) {
@@ -530,16 +601,22 @@ const checkCanViewSubmission = async (submission, userId, userRole, userEmail, i
     }
 
     // Technical Editor can view if assigned
-    if (userRole === "TECHNICAL_EDITOR" && submission.assignedTechnicalEditors) {
-        const isAssigned = submission.assignedTechnicalEditors.some(te => {
-            const techEditorId = te.technicalEditor?._id || te.technicalEditor;
-            return techEditorId.toString() === userId.toString();
-        });
-        if (isAssigned) {
-            return { canView: true, viewLevel: "FULL", showTimeline: false };
+    if (userRole === "TECHNICAL_EDITOR") {
+        const currentCycle = await SubmissionCycle.getCurrentCycle(submission._id);
+        if (currentCycle) {
+            const techEditorDoc = await TechnicalEditor.getCurrentCycleDoc(
+                submission._id,
+                currentCycle._id
+            );
+            const isAssigned = techEditorDoc?.assignedTechnicalEditors?.some(te => {
+                const techEditorId = te.technicalEditor?._id || te.technicalEditor;
+                return techEditorId.toString() === userId.toString();
+            });
+            if (isAssigned) {
+                return { canView: true, viewLevel: "FULL", showTimeline: false };
+            }
         }
     }
-
     // Reviewer can view if assigned
     // if (userRole === "REVIEWER" && submission.assignedReviewers) {
     //     const isAssigned = submission.assignedReviewers.some(r => {
@@ -963,12 +1040,24 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 
         // Role-based filtering with Author vs Co-author differentiation
         if (userRole === "USER") {
+            const { Consent } = await import("../consents/consent.model.js");
+            const currentUser = await User.findById(userId).select("email");
+            const approvedConsents = await Consent.find({
+                $or: [
+                    { coAuthorId: userId },
+                    { coAuthorEmail: currentUser.email },
+                ],
+                status: "APPROVED",
+            }).select("submissionId");
+
+            const approvedSubmissionIds = approvedConsents.map(c => c.submissionId);
+
             query.$or = [
                 { author: userId },
                 {
+                    _id: { $in: approvedSubmissionIds },
                     "coAuthors.user": userId,
-                    "coAuthors.consentStatus": "ACCEPTED",
-                    "coAuthors.isCorresponding": true
+                    "coAuthors.isCorresponding": true,
                 }
             ];
         } else if (userRole === "REVIEWER") {
@@ -979,10 +1068,18 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             const submissionIds = reviewerDocs.map(r => r.submissionId);
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
-        } else if (userRole === "TECHNICAL_EDITOR") {
-            query["assignedTechnicalEditors.technicalEditor"] = userId;
+        }
+        else if (userRole === "TECHNICAL_EDITOR") {
+            const techEditorDocs = await TechnicalEditor.find({
+                "assignedTechnicalEditors.technicalEditor": userId,
+            }).select("submissionId");
+
+            const submissionIds = techEditorDocs.map(doc => doc.submissionId);
+
+            query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
-        } else if (userRole === "EDITOR" || userRole === "ADMIN") {
+        }
+        else if (userRole === "EDITOR" || userRole === "ADMIN") {
             query.status = { $ne: "DRAFT" };
         }
 
@@ -1370,7 +1467,20 @@ const submitRevision = async (userId, payload) => {
         }
 
         // ═══════════════════════════════════════════════════════════
-        // STEP 2: VERIFY USER HAS PERMISSION FOR THIS STAGE
+        // STEP 2: GET CURRENT CYCLE
+        // ═══════════════════════════════════════════════════════════
+
+        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        if (!currentCycle) {
+            throw new AppError(
+                "No active cycle found for this submission",
+                STATUS_CODES.BAD_REQUEST,
+                "NO_ACTIVE_CYCLE"
+            );
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STEP 3: VERIFY USER HAS PERMISSION FOR THIS STAGE
         // ═══════════════════════════════════════════════════════════
 
         if (payload.submitterRoleType === "Editor") {
@@ -1382,8 +1492,13 @@ const submitRevision = async (userId, payload) => {
                     "NOT_ASSIGNED_EDITOR"
                 );
             }
-        } else if (payload.submitterRoleType === "Technical Editor") {
-            const isAssigned = submission.assignedTechnicalEditors.some(
+        }
+        else if (payload.submitterRoleType === "Technical Editor") {
+            const techEditorDoc = await TechnicalEditor.getCurrentCycleDoc(
+                submission._id,
+                currentCycle._id
+            );
+            const isAssigned = techEditorDoc?.assignedTechnicalEditors?.some(
                 te => te.technicalEditor.toString() === userId
             );
             if (!isAssigned) {
@@ -1393,7 +1508,8 @@ const submitRevision = async (userId, payload) => {
                     "NOT_ASSIGNED_TECH_EDITOR"
                 );
             }
-        } else if (payload.submitterRoleType === "Reviewer") {
+        }
+        else if (payload.submitterRoleType === "Reviewer") {
             const { Reviewer } = await import("../reviewers/reviewer.model.js");
             const reviewerDoc = await Reviewer.findOne({
                 submissionId: submission._id,
@@ -1409,26 +1525,28 @@ const submitRevision = async (userId, payload) => {
             }
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // STEP 3: GET CURRENT CYCLE
-        // ═══════════════════════════════════════════════════════════
+        // // ═══════════════════════════════════════════════════════════
+        // // STEP 3: GET CURRENT CYCLE
+        // // ═══════════════════════════════════════════════════════════
 
-        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
-        if (!currentCycle) {
-            throw new AppError(
-                "No active cycle found for this submission",
-                STATUS_CODES.BAD_REQUEST,
-                "NO_ACTIVE_CYCLE"
-            );
-        }
+        // const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        // if (!currentCycle) {
+        //     throw new AppError(
+        //         "No active cycle found for this submission",
+        //         STATUS_CODES.BAD_REQUEST,
+        //         "NO_ACTIVE_CYCLE"
+        //     );
+        // }
 
         // ═══════════════════════════════════════════════════════════
         // STEP 4: ENFORCE SINGLE SUBMISSION RULES
         // ═══════════════════════════════════════════════════════════
-
         if (payload.revisionStage === "TECH_EDITOR_TO_EDITOR") {
-            if (currentCycle.technicalEditorReview &&
-                currentCycle.technicalEditorReview.reviewedAt) {
+            const techEditorDoc = await TechnicalEditor.getCurrentCycleDocLean(
+                submission._id,
+                currentCycle._id
+            );
+            if (techEditorDoc?.technicalEditorReview?.reviewedAt) {
                 throw new AppError(
                     "Technical Editor has already submitted review for this cycle (only 1 chance allowed)",
                     STATUS_CODES.FORBIDDEN,
@@ -1497,15 +1615,33 @@ const submitRevision = async (userId, payload) => {
                 };
                 break;
 
-            case "TECH_EDITOR_TO_EDITOR":
-                currentCycle.technicalEditorReview = {
-                    reviewedBy: userId,
+            case "TECH_EDITOR_TO_EDITOR": {
+                const techEditorDoc = await TechnicalEditor.getCurrentCycleDoc(
+                    submission._id,
+                    currentCycle._id
+                );
+                if (!techEditorDoc) {
+                    throw new AppError(
+                        "Technical Editor record not found for this cycle",
+                        STATUS_CODES.NOT_FOUND,
+                        "TECH_EDITOR_DOC_NOT_FOUND"
+                    );
+                }
+
+                const techEditorUser = await User.findById(userId);
+
+                techEditorDoc.technicalEditorReview = {
+                    user: userId,
+                    email: techEditorUser?.email,
                     recommendation: payload.recommendation,
                     remarks: payload.remarks,
-                    attachmentRefs,
+                    revisedManuscript: attachmentRefs?.[0] || null,
                     reviewedAt: new Date(),
                 };
+
+                await techEditorDoc.save();
                 break;
+            }
 
             case "EDITOR_TO_REVIEWER":
                 currentCycle.editorRemarksForReviewers = {
@@ -1527,8 +1663,8 @@ const submitRevision = async (userId, payload) => {
                     )?.user || null,
                     email: user.email,
                     recommendation: payload.recommendation,
-                    remarks: [payload.remarks],
-                    attachmentRefs,
+                    remarks: payload.remarks,
+                    reviewerChecklist: payload.reviewerChecklist,
                     reviewedAt: new Date(),
                 });
                 await reviewerDoc.save();
@@ -1887,6 +2023,99 @@ const checkReviewerMajorityStatus = async (submissionId) => {
             "Failed to check reviewer majority",
             STATUS_CODES.INTERNAL_SERVER_ERROR,
             "MAJORITY_CHECK_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+const reviewerInvitationResponse = async (token, response) => {
+    try {
+        console.log("🔵 [SERVICE] reviewerInvitationResponse started");
+
+        const submission = await Submission.findOne({
+            "suggestedReviewers.invitationToken": token,
+        }).select("+suggestedReviewers.invitationToken +suggestedReviewers.invitationTokenExpires");
+
+        if (!submission) {
+            throw new AppError(
+                "Invalid or expired invitation token",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_TOKEN"
+            );
+        }
+
+        const reviewerIndex = submission.suggestedReviewers.findIndex(
+            r => r.invitationToken === token
+        );
+
+        if (reviewerIndex === -1) {
+            throw new AppError(
+                "Invalid or expired invitation token",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_TOKEN"
+            );
+        }
+
+        const reviewer = submission.suggestedReviewers[reviewerIndex];
+
+        // Check token expiry
+        if (reviewer.invitationTokenExpires < new Date()) {
+            throw new AppError(
+                "This invitation link has expired",
+                STATUS_CODES.BAD_REQUEST,
+                "TOKEN_EXPIRED"
+            );
+        }
+
+        // Check already responded
+        if (reviewer.invitationStatus !== "PENDING") {
+            throw new AppError(
+                `You have already ${reviewer.invitationStatus.toLowerCase()} this invitation`,
+                STATUS_CODES.BAD_REQUEST,
+                "ALREADY_RESPONDED"
+            );
+        }
+
+        // Update invitation status
+        submission.suggestedReviewers[reviewerIndex].invitationStatus =
+            response === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+
+        // Update response counts
+        if (response === "ACCEPT") {
+            submission.suggestedReviewerResponses.accepted += 1;
+        } else {
+            submission.suggestedReviewerResponses.declined += 1;
+        }
+        submission.suggestedReviewerResponses.pending -= 1;
+
+        // Check majority
+        const { accepted, totalSuggested } = submission.suggestedReviewerResponses;
+        const required = Math.ceil(totalSuggested / 2);
+        if (accepted >= required) {
+            submission.suggestedReviewerResponses.majorityMet = true;
+        }
+
+        // Clear token after use
+        submission.suggestedReviewers[reviewerIndex].invitationToken = undefined;
+        submission.suggestedReviewers[reviewerIndex].invitationTokenExpires = undefined;
+
+        await submission.save({ validateBeforeSave: false });
+
+        console.log("✅ [SERVICE] reviewerInvitationResponse completed");
+
+        return {
+            message: response === "ACCEPT"
+                ? "Thank you for accepting the review invitation"
+                : "You have declined the review invitation",
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Error in reviewerInvitationResponse:", error);
+        throw new AppError(
+            "Failed to process invitation response",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "INVITATION_RESPONSE_ERROR",
             { originalError: error.message }
         );
     }
@@ -2324,24 +2553,24 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
         }
 
         // Check if already assigned
-        const alreadyAssigned = submission.assignedTechnicalEditors.some(
-            te => te.technicalEditor.toString() === technicalEditorId
-        );
+        // const alreadyAssigned = submission.assignedTechnicalEditors.some(
+        //     te => te.technicalEditor.toString() === technicalEditorId
+        // );
 
-        if (alreadyAssigned) {
-            throw new AppError(
-                "This technical editor is already assigned to this submission",
-                STATUS_CODES.BAD_REQUEST,
-                "TECHNICAL_EDITOR_ALREADY_ASSIGNED"
-            );
-        }
+        // if (alreadyAssigned) {
+        //     throw new AppError(
+        //         "This technical editor is already assigned to this submission",
+        //         STATUS_CODES.BAD_REQUEST,
+        //         "TECHNICAL_EDITOR_ALREADY_ASSIGNED"
+        //     );
+        // }
 
         // Add to assignedTechnicalEditors
-        submission.assignedTechnicalEditors.push({
-            technicalEditor: technicalEditorId,
-            assignedDate: new Date(),
-            status: "PENDING",
-        });
+        // submission.assignedTechnicalEditors.push({
+        //     technicalEditor: technicalEditorId,
+        //     assignedDate: new Date(),
+        //     status: "PENDING",
+        // });
 
         // Add internal note
         submission.internalNotes.push({
@@ -2352,18 +2581,24 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
 
         // Update current cycle with remarks and attachments
         const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
-        if (currentCycle) {
-            currentCycle.technicalEditorId = technicalEditorId;
-            // Store editor remarks for technical editor in cycle
-            if (!currentCycle.editorRemarksForTechEditor) {
-                currentCycle.editorRemarksForTechEditor = {
-                    remarks,
-                    attachments: attachments || [],
-                    sentAt: new Date(),
-                };
-            }
-            await currentCycle.save();
-        }
+        await TechnicalEditor.create({
+            submissionId: submission._id,
+            cycleId: currentCycle._id,
+            assignedTechnicalEditors: [{
+                technicalEditor: technicalEditorId,
+                assignedDate: new Date(),
+                assignedBy: editorId,
+                status: "PENDING",
+            }],
+        });
+
+        currentCycle.editorRemarksForTechEditor = {
+            remarks,
+            attachments: attachments || [],
+            sentAt: new Date(),
+        };
+
+        await currentCycle.save();
 
         await submission.save();
 
@@ -2398,6 +2633,7 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
         return {
             message: "Technical editor assigned successfully",
             submission,
+            currentCycle,
         };
 
     } catch (error) {
@@ -2769,7 +3005,8 @@ export default {
     makeEditorDecision,
     checkCoAuthorConsentStatus,
     checkReviewerMajorityStatus,
-    // NEW EXPORTS (Consent Management):
+    getTokenInfo,
+    reviewerInvitationResponse,
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
     assignTechnicalEditor,

@@ -10,8 +10,6 @@ import { Schema, model } from "mongoose";
  * 
  * CHANGES:
  * - Enhanced editorDecision with decisionNumber and decisionStage
- * - Added technicalEditorReview for Technical Editor decisions
- * - Added reviewerFeedback array for multiple reviewer comments
  * ════════════════════════════════════════════════════════════════
  */
 
@@ -45,15 +43,6 @@ const submissionCycleSchema = new Schema(
             index: true,
         },
 
-        // ══════════════════════════════════════════════════════════
-        // ASSIGNED PERSONNEL
-        // ══════════════════════════════════════════════════════════
-
-        technicalEditorId: {
-            type: Schema.Types.ObjectId,
-            ref: "User",
-        },
-
         // ══════════════════════════════════════════════════════════════
         // EDITOR REMARKS TO TECHNICAL EDITOR/REVIEWERS (NEW)
         // ══════════════════════════════════════════════════════════════
@@ -83,7 +72,6 @@ const submissionCycleSchema = new Schema(
             }],
             sentAt: Date,
         },
-
 
         editorRemarksForAuthor: {
             remarks: {
@@ -137,31 +125,6 @@ const submissionCycleSchema = new Schema(
         },
 
         // ══════════════════════════════════════════════════════════
-        // TECHNICAL EDITOR REVIEW (NEW)
-        // ══════════════════════════════════════════════════════════
-
-        technicalEditorReview: {
-            reviewedBy: {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-            },
-            recommendation: {
-                type: String,
-                enum: ["ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT"],
-            },
-            remarks: {
-                type: String,
-                trim: true,
-                maxlength: 5000,
-            },
-            attachmentRefs: [{
-                type: String,
-                trim: true,
-            }],
-            reviewedAt: Date,
-        },
-
-        // ══════════════════════════════════════════════════════════
         // STATUS TRACKING
         // ══════════════════════════════════════════════════════════
 
@@ -189,7 +152,6 @@ const submissionCycleSchema = new Schema(
 // INDEXES
 // ══════════════════════════════════════════════════════════════════
 submissionCycleSchema.index({ submissionId: 1, cycleNumber: 1 }, { unique: true });
-submissionCycleSchema.index({ technicalEditorId: 1 });
 
 // ══════════════════════════════════════════════════════════════════
 // STATIC METHODS
@@ -197,8 +159,6 @@ submissionCycleSchema.index({ technicalEditorId: 1 });
 
 submissionCycleSchema.statics.findBySubmission = async function (submissionId) {
     return this.find({ submissionId })
-        .populate("technicalEditorId", "firstName lastName email")
-        .populate("technicalEditorReview.reviewedBy", "firstName lastName email")
         .populate("manuscriptVersionId")
         .sort({ cycleNumber: 1 });
 };
@@ -206,8 +166,6 @@ submissionCycleSchema.statics.findBySubmission = async function (submissionId) {
 submissionCycleSchema.statics.getCurrentCycle = async function (submissionId) {
     return this.findOne({ submissionId })
         .sort({ cycleNumber: -1 })
-        .populate("technicalEditorId", "firstName lastName email")
-        .populate("technicalEditorReview.reviewedBy", "firstName lastName email")
         .populate("manuscriptVersionId");
 };
 
