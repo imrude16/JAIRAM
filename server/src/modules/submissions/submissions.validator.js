@@ -1097,3 +1097,26 @@ export const deleteDraftSchema = {
             }),
     }),
 };
+
+// ================================================
+// CO-AUTHOR CONSENT FROM DASHBOARD SCHEMA
+// ================================================
+
+export const coAuthorConsentFromDashboardSchema = {
+    params: Joi.object({
+        submissionId: objectIdField("Submission ID").required(),
+    }),
+
+    body: Joi.object({
+        decision: Joi.string().valid("ACCEPT", "REJECT").required()
+            .messages({
+                "any.only": "Decision must be either ACCEPT or REJECT",
+                "any.required": "Decision is required",
+            }),
+        remark: Joi.when("decision", {
+            is: "REJECT",
+            then: Joi.string().trim().max(1000).optional().allow(""),
+            otherwise: Joi.optional().allow(""),
+        }),
+    }),
+};

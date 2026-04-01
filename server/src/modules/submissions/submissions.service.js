@@ -557,6 +557,39 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         // Convert mongoose document to plain object
         const submissionObj = submission.toObject();
 
+        // Enrich co-author response with linked user details while preserving raw ObjectId.
+        const coAuthorUserIds = (submissionObj.coAuthors || [])
+            .map((coAuthor) => coAuthor.user)
+            .filter(Boolean)
+            .map((id) => id.toString());
+
+        if (coAuthorUserIds.length > 0) {
+            const linkedUsers = await User.find({
+                _id: { $in: coAuthorUserIds },
+            })
+                .select("firstName lastName email")
+                .lean();
+
+            const linkedUserMap = new Map(
+                linkedUsers.map((linkedUser) => [
+                    linkedUser._id.toString(),
+                    {
+                        _id: linkedUser._id,
+                        firstName: linkedUser.firstName,
+                        lastName: linkedUser.lastName,
+                        email: linkedUser.email,
+                    },
+                ])
+            );
+
+            submissionObj.coAuthors = submissionObj.coAuthors.map((coAuthor) => ({
+                ...coAuthor,
+                userDetails: coAuthor.user
+                    ? linkedUserMap.get(coAuthor.user.toString()) || null
+                    : null,
+            }));
+        }
+
         const filteredSubmission = filterSubmissionByViewLevel(
             submissionObj,
             permissionCheck.viewLevel,
@@ -1056,8 +1089,8 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 { author: userId },
                 {
                     _id: { $in: approvedSubmissionIds },
-                    "coAuthors.user": userId,
-                    "coAuthors.isCorresponding": true,
+                    // "coAuthors.user": userId,
+                    // "coAuthors.isCorresponding": true,
                 }
             ];
         } else if (userRole === "REVIEWER") {
@@ -1354,6 +1387,94 @@ const processCoAuthorConsent = async (token, decision, remark = null) => {
             "Failed to process consent",
             STATUS_CODES.INTERNAL_SERVER_ERROR,
             "CONSENT_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+// ================================================
+// PROCESS CO-AUTHOR CONSENT FROM DASHBOARD
+// ================================================
+
+const processCoAuthorConsentFromDashboard = async (submissionId, userId, userEmail, decision, remark = null) => {
+    try {
+        console.log("🔵 [SERVICE] processCoAuthorConsentFromDashboard started");
+
+        const { Consent } = await import("../consents/consent.model.js");
+
+        // Find consent record by submission + user email
+        const consent = await Consent.findOne({
+            submissionId,
+            coAuthorEmail: userEmail,
+        }).select("+consentToken +consentTokenExpires");
+
+        if (!consent) {
+            throw new AppError(
+                "Consent record not found for this submission",
+                STATUS_CODES.NOT_FOUND,
+                "CONSENT_NOT_FOUND"
+            );
+        }
+
+        // Check if token is expired
+        if (!consent.consentToken || !consent.consentTokenExpires || consent.consentTokenExpires < Date.now()) {
+            return {
+                message: "Consent token has expired",
+                consentStatus: {
+                    status: "EXPIRED",
+                    message: "This consent link has expired. Please request a new one from the author.",
+                },
+            };
+        }
+
+        // Process the decision
+        if (decision === "ACCEPT") {
+            consent.approve();
+        } else if (decision === "REJECT") {
+            consent.reject(remark || "");
+        }
+
+        await consent.save();
+
+        // Check if all consents approved
+        if (consent.status === "APPROVED") {
+            const allApproved = await Consent.areAllApproved(submissionId);
+
+            const submission = await findSubmissionById(submissionId);
+            if (submission && allApproved && submission.status === "DRAFT") {
+                submission.status = "SUBMITTED";
+                await submission.save();
+                console.log(`✅ [SERVICE] All consents approved - submission SUBMITTED`);
+            }
+        }
+
+        // Notify author if rejected
+        if (consent.status === "REJECTED") {
+            const submission = await findSubmissionById(submissionId);
+            if (submission) {
+                await consentService.notifyAuthorOfRejection(submission, consent);
+                
+                if (submission.status === "SUBMITTED") {
+                    submission.status = "DRAFT";
+                    await submission.save();
+                }
+            }
+        }
+
+        return {
+            message: `Consent ${decision === "ACCEPT" ? "accepted" : "rejected"} successfully`,
+            consentStatus: {
+                status: consent.status,
+                respondedAt: consent.respondedAt,
+            },
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Error in processCoAuthorConsentFromDashboard:", error);
+        throw new AppError(
+            "Failed to process consent",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "CONSENT_PROCESS_ERROR",
             { originalError: error.message }
         );
     }
@@ -2988,6 +3109,130 @@ const deleteDraft = async (userId, draftId) => {
     }
 };
 
+// ================================================
+// GET MY PENDING CONSENT INVITATIONS
+// ================================================
+// Called by USER dashboard to show pending consent requests.
+// Queries Consent collection directly by email.
+// ENHANCED: Includes token validity info for dashboard integration
+
+const getMyConsentInvitations = async (userId) => {
+    try {
+        const user = await User.findById(userId).select("email");
+        if (!user) throw new AppError("User not found", STATUS_CODES.NOT_FOUND, "USER_NOT_FOUND");
+
+        const { Consent } = await import("../consents/consent.model.js");
+
+        const consents = await Consent.find({
+            coAuthorEmail: user.email,
+        }).select("submissionId status respondedAt coAuthorEmail consentTokenExpires").lean();
+
+        // Populate submission info
+        const submissionIds = consents.map(c => c.submissionId);
+        const submissions = await Submission.find(
+            { _id: { $in: submissionIds } },
+            { title: 1, submissionNumber: 1, articleType: 1, author: 1 }
+        ).populate("author", "firstName lastName").lean();
+
+        const subMap = Object.fromEntries(submissions.map(s => [s._id.toString(), s]));
+
+        const result = consents.map(c => {
+            // Check token validity
+            const isTokenValid = c.status === "PENDING" && 
+                                c.consentTokenExpires && 
+                                c.consentTokenExpires > new Date();
+            
+            return {
+                consentId: c._id,
+                submissionId: c.submissionId,
+                status: c.status,                          // PENDING / APPROVED / REJECTED
+                tokenValid: isTokenValid,                  // NEW: For dashboard button states
+                submissionNumber: subMap[c.submissionId?.toString()]?.submissionNumber ?? "—",
+                title: subMap[c.submissionId?.toString()]?.title ?? "—",
+                articleType: subMap[c.submissionId?.toString()]?.articleType ?? "—",
+                mainAuthor: (() => {
+                    const a = subMap[c.submissionId?.toString()]?.author;
+                    return a ? `${a.firstName} ${a.lastName}`.trim() : "—";
+                })(),
+                respondedAt: c.respondedAt ?? null,
+            };
+        });
+
+        return { message: "Consent invitations retrieved", invitations: result };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError("Failed to get consent invitations", STATUS_CODES.INTERNAL_SERVER_ERROR, "CONSENT_INVITATIONS_ERROR", { originalError: error.message });
+    }
+};
+
+const getCoAuthorConsentsForSubmission = async (submissionId, userId) => {
+    try {
+        // Find submission
+        const submission = await Submission.findById(submissionId).select("_id author title");
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        // Permission check: only author can view consent status of their submission's co-authors
+        if (submission.author.toString() !== userId) {
+            throw new AppError(
+                "Unauthorized: You can only view consent status for your own submissions",
+                STATUS_CODES.FORBIDDEN,
+                "UNAUTHORIZED_CONSENT_ACCESS"
+            );
+        }
+
+        // Fetch all consents for this submission
+        const { Consent } = await import("../consents/consent.model.js");
+        const consents = await Consent.find({ submissionId }).select("coAuthorEmail status respondedAt").lean();
+
+        // Aggregate counts
+        const counts = {
+            approved: consents.filter(c => c.status === "APPROVED").length,
+            pending: consents.filter(c => c.status === "PENDING").length,
+            rejected: consents.filter(c => c.status === "REJECTED").length,
+        };
+
+        const total = consents.length;
+
+        // Determine aggregated status
+        let aggregatedStatus = "APPROVED"; // Default if no consents
+        if (total > 0) {
+            if (counts.rejected > 0) {
+                aggregatedStatus = "REJECTED";
+            } else if (counts.pending > 0) {
+                aggregatedStatus = "PENDING";
+            } else {
+                aggregatedStatus = "APPROVED";
+            }
+        }
+
+        return {
+            message: "Co-author consents retrieved successfully",
+            submissionId: submissionId.toString(),
+            submissionTitle: submission.title,
+            total,
+            approved: counts.approved,
+            pending: counts.pending,
+            rejected: counts.rejected,
+            aggregatedStatus,
+            consents: consents.map(c => ({
+                coAuthorEmail: c.coAuthorEmail,
+                status: c.status,
+                respondedAt: c.respondedAt ?? null,
+            })),
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError(
+            "Failed to get co-author consents",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "COAUTHOR_CONSENTS_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 export default {
     createSubmission,
     getSubmissionById,
@@ -2998,9 +3243,9 @@ export default {
     updatePaymentStatus,
     assignEditor,
     processCoAuthorConsent,
+    processCoAuthorConsentFromDashboard,
     moveToReview,
     getSubmissionTimeline,
-    // NEW EXPORTS (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
     checkCoAuthorConsentStatus,
@@ -3017,4 +3262,6 @@ export default {
     saveDraft,
     getLatestDraft,
     deleteDraft,
+    getMyConsentInvitations,
+    getCoAuthorConsentsForSubmission,
 };

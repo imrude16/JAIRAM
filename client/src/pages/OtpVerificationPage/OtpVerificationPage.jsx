@@ -101,7 +101,7 @@ const OtpVerificationPage = () => {
       const { token, user } = await verifyOtp({ email: pendingEmail, otp });
       login(token, user);
       toast.success("Email verified! Welcome aboard 🎉");
-      navigate("/", { replace: true }); // -> Redirect to homepage or dashboard after successful verification
+      navigate("/dashboard", { replace: true }); // -> Redirect to homepage or dashboard after successful verification
     } catch (err) {
       toast.error(err.message || "Invalid OTP. Please try again.");
       // Clear inputs and refocus first box on error

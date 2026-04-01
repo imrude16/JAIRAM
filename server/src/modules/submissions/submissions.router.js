@@ -14,6 +14,7 @@ import {
     updatePaymentStatusSchema,
     assignEditorSchema,
     coAuthorConsentSchema,
+    coAuthorConsentFromDashboardSchema,
     listSubmissionsSchema,
     // NEW IMPORTS (Revisions & Decisions):
     submitRevisionSchema,
@@ -54,6 +55,7 @@ const {
     updatePaymentStatus,
     assignEditor,
     processCoAuthorConsent,
+    processCoAuthorConsentFromDashboard,
     moveToReview,
     getSubmissionTimeline,
     submitRevision,
@@ -72,6 +74,8 @@ const {
     saveDraft,
     getLatestDraft,
     deleteDraft,
+    getMyConsentInvitations,
+    getCoAuthorConsentsForSubmission,
 } = submissionController;
 
 const router = Router();
@@ -170,6 +174,52 @@ router.post(
     requireAuth,
     validateRequest(saveDraftSchema),
     asyncHandler(saveDraft)
+);
+
+/**
+ * GET MY CONSENT INVITATIONS
+ * GET /api/submissions/my-consent-invitations
+ * Auth: Required (any logged-in user)
+ */
+router.get(
+    "/my-consent-invitations",
+    requireAuth,
+    asyncHandler(getMyConsentInvitations)
+);
+
+/**
+ * GET CO-AUTHOR CONSENTS FOR A SUBMISSION
+ * 
+ * GET /api/submissions/:submissionId/coauthor-consents
+ * Headers: Authorization: Bearer <token>
+ * 
+ * Auth: Required (only author of the submission can access)
+ * 
+ * Purpose: Get all co-author consent records for a specific submission
+ * Used by: AuthorTable to show co-author consent status
+ * 
+ * Returns:
+ * {
+ *   submissionId: "...",
+ *   total: number,
+ *   approved: number,
+ *   pending: number,
+ *   rejected: number,
+ *   aggregatedStatus: "APPROVED" | "PENDING" | "REJECTED",
+ *   consents: [
+ *     {
+ *       status: "APPROVED",
+ *       coAuthorEmail: "...",
+ *       coAuthorName: "...",
+ *       respondedAt: "..."
+ *     }
+ *   ]
+ * }
+ */
+router.get(
+    "/:submissionId/coauthor-consents",
+    requireAuth,
+    asyncHandler(getCoAuthorConsentsForSubmission)
 );
 
 /**
@@ -384,7 +434,25 @@ router.post(
     validateRequest(coAuthorConsentSchema),
     asyncHandler(processCoAuthorConsent)
 );
-
+/**
+ * CO-AUTHOR CONSENT FROM DASHBOARD
+ * 
+ * POST /api/submissions/:submissionId/coauthor-consent-dashboard
+ * Headers: Authorization: Bearer <token>
+ * Body: { decision: \"ACCEPT\" | \"REJECT\", remark?: string }
+ * 
+ * Auth: Required (authenticated co-author)
+ * Purpose: Allow co-authors to accept/reject from dashboard instead of email link
+ * Token validity: Checked from database
+ * Remark: Optional for REJECT, not used for ACCEPT
+ * Returns: Updated consent status
+ */
+router.post(
+    "/:submissionId/coauthor-consent-dashboard",
+    requireAuth,
+    validateRequest(coAuthorConsentFromDashboardSchema),
+    asyncHandler(processCoAuthorConsentFromDashboard)
+);
 router.post(
     "/reviewer-invitation-response",
     validateRequest(reviewerInvitationResponseSchema),

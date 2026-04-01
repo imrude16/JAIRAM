@@ -177,6 +177,29 @@ const processCoAuthorConsent = async (req, res) => {
     );
 };
 
+const processCoAuthorConsentFromDashboard = async (req, res) => {
+    const { submissionId } = req.params;
+    const { decision, remark } = req.body;
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+
+    const result = await submissionService.processCoAuthorConsentFromDashboard(
+        submissionId,
+        userId,
+        userEmail,
+        decision,
+        remark
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        { consentStatus: result.consentStatus },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const moveToReview = async (req, res) => {
     const { id } = req.params;
 
@@ -501,6 +524,33 @@ const deleteDraft = async (req, res) => {
     );
 };
 
+const getMyConsentInvitations = async (req, res) => {
+    const result = await submissionService.getMyConsentInvitations(req.user.id);
+    sendSuccess(res, result.message, { invitations: result.invitations }, null, STATUS_CODES.OK);
+};
+
+const getCoAuthorConsentsForSubmission = async (req, res) => {
+    const { submissionId } = req.params;
+    const userId = req.user.id;
+
+    const result = await submissionService.getCoAuthorConsentsForSubmission(submissionId, userId);
+    sendSuccess(
+        res,
+        result.message,
+        {
+            submissionId,
+            total: result.total,
+            approved: result.approved,
+            pending: result.pending,
+            rejected: result.rejected,
+            aggregatedStatus: result.aggregatedStatus,
+            consents: result.consents,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 export default {
     createSubmission,
     getSubmissionById,
@@ -511,9 +561,9 @@ export default {
     updatePaymentStatus,
     assignEditor,
     processCoAuthorConsent,
+    processCoAuthorConsentFromDashboard,
     moveToReview,
     getSubmissionTimeline,
-    // NEW EXPORTS (Revisions & Decisions):
     submitRevision,
     makeEditorDecision,
     checkCoAuthorConsent,
@@ -530,4 +580,6 @@ export default {
     saveDraft,
     getLatestDraft,
     deleteDraft,
+    getMyConsentInvitations,
+    getCoAuthorConsentsForSubmission,
 };
