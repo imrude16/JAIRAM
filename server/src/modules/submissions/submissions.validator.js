@@ -797,6 +797,10 @@ export const assignTechnicalEditorSchema = {
                 "any.required": "Remarks for technical editor are required",
             }),
 
+        revisedManuscript: fileSchema.required().messages({
+            "any.required": "Revised manuscript is required",
+        }),
+
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
 };
@@ -832,6 +836,10 @@ export const assignReviewersSchema = {
                 "string.max": "Remarks cannot exceed 2000 characters",
                 "any.required": "Remarks for reviewers are required",
             }),
+
+        revisedManuscript: fileSchema.required().messages({
+            "any.required": "Revised manuscript is required",
+        }),
 
         attachments: Joi.array().items(fileSchema).max(5).optional(),
     }),
@@ -910,11 +918,11 @@ export const searchReviewersSchema = {
             .trim()
             .min(2)
             .max(100)
-            .required()
+            .optional()
+            .allow("")
             .messages({
                 "string.min": "Search query must be at least 2 characters",
                 "string.max": "Search query cannot exceed 100 characters",
-                "any.required": "Search query is required",
             }),
 
         exclude: Joi.string()
@@ -922,6 +930,49 @@ export const searchReviewersSchema = {
             .allow("")
             .messages({
                 "string.base": "Exclude must be a comma-separated list of emails",
+            }),
+
+        limit: Joi.number()
+            .integer()
+            .min(1)
+            .max(100)
+            .optional()
+            .messages({
+                "number.base": "Limit must be a number",
+                "number.integer": "Limit must be an integer",
+                "number.min": "Limit must be at least 1",
+                "number.max": "Limit cannot exceed 100",
+            }),
+    }),
+};
+
+// ================================================
+// SEARCH TECHNICAL EDITORS SCHEMA
+// ================================================
+
+export const searchTechnicalEditorsSchema = {
+    query: Joi.object({
+        q: Joi.string()
+            .trim()
+            .min(2)
+            .max(100)
+            .optional()
+            .allow("")
+            .messages({
+                "string.min": "Search query must be at least 2 characters",
+                "string.max": "Search query cannot exceed 100 characters",
+            }),
+
+        limit: Joi.number()
+            .integer()
+            .min(1)
+            .max(100)
+            .optional()
+            .messages({
+                "number.base": "Limit must be a number",
+                "number.integer": "Limit must be an integer",
+                "number.min": "Limit must be at least 1",
+                "number.max": "Limit cannot exceed 100",
             }),
     }),
 };

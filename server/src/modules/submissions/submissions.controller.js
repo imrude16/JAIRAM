@@ -387,13 +387,14 @@ const editorApproveConsentOverride = async (req, res) => {
 
 const assignTechnicalEditor = async (req, res) => {
     const { id } = req.params;
-    const { technicalEditorId, remarks, attachments } = req.body;
+    const { technicalEditorId, remarks, revisedManuscript, attachments } = req.body;
 
     const result = await submissionService.assignTechnicalEditor(
         id,
         req.user.id,
         technicalEditorId,
         remarks,
+        revisedManuscript,
         attachments
     );
 
@@ -408,13 +409,14 @@ const assignTechnicalEditor = async (req, res) => {
 
 const assignReviewers = async (req, res) => {
     const { id } = req.params;
-    const { reviewerIds, remarks, attachments } = req.body;
+    const { reviewerIds, remarks, revisedManuscript, attachments } = req.body;
 
     const result = await submissionService.assignReviewers(
         id,
         req.user.id,
         reviewerIds,
         remarks,
+        revisedManuscript,
         attachments
     );
 
@@ -460,14 +462,28 @@ const searchAuthors = async (req, res) => {
 };
 
 const searchReviewers = async (req, res) => {
-    const { q, exclude } = req.query;
+    const { q, exclude, limit } = req.query;
 
-    const result = await submissionService.searchReviewers(q, exclude || "");
+    const result = await submissionService.searchReviewers(q || "", exclude || "", limit);
 
     sendSuccess(
         res,
         result.message,
         { reviewers: result.reviewers },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const searchTechnicalEditors = async (req, res) => {
+    const { q, limit } = req.query;
+
+    const result = await submissionService.searchTechnicalEditors(q || "", limit);
+
+    sendSuccess(
+        res,
+        result.message,
+        { technicalEditors: result.technicalEditors },
         null,
         STATUS_CODES.OK
     );
@@ -577,6 +593,7 @@ export default {
     reviewerInvitationResponse,
     searchAuthors,
     searchReviewers,
+    searchTechnicalEditors,
     saveDraft,
     getLatestDraft,
     deleteDraft,

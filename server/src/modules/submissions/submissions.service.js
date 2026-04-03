@@ -286,31 +286,54 @@ const searchAuthors = async (searchQuery, excludeEmails = "") => {
     }
 };
 
+const searchAssignableUsersByRole = async (role, searchQuery = "", options = {}) => {
+    const {
+        excludeEmails = "",
+        limit = 10,
+    } = options;
+
+    const excludeList = excludeEmails
+        .split(",")
+        .map(email => email.trim())
+        .filter(Boolean);
+
+    const normalizedLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const normalizedQuery = typeof searchQuery === "string" ? searchQuery.trim() : "";
+
+    const filters = {
+        role,
+        email: { $nin: excludeList },
+        isEmailVerified: true,
+        status: "ACTIVE",
+    };
+
+    if (normalizedQuery) {
+        filters.$or = [
+            { firstName: { $regex: normalizedQuery, $options: "i" } },
+            { lastName: { $regex: normalizedQuery, $options: "i" } },
+            { email: { $regex: normalizedQuery, $options: "i" } },
+            { primarySpecialty: { $regex: normalizedQuery, $options: "i" } },
+            { institution: { $regex: normalizedQuery, $options: "i" } },
+        ];
+    }
+
+    return User.find(filters)
+        .select("firstName lastName email primarySpecialty otherPrimarySpecialty institution address.country")
+        .limit(normalizedLimit);
+};
+
 // ================================================
 // SEARCH REVIEWERS (NEW)
 // ================================================
 
-const searchReviewers = async (searchQuery, excludeEmails = "") => {
+const searchReviewers = async (searchQuery = "", excludeEmails = "", limit = 10) => {
     try {
         console.log("🔵 [SERVICE] searchReviewers started");
 
-        const excludeList = excludeEmails.split(",").filter(Boolean);
-
-        const users = await User.find({
-            role: "REVIEWER",
-            email: { $nin: excludeList },
-            isEmailVerified: true,
-            status: "ACTIVE",
-            $or: [
-                { firstName: { $regex: searchQuery, $options: "i" } },
-                { lastName: { $regex: searchQuery, $options: "i" } },
-                { email: { $regex: searchQuery, $options: "i" } },
-                { primarySpecialty: { $regex: searchQuery, $options: "i" } },
-                { institution: { $regex: searchQuery, $options: "i" } },
-            ],
-        })
-            .select("firstName lastName email primarySpecialty otherPrimarySpecialty institution address.country")
-            .limit(10);
+        const users = await searchAssignableUsersByRole("REVIEWER", searchQuery, {
+            excludeEmails,
+            limit,
+        });
 
         console.log(`✅ [SERVICE] Found ${users.length} reviewers`);
 
@@ -335,6 +358,41 @@ const searchReviewers = async (searchQuery, excludeEmails = "") => {
             "Failed to search reviewers",
             STATUS_CODES.INTERNAL_SERVER_ERROR,
             "SEARCH_REVIEWERS_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+const searchTechnicalEditors = async (searchQuery = "", limit = 10) => {
+    try {
+        console.log("🔵 [SERVICE] searchTechnicalEditors started");
+
+        const users = await searchAssignableUsersByRole("TECHNICAL_EDITOR", searchQuery, {
+            limit,
+        });
+
+        console.log(`✅ [SERVICE] Found ${users.length} technical editors`);
+
+        return {
+            message: "Technical editors retrieved successfully",
+            technicalEditors: users.map(user => ({
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                primarySpecialty: user.primarySpecialty === "Other"
+                    ? user.otherPrimarySpecialty
+                    : user.primarySpecialty,
+                institution: user.institution,
+                country: user.address?.country,
+            })),
+        };
+    } catch (error) {
+        console.error("❌ [SERVICE] Error in searchTechnicalEditors:", error);
+        throw new AppError(
+            "Failed to search technical editors",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SEARCH_TECHNICAL_EDITORS_ERROR",
             { originalError: error.message }
         );
     }
@@ -1071,7 +1129,6 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 
         let query = {};
 
-        // Role-based filtering with Author vs Co-author differentiation
         if (userRole === "USER") {
             const { Consent } = await import("../consents/consent.model.js");
             const currentUser = await User.findById(userId).select("email");
@@ -1087,11 +1144,7 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 
             query.$or = [
                 { author: userId },
-                {
-                    _id: { $in: approvedSubmissionIds },
-                    // "coAuthors.user": userId,
-                    // "coAuthors.isCorresponding": true,
-                }
+                { _id: { $in: approvedSubmissionIds } }
             ];
         } else if (userRole === "REVIEWER") {
             const { Reviewer } = await import("../reviewers/reviewer.model.js");
@@ -1101,8 +1154,7 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             const submissionIds = reviewerDocs.map(r => r.submissionId);
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
-        }
-        else if (userRole === "TECHNICAL_EDITOR") {
+        } else if (userRole === "TECHNICAL_EDITOR") {
             const techEditorDocs = await TechnicalEditor.find({
                 "assignedTechnicalEditors.technicalEditor": userId,
             }).select("submissionId");
@@ -1111,11 +1163,9 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
-        }
-        else if (userRole === "EDITOR" || userRole === "ADMIN") {
+        } else if (userRole === "EDITOR" || userRole === "ADMIN") {
             query.status = { $ne: "DRAFT" };
         }
-
 
         if (status) query.status = status;
         if (articleType) query.articleType = articleType;
@@ -1134,9 +1184,45 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 .populate("currentCycleId")
                 .sort(sort)
                 .skip(skip)
-                .limit(limit),
+                .limit(limit)
+                .lean(),
             Submission.countDocuments(query),
         ]);
+
+        // ── EDITOR role: enrich with assignment info from TechnicalEditor + Reviewer collections ──
+        if (userRole === "EDITOR" || userRole === "ADMIN") {
+            const submissionIds = submissions.map(s => s._id);
+
+            const { Reviewer } = await import("../reviewers/reviewer.model.js");
+
+            const [techEditorDocs, reviewerDocs] = await Promise.all([
+                TechnicalEditor.find({ submissionId: { $in: submissionIds } })
+                    .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName")
+                    .select("submissionId assignedTechnicalEditors")
+                    .lean(),
+                Reviewer.find({ submissionId: { $in: submissionIds } })
+                    .populate("assignedReviewers.reviewer", "firstName lastName")
+                    .select("submissionId assignedReviewers")
+                    .lean(),
+            ]);
+
+            // Build maps: submissionId → doc
+            const teMap = {};
+            for (const doc of techEditorDocs) {
+                teMap[doc.submissionId?.toString()] = doc;
+            }
+            const rvMap = {};
+            for (const doc of reviewerDocs) {
+                rvMap[doc.submissionId?.toString()] = doc;
+            }
+
+            // Merge into each submission
+            for (const sub of submissions) {
+                const key = sub._id?.toString();
+                sub._assignedTechEditor = teMap[key] ?? null;
+                sub._assignedReviewers = rvMap[key] ?? null;
+            }
+        }
 
         console.log("✅ [SERVICE] listSubmissions completed successfully");
 
@@ -1453,7 +1539,7 @@ const processCoAuthorConsentFromDashboard = async (submissionId, userId, userEma
             const submission = await findSubmissionById(submissionId);
             if (submission) {
                 await consentService.notifyAuthorOfRejection(submission, consent);
-                
+
                 if (submission.status === "SUBMITTED") {
                     submission.status = "DRAFT";
                     await submission.save();
@@ -2636,7 +2722,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
 // ASSIGN TECHNICAL EDITOR
 // ================================================
 
-const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, remarks, attachments) => {
+const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, remarks, revisedManuscript, attachments) => {
     try {
         console.log("🔵 [SERVICE] assignTechnicalEditor started");
 
@@ -2715,6 +2801,7 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
 
         currentCycle.editorRemarksForTechEditor = {
             remarks,
+            revisedManuscript,
             attachments: attachments || [],
             sentAt: new Date(),
         };
@@ -2738,6 +2825,7 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
                     <hr>
                     <p><strong>Editor's Remarks:</strong></p>
                     <p>${remarks}</p>
+                    <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
                     ${attachments && attachments.length > 0 ? `
                         <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
                     ` : ''}
@@ -2773,7 +2861,7 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
 // ASSIGN REVIEWERS
 // ================================================
 
-const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, attachments) => {
+const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, revisedManuscript, attachments) => {
     try {
         console.log("🔵 [SERVICE] assignReviewers started");
 
@@ -2863,14 +2951,12 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, att
         // Update current cycle
         const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
         if (currentCycle) {
-            // Store editor remarks for reviewers
-            if (!currentCycle.editorRemarksForReviewers) {
-                currentCycle.editorRemarksForReviewers = {
-                    remarks,
-                    attachments: attachments || [],
-                    sentAt: new Date(),
-                };
-            }
+            currentCycle.editorRemarksForReviewers = {
+                remarks,
+                revisedManuscript,
+                attachments: attachments || [],
+                sentAt: new Date(),
+            };
             await currentCycle.save();
         }
 
@@ -2893,6 +2979,7 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, att
                         <hr>
                         <p><strong>Editor's Remarks:</strong></p>
                         <p>${remarks}</p>
+                        <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
                         ${attachments && attachments.length > 0 ? `
                             <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
                         ` : ''}
@@ -3138,10 +3225,10 @@ const getMyConsentInvitations = async (userId) => {
 
         const result = consents.map(c => {
             // Check token validity
-            const isTokenValid = c.status === "PENDING" && 
-                                c.consentTokenExpires && 
-                                c.consentTokenExpires > new Date();
-            
+            const isTokenValid = c.status === "PENDING" &&
+                c.consentTokenExpires &&
+                c.consentTokenExpires > new Date();
+
             return {
                 consentId: c._id,
                 submissionId: c.submissionId,
@@ -3259,6 +3346,7 @@ export default {
     generateUploadUrl,
     searchAuthors,
     searchReviewers,
+    searchTechnicalEditors,
     saveDraft,
     getLatestDraft,
     deleteDraft,

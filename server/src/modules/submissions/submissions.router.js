@@ -29,6 +29,7 @@ import {
     generateUploadUrlSchema,
     searchAuthorsSchema,
     searchReviewersSchema,
+    searchTechnicalEditorsSchema,
     saveDraftSchema,
     deleteDraftSchema,
 } from "./submissions.validator.js";
@@ -71,6 +72,7 @@ const {
     generateUploadUrl,
     searchAuthors,
     searchReviewers,
+    searchTechnicalEditors,
     saveDraft,
     getLatestDraft,
     deleteDraft,
@@ -145,6 +147,13 @@ router.get(
     requireAuth,
     validateRequest(searchReviewersSchema),
     asyncHandler(searchReviewers)
+);
+
+router.get(
+    "/search/technical-editors",
+    requireAuth,
+    validateRequest(searchTechnicalEditorsSchema),
+    asyncHandler(searchTechnicalEditors)
 );
 
 router.get(
