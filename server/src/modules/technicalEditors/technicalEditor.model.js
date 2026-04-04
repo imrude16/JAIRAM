@@ -59,6 +59,8 @@ const technicalEditorSchema = new Schema(
                 type: String,
                 enum: ["ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT"],
             },
+            // "Comments for Author" textarea
+            // Constructive feedback visible to the author after review
             remarks: {
                 type: String,
                 trim: true,

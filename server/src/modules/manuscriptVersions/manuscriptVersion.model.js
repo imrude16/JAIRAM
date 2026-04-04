@@ -30,23 +30,30 @@ const manuscriptVersionSchema = new Schema(
         },
 
         // ══════════════════════════════════════════════════════════
-        // FILE REFERENCES
+        // FILE REFERENCES WITH METADATA
         // ══════════════════════════════════════════════════════════
 
         fileRefs: [{
-            type: String,
-            trim: true,
-            required: true,
-        }],
-
-        // ══════════════════════════════════════════════════════════
-        // REMARKS (From Editor/Technical Editor/Reviewer)
-        // ══════════════════════════════════════════════════════════
-
-        remarks: [{
-            type: String,
-            trim: true,
-            maxlength: [2000, "Remark cannot exceed 2000 characters"],
+            _id: false,
+            fileName: {
+                type: String,
+                trim: true,
+            },
+            fileUrl: {
+                type: String,
+                trim: true,
+                required: true,
+            },
+            fileSize: {
+                type: Number,
+            },
+            mimeType: {
+                type: String,
+                trim: true,
+            },
+            uploadedAt: {
+                type: Date,
+            },
         }],
 
         // ══════════════════════════════════════════════════════════

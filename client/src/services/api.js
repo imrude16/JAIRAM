@@ -31,8 +31,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("jairam_token");
       localStorage.removeItem("jairam_user");
-      // Navigate to login without breaking the HashRouter
-      window.location.hash = "#/auth/login";
+      // Navigate to login without breaking the Browser
+      window.location.href = "/auth/login";
     }
     return Promise.reject(error);
   },

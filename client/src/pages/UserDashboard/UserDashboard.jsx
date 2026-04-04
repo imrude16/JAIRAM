@@ -512,7 +512,7 @@ const UserDashboard = () => {
 
   if (!user) return null;
 
-  const handleLogout = () => { logout(); navigate("/auth/login"); };
+  const handleLogout = () => { logout(); navigate("/auth/login" , { replace: true }); };
   const role = user.role || "USER";
 
   const handleAcceptConsent = async (submissionId) => {

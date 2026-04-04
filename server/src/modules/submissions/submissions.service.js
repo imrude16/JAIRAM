@@ -8,6 +8,7 @@ import { SubmissionCycle } from "../submissionCycles/submissionCycle.model.js";
 import manuscriptVersionService from "../manuscriptVersions/manuscriptVersion.service.js";
 import consentService from "../consents/consent.service.js";
 import { TechnicalEditor } from "../technicalEditors/technicalEditor.model.js";
+import { Reviewer } from "../reviewers/reviewer.model.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
@@ -990,11 +991,11 @@ const submitManuscript = async (submissionId, userId, payload) => {
             const cycle = await createInitialCycle(submission._id);
             submission.currentCycleId = cycle._id;
 
-            const fileRefs = [submission.blindManuscriptFile.fileUrl];
-            if (submission.coverLetter) fileRefs.push(submission.coverLetter.fileUrl);
-            if (submission.figures) fileRefs.push(...submission.figures.map(f => f.fileUrl));
-            if (submission.tables) fileRefs.push(...submission.tables.map(f => f.fileUrl));
-            if (submission.supplementaryFiles) fileRefs.push(...submission.supplementaryFiles.map(f => f.fileUrl));
+            const fileRefs = [submission.blindManuscriptFile];
+            if (submission.coverLetter) fileRefs.push(submission.coverLetter);
+            if (submission.figures) fileRefs.push(...submission.figures);
+            if (submission.tables) fileRefs.push(...submission.tables);
+            if (submission.supplementaryFiles) fileRefs.push(...submission.supplementaryFiles);
 
             await manuscriptVersionService.createManuscriptVersion(
                 submission._id,
@@ -1247,6 +1248,130 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 // GET SUBMISSION TIMELINE (Cycles)
 // ================================================
 
+const getIdString = (value) => {
+    if (!value) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "object" && value._id) return value._id.toString();
+    if (typeof value.toString === "function") return value.toString();
+    return null;
+};
+
+const getCycleWindow = (cycles, index) => {
+    const cycle = cycles[index];
+    const nextCycle = cycles[index + 1] || null;
+
+    return {
+        start: cycle?.createdAt ? new Date(cycle.createdAt) : null,
+        end: nextCycle?.createdAt ? new Date(nextCycle.createdAt) : null,
+    };
+};
+
+const isWithinCycleWindow = (dateValue, start, end) => {
+    if (!dateValue) return false;
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return false;
+
+    if (start && date < start) return false;
+    if (end && date >= end) return false;
+
+    return true;
+};
+
+const pickClosestByDate = (items, targetDate, dateKey) => {
+    if (!items?.length) return null;
+    if (!targetDate) return items[0];
+
+    const targetTime = new Date(targetDate).getTime();
+    if (Number.isNaN(targetTime)) return items[0];
+
+    return items.reduce((best, item) => {
+        const bestTime = new Date(best?.[dateKey] || 0).getTime();
+        const itemTime = new Date(item?.[dateKey] || 0).getTime();
+
+        return Math.abs(itemTime - targetTime) < Math.abs(bestTime - targetTime) ? item : best;
+    });
+};
+
+const buildTimelineRemark = ({ version, cycle, cycleIndex, cycles, techDocsByCycleId, reviewerDoc }) => {
+    switch (version.currentStage) {
+        case "INITIAL_SUBMISSION":
+            return null;
+
+        case "EDITOR_TO_TECH_EDITOR":
+            return cycle?.editorRemarksForTechEditor || null;
+
+        case "TECH_EDITOR_TO_EDITOR": {
+            const techDoc = techDocsByCycleId.get(getIdString(cycle?._id));
+            if (!techDoc?.technicalEditorReview) return null;
+
+            return {
+                recommendation: techDoc.technicalEditorReview.recommendation || null,
+                remarks: techDoc.technicalEditorReview.remarks || null,
+                revisedManuscript: techDoc.technicalEditorReview.revisedManuscript || null,
+                reviewedAt: techDoc.technicalEditorReview.reviewedAt || null,
+            };
+        }
+
+        case "EDITOR_TO_REVIEWER":
+            return cycle?.editorRemarksForReviewers || null;
+
+        case "EDITOR_TO_AUTHOR":
+            return cycle?.editorRemarksForAuthor || null;
+
+        case "REVIEWER_TO_EDITOR": {
+            const { start, end } = getCycleWindow(cycles, cycleIndex);
+
+            const versionUploaderId = getIdString(version.uploadedBy);
+            const versionUploaderEmail =
+                typeof version.uploadedBy === "object" ? version.uploadedBy?.email || null : null;
+
+            const feedbackInCycle = (reviewerDoc?.reviewerFeedback || []).filter((feedback) =>
+                isWithinCycleWindow(feedback.reviewedAt, start, end)
+            );
+
+            const directMatches = feedbackInCycle.filter((feedback) => {
+                const feedbackUserId = getIdString(feedback.user);
+                const feedbackEmail = feedback.email || null;
+
+                if (versionUploaderId && feedbackUserId && versionUploaderId === feedbackUserId) {
+                    return true;
+                }
+
+                if (
+                    versionUploaderEmail &&
+                    feedbackEmail &&
+                    versionUploaderEmail.toLowerCase() === feedbackEmail.toLowerCase()
+                ) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            const matchedFeedback = pickClosestByDate(
+                directMatches.length > 0 ? directMatches : feedbackInCycle,
+                version.createdAt,
+                "reviewedAt"
+            );
+
+            if (!matchedFeedback) return null;
+
+            return {
+                recommendation: matchedFeedback.recommendation || null,
+                remarks: matchedFeedback.remarks || null,
+                reviewerChecklist: matchedFeedback.reviewerChecklist || null,
+                revisedManuscript: matchedFeedback.revisedManuscript || null,
+                responseToEditorComments: matchedFeedback.responseToEditorComments || null,
+                reviewedAt: matchedFeedback.reviewedAt || null,
+            };
+        }
+
+        default:
+            return null;
+    }
+};
+
 const getSubmissionTimeline = async (submissionId, userId, userRole) => {
     try {
         console.log("🔵 [SERVICE] getSubmissionTimeline started");
@@ -1257,18 +1382,52 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
             throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
         }
 
-        if (userRole !== "ADMIN" && userRole !== "EDITOR") {
-            if (!submission.canUserView(userId, userRole)) {
-                throw new AppError(
-                    "You don't have permission to view this submission timeline",
-                    STATUS_CODES.FORBIDDEN,
-                    "FORBIDDEN"
-                );
-            }
+        const isPrivilegedUser = userRole === "ADMIN" || userRole === "EDITOR";
+        const isAuthor = submission.isUserAuthor(userId);
+
+        if (!isPrivilegedUser && !isAuthor) {
+            throw new AppError(
+                "You don't have permission to view this submission timeline",
+                STATUS_CODES.FORBIDDEN,
+                "FORBIDDEN"
+            );
         }
+
 
         const cycles = await SubmissionCycle.findBySubmission(submissionId);
         const versions = await manuscriptVersionService.getVersionsBySubmission(submissionId);
+        const techDocs = await TechnicalEditor.find({ submissionId }).lean();
+        const reviewerDoc = await Reviewer.findOne({ submissionId })
+            .populate("reviewerFeedback.user", "firstName lastName email role")
+            .lean();
+
+        const techDocsByCycleId = new Map(
+            techDocs.map((doc) => [getIdString(doc.cycleId), doc])
+        );
+
+        const cyclesById = new Map(
+            cycles.map((cycle) => [getIdString(cycle._id), cycle])
+        );
+
+        const enrichedVersions = versions.map((versionDoc) => {
+            const version = versionDoc.toObject();
+            const cycleId = getIdString(version.cycleId);
+            const cycle = cyclesById.get(cycleId) || null;
+            const cycleIndex = cycles.findIndex((c) => getIdString(c._id) === cycleId);
+
+            return {
+                ...version,
+                cycleId,
+                timelineRemark: buildTimelineRemark({
+                    version,
+                    cycle,
+                    cycleIndex,
+                    cycles,
+                    techDocsByCycleId,
+                    reviewerDoc,
+                }),
+            };
+        });
 
         console.log("✅ [SERVICE] getSubmissionTimeline completed successfully");
 
@@ -1282,7 +1441,7 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
                     status: submission.status,
                 },
                 cycles,
-                versions,
+                versions: enrichedVersions,
             },
         };
     } catch (error) {
@@ -1782,9 +1941,11 @@ const submitRevision = async (userId, payload) => {
         // ═══════════════════════════════════════════════════════════
 
         const fileRefs = [];
-        if (payload.revisedManuscript) fileRefs.push(payload.revisedManuscript.fileUrl);
+        if (payload.revisedManuscript) {
+            fileRefs.push(payload.revisedManuscript);
+        }
         if (payload.attachments && payload.attachments.length > 0) {
-            fileRefs.push(...payload.attachments.map(a => a.fileUrl));
+            fileRefs.push(...payload.attachments);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1804,13 +1965,16 @@ const submitRevision = async (userId, payload) => {
         // STEP 7: UPDATE CYCLE BASED ON REVISION STAGE
         // ═══════════════════════════════════════════════════════════
 
-        const attachmentRefs = payload.attachments
-            ? payload.attachments.map(a => a.fileUrl)
+        const attachmentObjects = payload.attachments
+            ? payload.attachments.map(a => ({
+                fileName: a.fileName,
+                fileUrl: a.fileUrl,
+                fileSize: a.fileSize,
+                mimeType: a.mimeType,
+                uploadedAt: a.uploadedAt,
+            }))
             : [];
 
-        const attachmentObjects = payload.attachments
-            ? payload.attachments.map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl }))
-            : [];
 
         switch (payload.revisionStage) {
 
@@ -1842,7 +2006,7 @@ const submitRevision = async (userId, payload) => {
                     email: techEditorUser?.email,
                     recommendation: payload.recommendation,
                     remarks: payload.remarks,
-                    revisedManuscript: attachmentRefs?.[0] || null,
+                    revisedManuscript: payload.revisedManuscript || null,
                     reviewedAt: new Date(),
                 };
 

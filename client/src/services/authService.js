@@ -102,6 +102,38 @@ export const loginUser = async ({ email, password }) => {
   }
 };
 
+export const forgotPassword = async (email) => {
+  try {
+    const { data } = await api.post("/users/forgot-password", { email });
+    return { success: true, message: data.message };
+  } catch (err) {
+    throw new Error(extractError(err));
+  }
+};
+
+export const resetPassword = async ({
+  email,
+  otp,
+  newPassword,
+  confirmNewPassword,
+}) => {
+  try {
+    const { data } = await api.post("/users/reset-password", {
+      email,
+      otp,
+      newPassword,
+      confirmNewPassword,
+    });
+    return {
+      token: data.data?.token,
+      user: data.data?.user,
+      message: data.message,
+    };
+  } catch (err) {
+    throw new Error(extractError(err));
+  }
+};
+
 /**
  * Check whether an email address is already registered.
  * Used for real-time validation in the registration form.
