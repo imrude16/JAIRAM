@@ -26,6 +26,7 @@ import OtpVerificationPage from "./pages/OtpVerificationPage/OtpVerificationPage
 import ReviewerChecklist from "./pages/ReviewerChecklist/ReviewerChecklist";
 import CoAuthorConsentPage from "./pages/CoAuthorConsentPage/CoAuthorConsentPage";
 import SubmissionDetailPage from "./pages/SubmissionDetailPage/SubmissionDetailPage";
+import SubmissionTimelinePage from "./pages/SubmissionTimelinePage/SubmissionTimelinePage";
 import ReviewerInvitationPage from "./pages/ReviewerInvitationPage/ReviewerInvitationPage";
 import UserDashboard from "./pages/UserDashboard/UserDashboard";
 
@@ -134,6 +135,7 @@ function App() {
         />
         <Route path="/dashboard" element={<UserDashboard />} />
         <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
+        <Route path="/submissions/:id/timeline" element={<SubmissionTimelinePage />} />
         <Route
           path="/manuscript-submission-portal"
           element={

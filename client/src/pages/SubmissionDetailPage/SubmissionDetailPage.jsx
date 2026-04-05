@@ -102,6 +102,14 @@ const SubmissionDetailPage = () => {
           >
             <ArrowLeft size={16} /> Back
           </button>
+          <button
+            onClick={() => navigate(`/submissions/${id}/timeline`)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #dbe5f0", background: "#f8fbff", color: "#0f3460", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#eef5ff"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#f8fbff"; }}
+          >
+            <ClipboardCheck size={16} /> View Timeline
+          </button>
           <div style={{ fontWeight: 700, color: "#1e293b", fontSize: "1.1rem" }}>Submission Overview</div>
         </div>
       </header>

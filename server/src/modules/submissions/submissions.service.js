@@ -2067,6 +2067,9 @@ const submitRevision = async (userId, payload) => {
 
         if (payload.revisionStage === "EDITOR_TO_AUTHOR") {
             submission.status = "REVISION_REQUESTED";
+            currentCycle.status = "REVISION_REQUESTED";
+
+            await currentCycle.save();
             await submission.save({ validateBeforeSave: false });
         }
 
@@ -2170,17 +2173,17 @@ const makeEditorDecision = async (submissionId, editorId, decision, decisionStag
             decisionStage: decisionStage,
         };
 
-        await currentCycle.save();
-
-        // Update submission status
         if (decision === "REJECT") {
+            currentCycle.status = "COMPLETED";
             submission.status = "REJECTED";
             submission.rejectedAt = new Date();
         } else if (decision === "ACCEPT") {
+            currentCycle.status = "COMPLETED";
             submission.status = "ACCEPTED";
             submission.acceptedAt = new Date();
         }
 
+        await currentCycle.save();
         await submission.save();
 
         console.log("✅ [SERVICE] makeEditorDecision completed successfully");

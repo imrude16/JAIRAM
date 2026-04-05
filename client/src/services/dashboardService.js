@@ -38,6 +38,14 @@ export const fetchSubmissionById = async (submissionId) => {
   return response.data?.data ?? null;
 };
 
+// FETCH A SUBMISSION TIMELINE
+// Endpoint: GET /api/submissions/:id/timeline
+//
+export const fetchSubmissionTimeline = async (submissionId) => {
+  const response = await api.get(`/submissions/${submissionId}/timeline`);
+  return response.data?.data?.timeline ?? null;
+};
+
 // FETCH CO-AUTHOR CONSENT STATUS (for a specific submission)
 // Endpoint: GET /api/submissions/:id/coauthor-consent-status
 // Auth    : EDITOR / ADMIN only — NOT called from USER dashboard
