@@ -159,6 +159,34 @@ const validateSubmitterRoleType = (user, submitterRoleType, isRevision = false) 
     }
 };
 
+const trackRejectedConsentIssue = (submission, consent) => {
+    const coAuthorName = [
+        consent.coAuthorFirstName,
+        consent.coAuthorLastName,
+    ].filter(Boolean).join(" ").trim() || consent.coAuthorEmail;
+
+    const alreadyTracked = submission.consentIssues.some(issue =>
+        issue.issueType === "REJECTED" &&
+        !issue.resolvedAt &&
+        (
+            (issue.coAuthorId && consent.coAuthorId && issue.coAuthorId.toString() === consent.coAuthorId.toString()) ||
+            issue.coAuthorEmail === consent.coAuthorEmail
+        )
+    );
+
+    if (!alreadyTracked) {
+        submission.consentIssues.push({
+            coAuthorId: consent.coAuthorId || undefined,
+            coAuthorEmail: consent.coAuthorEmail,
+            coAuthorName,
+            issueType: "REJECTED",
+            reportedAt: new Date(),
+        });
+    }
+
+    submission.consentDeadlineStatus = "NOTIFIED";
+};
+
 const createInitialCycle = async (submissionId) => {
     try {
         const cycle = await SubmissionCycle.findOneAndUpdate(
@@ -577,6 +605,7 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         const submission = await Submission.findById(submissionId)
             .populate("author", "firstName lastName email")
             .populate("assignedEditor", "firstName lastName email")
+            .populate("consentIssues.resolvedBy", "firstName lastName email")
             .select("+coAuthors.consentToken +coAuthors.consentTokenExpires"); // Include hidden fields for permission check
 
         if (!submission) {
@@ -1599,14 +1628,16 @@ const processCoAuthorConsent = async (token, decision, remark = null) => {
             throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
         }
 
-        // If rejected, notify author
+        // If rejected, track issue + notify author
         if (consent.status === "REJECTED") {
-            await consentService.notifyAuthorOfRejection(submission, consent);
+            trackRejectedConsentIssue(submission, consent);
 
             if (submission.status === "SUBMITTED") {
                 submission.status = "DRAFT";
-                await submission.save();
             }
+
+            await submission.save();
+            await consentService.notifyAuthorOfRejection(submission, consent);
         }
 
         // If approved, check if all approved
@@ -1614,10 +1645,15 @@ const processCoAuthorConsent = async (token, decision, remark = null) => {
             const { Consent } = await import("../consents/consent.model.js");
             const allApproved = await Consent.areAllApproved(consent.submissionId);
 
-            if (allApproved && submission.status === "DRAFT") {
-                submission.status = "SUBMITTED";
+            if (allApproved) {
+                submission.consentDeadlineStatus = "RESOLVED";
+
+                if (submission.status === "DRAFT") {
+                    submission.status = "SUBMITTED";
+                }
+
                 await submission.save();
-                console.log(`✅ [SERVICE] All consents approved - submission SUBMITTED`);
+                console.log(`✅ [SERVICE] All consents approved - submission marked RESOLVED`);
             }
         }
 
@@ -1686,10 +1722,15 @@ const processCoAuthorConsentFromDashboard = async (submissionId, userId, userEma
             const allApproved = await Consent.areAllApproved(submissionId);
 
             const submission = await findSubmissionById(submissionId);
-            if (submission && allApproved && submission.status === "DRAFT") {
-                submission.status = "SUBMITTED";
+            if (submission && allApproved) {
+                submission.consentDeadlineStatus = "RESOLVED";
+
+                if (submission.status === "DRAFT") {
+                    submission.status = "SUBMITTED";
+                }
+
                 await submission.save();
-                console.log(`✅ [SERVICE] All consents approved - submission SUBMITTED`);
+                console.log(`✅ [SERVICE] All consents approved - submission marked RESOLVED`);
             }
         }
 
@@ -1697,12 +1738,14 @@ const processCoAuthorConsentFromDashboard = async (submissionId, userId, userEma
         if (consent.status === "REJECTED") {
             const submission = await findSubmissionById(submissionId);
             if (submission) {
-                await consentService.notifyAuthorOfRejection(submission, consent);
+                trackRejectedConsentIssue(submission, consent);
 
                 if (submission.status === "SUBMITTED") {
                     submission.status = "DRAFT";
-                    await submission.save();
                 }
+
+                await submission.save();
+                await consentService.notifyAuthorOfRejection(submission, consent);
             }
         }
 
@@ -2595,7 +2638,7 @@ const autoRejectExpiredConsents = async () => {
         // ═══════════════════════════════════════════════════════════
 
         const expiredSubmissions = await Submission.find({
-            consentDeadlineStatus: { $in: ["ACTIVE", "REMINDED"] },
+            consentDeadlineStatus: { $in: ["ACTIVE", "REMINDED", "NOTIFIED"] },
             "coAuthors": {
                 $elemMatch: {
                     consentStatus: { $in: ["PENDING", "REJECTED"] },
