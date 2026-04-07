@@ -516,10 +516,6 @@ const UserDashboard = () => {
   const [rejectModal, setRejectModal] = useState(null);
   const [consentLoading, setConsentLoading] = useState({});
 
-  useEffect(() => {
-    if (!user) navigate("/auth/login", { replace: true });
-  }, [user, navigate]);
-
   const { authorSubmissions, coAuthorSubmissions, fullProfile, loading, error, refetch } = useDashboard();
 
   if (!user) return null;

@@ -164,10 +164,7 @@ const SubmissionDetailPage = () => {
   };
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth/login", { replace: true });
-      return;
-    }
+    if (!user) return;
 
     const load = async () => {
       try {
@@ -255,7 +252,13 @@ const SubmissionDetailPage = () => {
       <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", minHeight: 64, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/dashboard", { replace: true });
+              }
+            }}
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "#0f3460";

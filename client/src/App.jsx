@@ -29,6 +29,7 @@ import SubmissionDetailPage from "./pages/SubmissionDetailPage/SubmissionDetailP
 import SubmissionTimelinePage from "./pages/SubmissionTimelinePage/SubmissionTimelinePage";
 import ReviewerInvitationPage from "./pages/ReviewerInvitationPage/ReviewerInvitationPage";
 import UserDashboard from "./pages/UserDashboard/UserDashboard";
+import useAuthStore from "./store/authStore";
 
 // import SearchResults from "./pages/SearchResults/SearchResults";
 // import NotFound from "./pages/NotFound/NotFound";
@@ -63,6 +64,16 @@ const PageTransition = ({ children }) => {
       {children}
     </motion.div>
   );
+};
+
+const ProtectedRoute = ({ children }) => {
+  const user = useAuthStore((state) => state.user);
+
+  if (!user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -133,9 +144,30 @@ function App() {
             </Layout>
           }
         />
-        <Route path="/dashboard" element={<UserDashboard />} />
-        <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
-        <Route path="/submissions/:id/timeline" element={<SubmissionTimelinePage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <UserDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/submissions/:id"
+          element={
+            <ProtectedRoute>
+              <SubmissionDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/submissions/:id/timeline"
+          element={
+            <ProtectedRoute>
+              <SubmissionTimelinePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/manuscript-submission-portal"
           element={

@@ -32,7 +32,7 @@ api.interceptors.response.use(
       localStorage.removeItem("jairam_token");
       localStorage.removeItem("jairam_user");
       // Navigate to login without breaking the Browser
-      window.location.href = "/auth/login";
+      window.location.replace("/auth/login");
     }
     return Promise.reject(error);
   },

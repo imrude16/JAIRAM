@@ -302,10 +302,7 @@ const SubmissionTimelinePage = () => {
   const isPrivileged = user?.role === "EDITOR" || user?.role === "ADMIN";
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth/login", { replace: true });
-      return;
-    }
+    if (!user) return;
 
     const loadTimeline = async () => {
       try {
@@ -353,7 +350,13 @@ const SubmissionTimelinePage = () => {
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", minHeight: 64, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <button
-              onClick={() => navigate(`/submissions/${id}`)}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate(`/submissions/${id}`, { replace: true });
+                }
+              }}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
             >
               <ArrowLeft size={16} /> Back
@@ -383,7 +386,13 @@ const SubmissionTimelinePage = () => {
             <div style={{ fontSize: "1rem", fontWeight: 800, color: "#991b1b", marginBottom: 10 }}>Could not load timeline</div>
             <div style={{ color: "#64748b", marginBottom: 18 }}>{error}</div>
             <button
-              onClick={() => navigate(`/submissions/${id}`)}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate(`/submissions/${id}`, { replace: true });
+                }
+              }}
               style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#0f3460", fontWeight: 700, cursor: "pointer" }}
             >
               Back to Submission
