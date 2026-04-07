@@ -95,7 +95,7 @@ const Btn = ({ icon: I, label, color, onClick, disabled = false }) => (
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
-const Topbar = ({ user, onLogout, onProfileClick }) => (
+const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick }) => (
   <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", position: "sticky", top: 0, zIndex: 50 }}>
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -129,6 +129,16 @@ const Topbar = ({ user, onLogout, onProfileClick }) => (
         >
           <User style={{ width: 14, height: 14 }} />Profile
         </button>
+        {user?.role === "EDITOR" && (
+          <button
+            onClick={onRoleChangeClick}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#0f3460"; e.currentTarget.style.color = "#0f3460"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}
+          >
+            <Shield style={{ width: 14, height: 14 }} />Role Change Request
+          </button>
+        )}
         <button
           onClick={onLogout}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer" }}
@@ -501,6 +511,7 @@ const UserDashboard = () => {
   const { user, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState("author");
   const [showProfile, setShowProfile] = useState(false);
+  const [showRoleChangeModal, setShowRoleChangeModal] = useState(false);
   const [rejectModal, setRejectModal] = useState(null);
   const [consentLoading, setConsentLoading] = useState({});
 
@@ -554,7 +565,12 @@ const UserDashboard = () => {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <Topbar user={user} onLogout={handleLogout} onProfileClick={() => setShowProfile(true)} />
+      <Topbar
+        user={user}
+        onLogout={handleLogout}
+        onProfileClick={() => setShowProfile(true)}
+        onRoleChangeClick={() => setShowRoleChangeModal(true)}
+      />
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 28px" }}>
         {/* Page heading */}
@@ -585,7 +601,11 @@ const UserDashboard = () => {
           <>
             <ProfileCard user={fullProfile || user} />
             <div style={{ marginTop: 20 }}>
-              <EditorDashboard user={user} />
+              <EditorDashboard
+                user={user}
+                showRoleChangeModal={showRoleChangeModal}
+                onCloseRoleChangeModal={() => setShowRoleChangeModal(false)}
+              />
             </div>
           </>
         )}

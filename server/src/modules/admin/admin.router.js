@@ -9,6 +9,8 @@ import {
     createRoleChangeRequestSchema,
     reviewRoleChangeRequestSchema,
     getRoleChangeRequestsSchema,
+    searchRoleChangeUsersSchema,
+    getMyRoleChangeRequestsSchema,
     updateUserRoleSchema,
     updateUserProfileSchema,
     getUserByIdSchema,
@@ -29,6 +31,8 @@ import {
 
 const {
     createRoleChangeRequest,
+    searchRoleChangeUsers,
+    getMyRoleChangeRequests,
     reviewRoleChangeRequest,
     getRoleChangeRequests,
     updateUserRole,
@@ -69,6 +73,44 @@ router.post(
     allowRoles(ROLES.EDITOR),
     validateRequest(createRoleChangeRequestSchema),
     asyncHandler(createRoleChangeRequest)
+);
+
+/**
+ * SEARCH USERS FOR ROLE CHANGE REQUEST (EDITOR)
+ * 
+ * GET /api/admin/role-change-request-users
+ * Headers: Authorization: Bearer <token>
+ * Query: ?search=john&page=1&limit=10
+ * 
+ * Auth: Required + EDITOR role
+ * Purpose: Editor searches users by name/email before creating role change request
+ * Returns: Limited user details for selection in UI
+ */
+router.get(
+    "/role-change-request-users",
+    requireAuth,
+    allowRoles(ROLES.EDITOR),
+    validateRequest(searchRoleChangeUsersSchema),
+    asyncHandler(searchRoleChangeUsers)
+);
+
+/**
+ * GET MY ROLE CHANGE REQUESTS (EDITOR)
+ * 
+ * GET /api/admin/my-role-change-requests
+ * Headers: Authorization: Bearer <token>
+ * Query: ?status=PENDING&page=1&limit=10
+ * 
+ * Auth: Required + EDITOR role
+ * Purpose: Editor views history/status of role change requests submitted by them
+ * Returns: List of their requests with pagination
+ */
+router.get(
+    "/my-role-change-requests",
+    requireAuth,
+    allowRoles(ROLES.EDITOR),
+    validateRequest(getMyRoleChangeRequestsSchema),
+    asyncHandler(getMyRoleChangeRequests)
 );
 
 /**

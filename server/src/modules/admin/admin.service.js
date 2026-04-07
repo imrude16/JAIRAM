@@ -119,6 +119,117 @@ const createRoleChangeRequest = async (editorId, payload) => {
     }
 };
 
+const searchRoleChangeUsers = async (editorId, filters = {}) => {
+    try {
+        console.log("🔵 [ADMIN-SERVICE] searchRoleChangeUsers started");
+
+        const editor = await findUserById(editorId);
+        if (!editor || editor.role !== "EDITOR") {
+            throw new AppError(
+                "Only editors can search users for role change requests",
+                STATUS_CODES.FORBIDDEN,
+                "FORBIDDEN"
+            );
+        }
+
+        const { search, page = 1, limit = 10 } = filters;
+        const skip = (page - 1) * limit;
+
+        const query = {
+            $or: [
+                { firstName: { $regex: search, $options: "i" } },
+                { lastName: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+            ],
+            status: "ACTIVE",
+        };
+
+        const [users, total] = await Promise.all([
+            User.find(query)
+                .select("firstName lastName email role status")
+                .sort({ firstName: 1, lastName: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            User.countDocuments(query),
+        ]);
+
+        console.log("✅ [ADMIN-SERVICE] searchRoleChangeUsers completed successfully");
+
+        return {
+            message: "Users retrieved successfully",
+            users,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [ADMIN-SERVICE] Unexpected error in searchRoleChangeUsers:", error);
+        throw new AppError(
+            "Failed to search users for role change request",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SEARCH_ROLE_CHANGE_USERS_ERROR"
+        );
+    }
+};
+
+const getMyRoleChangeRequests = async (editorId, filters = {}) => {
+    try {
+        console.log("🔵 [ADMIN-SERVICE] getMyRoleChangeRequests started");
+
+        const editor = await findUserById(editorId);
+        if (!editor || editor.role !== "EDITOR") {
+            throw new AppError(
+                "Only editors can view their role change requests",
+                STATUS_CODES.FORBIDDEN,
+                "FORBIDDEN"
+            );
+        }
+
+        const { status, page = 1, limit = 10 } = filters;
+        const skip = (page - 1) * limit;
+
+        const query = { requestedBy: editorId };
+        if (status) query.status = status;
+
+        const [requests, total] = await Promise.all([
+            RoleChangeRequest.find(query)
+                .populate("userId", "firstName lastName email role")
+                .populate("requestedBy", "firstName lastName email")
+                .populate("reviewedBy", "firstName lastName email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            RoleChangeRequest.countDocuments(query),
+        ]);
+
+        console.log("✅ [ADMIN-SERVICE] getMyRoleChangeRequests completed successfully");
+
+        return {
+            message: "Your role change requests retrieved successfully",
+            requests,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [ADMIN-SERVICE] Unexpected error in getMyRoleChangeRequests:", error);
+        throw new AppError(
+            "Failed to retrieve your role change requests",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "GET_MY_ROLE_CHANGE_REQUESTS_ERROR"
+        );
+    }
+};
+
 // ================================================
 // REVIEW ROLE CHANGE REQUEST (ADMIN)
 // ================================================
@@ -489,6 +600,8 @@ const updateUserStatus = async (adminId, userId, newStatus, reason) => {
 
 export default {
     createRoleChangeRequest,
+    searchRoleChangeUsers,
+    getMyRoleChangeRequests,
     reviewRoleChangeRequest,
     getRoleChangeRequests,
     updateUserRole,

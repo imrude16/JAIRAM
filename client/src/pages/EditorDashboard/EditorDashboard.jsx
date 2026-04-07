@@ -29,6 +29,9 @@ import {
   uploadDashboardFile,
   assignTechnicalEditor as assignTechnicalEditorRequest,
   assignReviewers as assignReviewersRequest,
+  searchUsersForRoleChange,
+  createRoleChangeRequest as createRoleChangeRequestRequest,
+  fetchMyRoleChangeRequests,
 } from "../../services/dashboardService";
 
 // ─── SHARED STYLE HELPERS ─────────────────────────────────────────────────────
@@ -72,6 +75,20 @@ const DECISION_STAGES = [
   { value: "POST_REVIEWER", label: "Post Reviewer Feedback" },
   { value: "FINAL_DECISION", label: "Final Decision" },
 ];
+
+const ROLE_OPTIONS = [
+  { value: "USER", label: "User" },
+  { value: "EDITOR", label: "Editor" },
+  { value: "TECHNICAL_EDITOR", label: "Technical Editor" },
+  { value: "REVIEWER", label: "Reviewer" },
+  { value: "ADMIN", label: "Admin" },
+];
+
+const REQUEST_STATUS_CFG = {
+  PENDING: { label: "Pending", color: "#b45309", bg: "#fef3c7" },
+  APPROVED: { label: "Approved", color: "#15803d", bg: "#dcfce7" },
+  REJECTED: { label: "Rejected", color: "#dc2626", bg: "#fee2e2" },
+};
 
 // ─── ATOMS ────────────────────────────────────────────────────────────────────
 
@@ -246,6 +263,26 @@ const EBtn = ({ icon: I, label, color, onClick, disabled = false, small = false 
     {label}
   </button>
 );
+
+const RequestStatusBadge = ({ status }) => {
+  const c = REQUEST_STATUS_CFG[status] || { label: status, color: "#64748b", bg: "#f1f5f9" };
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      fontWeight: 700,
+      borderRadius: 20,
+      color: c.color,
+      background: c.bg,
+      fontSize: "0.68rem",
+      padding: "3px 10px",
+      whiteSpace: "nowrap",
+    }}>
+      {c.label}
+    </span>
+  );
+};
 
 // ─── DAYS PENDING BADGE ───────────────────────────────────────────────────────
 
@@ -471,6 +508,295 @@ const ModalShell = ({ title, subtitle, onClose, children, maxWidth = 480 }) => (
     </div>
   </div>
 );
+
+const RoleChangeRequestModal = ({
+  open,
+  onClose,
+  roleSearch,
+  roleSearchTouched,
+  setRoleSearch,
+  onSearch,
+  searchLoading,
+  users,
+  selectedUser,
+  setSelectedUser,
+  requestedRole,
+  setRequestedRole,
+  reason,
+  setReason,
+  onSubmit,
+  submitting,
+  error,
+  history,
+  historyLoading,
+}) => {
+  if (!open) return null;
+
+  return (
+    <ModalShell
+      title="Role Change Request"
+      subtitle="Request admin approval for changing a user's role"
+      onClose={onClose}
+      maxWidth={820}
+    >
+      <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 18 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Search User
+            </label>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={roleSearch}
+                onChange={(e) => setRoleSearch(e.target.value)}
+                placeholder="Search by name or email"
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: 8,
+                  fontSize: "0.82rem",
+                  outline: "none",
+                  color: "#1e293b",
+                }}
+              />
+                <button
+                  type="button"
+                  onClick={onSearch}
+                  disabled={searchLoading}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #0f3460",
+                  background: searchLoading ? "#cbd5e1" : "#0f3460",
+                  color: "#fff",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  cursor: searchLoading ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+                >
+                  {searchLoading ? "Searching..." : "Refresh"}
+                </button>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", maxHeight: 220, overflowY: "auto" }}>
+                {users.length === 0 ? (
+                  <div style={{ padding: "16px", fontSize: "0.78rem", color: "#94a3b8", textAlign: "center" }}>
+                    {roleSearch.trim().length === 0
+                      ? "Start typing a name or email"
+                      : roleSearch.trim().length < 2
+                        ? "Type at least 2 characters"
+                        : searchLoading
+                          ? "Searching users..."
+                          : roleSearchTouched
+                            ? "No matching users found"
+                            : "Search results will appear here"}
+                  </div>
+                ) : (
+                users.map((u) => {
+                  const active = selectedUser?._id === u._id;
+                  return (
+                    <button
+                      key={u._id}
+                      type="button"
+                      onClick={() => setSelectedUser(u)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "12px 14px",
+                        border: "none",
+                        borderBottom: "1px solid #f1f5f9",
+                        background: active ? "#e8eef6" : "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b" }}>
+                        {u.firstName} {u.lastName}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 3 }}>
+                        {u.email}
+                      </div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 4 }}>
+                        Current Role: {u.role}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px" }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                Current Selection
+              </div>
+              {selectedUser ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                    {selectedUser.firstName} {selectedUser.lastName}
+                  </div>
+                  <div style={{ fontSize: "0.74rem", color: "#64748b" }}>{selectedUser.email}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#0f3460", fontWeight: 700 }}>
+                    Current Role: {selectedUser.role}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>No user selected yet</div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Requested Role
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {ROLE_OPTIONS.map((option) => {
+                  const disabled = !selectedUser || selectedUser.role === option.value;
+                  const active = requestedRole === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setRequestedRole(option.value)}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: `1.5px solid ${active ? "#0f3460" : "#e2e8f0"}`,
+                        background: disabled ? "#f8fafc" : active ? "#e8eef6" : "#fff",
+                        color: disabled ? "#cbd5e1" : active ? "#0f3460" : "#475569",
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        cursor: disabled ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {selectedUser && requestedRole && (
+              <div style={{ background: "#f8fafc", border: "1px solid #dbe5f0", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 6 }}>
+                  Transition Preview
+                </div>
+                <div style={{ fontSize: "0.8rem", color: "#1e293b", fontWeight: 700 }}>
+                  {selectedUser.role} → {requestedRole}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Reason <span style={{ color: "#dc2626" }}>*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Explain why this user's role should be changed..."
+            rows={4}
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              border: "1.5px solid #e2e8f0",
+              fontSize: "0.82rem",
+              color: "#1e293b",
+              resize: "vertical",
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+          <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Minimum 10 characters required.</div>
+        </div>
+
+        {error && (
+          <div style={{ background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 12px", color: "#b91c1c", fontSize: "0.78rem", fontWeight: 600 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1.5px solid #e2e8f0",
+              background: "#fff",
+              color: "#64748b",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "none",
+              background: submitting ? "#cbd5e1" : "#0f3460",
+              color: "#fff",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              cursor: submitting ? "not-allowed" : "pointer",
+            }}
+          >
+            {submitting ? "Submitting..." : "Submit Request"}
+          </button>
+        </div>
+
+        <div style={{ marginTop: 8, borderTop: "1px solid #e2e8f0", paddingTop: 18 }}>
+          <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.88rem", marginBottom: 12 }}>
+            My Role Change Request History
+          </div>
+
+          {historyLoading ? (
+            <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>Loading request history...</div>
+          ) : history.length === 0 ? (
+            <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>No role change requests made yet.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 260, overflowY: "auto" }}>
+              {history.map((request) => (
+                <div key={request._id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px", background: "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b" }}>
+                        {request.userId?.firstName} {request.userId?.lastName}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 3 }}>
+                        {request.userId?.email}
+                      </div>
+                    </div>
+                    <RequestStatusBadge status={request.status} />
+                  </div>
+
+                  <div style={{ marginTop: 10, fontSize: "0.74rem", color: "#475569", lineHeight: 1.6 }}>
+                    <div><strong>Transition:</strong> {request.currentRole} → {request.requestedRole}</div>
+                    <div><strong>Reason:</strong> {request.reason}</div>
+                    {request.adminComments && <div><strong>Admin Comments:</strong> {request.adminComments}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </ModalShell>
+  );
+};
 
 // ─── ASSIGN TECH EDITOR MODAL ─────────────────────────────────────────────────
 
@@ -1397,13 +1723,24 @@ const EditorTable = ({ subs, onAction }) => {
 
 // ─── MAIN EditorDashboard ─────────────────────────────────────────────────────
 
-export default function EditorDashboard({ user }) {
+export default function EditorDashboard({ user, showRoleChangeModal, onCloseRoleChangeModal }) {
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modal, setModal] = useState(null); // { type, submission }
   const [toast, setToast] = useState(null); // { message, type }
+  const [roleUsers, setRoleUsers] = useState([]);
+  const [roleSearch, setRoleSearch] = useState("");
+  const [roleSearchTouched, setRoleSearchTouched] = useState(false);
+  const [roleSearchLoading, setRoleSearchLoading] = useState(false);
+  const [selectedRoleUser, setSelectedRoleUser] = useState(null);
+  const [requestedRole, setRequestedRole] = useState("");
+  const [roleChangeReason, setRoleChangeReason] = useState("");
+  const [roleChangeSubmitting, setRoleChangeSubmitting] = useState(false);
+  const [roleChangeError, setRoleChangeError] = useState("");
+  const [myRoleChangeRequests, setMyRoleChangeRequests] = useState([]);
+  const [roleHistoryLoading, setRoleHistoryLoading] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -1480,6 +1817,72 @@ export default function EditorDashboard({ user }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!showRoleChangeModal) return;
+
+    setRoleSearch("");
+    setRoleUsers([]);
+    setRoleSearchTouched(false);
+    setSelectedRoleUser(null);
+    setRequestedRole("");
+    setRoleChangeReason("");
+    setRoleChangeError("");
+
+    const loadHistory = async () => {
+      try {
+        setRoleHistoryLoading(true);
+        const result = await fetchMyRoleChangeRequests();
+        setMyRoleChangeRequests(result.requests || []);
+      } catch (err) {
+        setRoleChangeError(err.response?.data?.message || err.message || "Failed to load role change request history.");
+      } finally {
+        setRoleHistoryLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [showRoleChangeModal]);
+
+  useEffect(() => {
+    if (!showRoleChangeModal) return;
+
+    const q = roleSearch.trim();
+
+    if (q.length === 0) {
+      setRoleUsers([]);
+      setRoleSearchLoading(false);
+      setRoleChangeError("");
+      setRoleSearchTouched(false);
+      return;
+    }
+
+    if (q.length < 2) {
+      setRoleUsers([]);
+      setRoleSearchLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setRoleSearchLoading(true);
+        setRoleChangeError("");
+        setRoleSearchTouched(true);
+
+        const result = await searchUsersForRoleChange(q);
+        setRoleUsers(result.users || []);
+      } catch (err) {
+        setRoleUsers([]);
+        setRoleChangeError(
+          err.response?.data?.message || err.message || "Failed to search users."
+        );
+      } finally {
+        setRoleSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [roleSearch, showRoleChangeModal]);
+
   // ── Action handler ────────────────────────────────────────────────────────
   const handleAction = (type, submission) => {
     if (type === "view") {
@@ -1494,6 +1897,75 @@ export default function EditorDashboard({ user }) {
     setModal(null);
     showToast(msg);
     load(); // refresh table
+  };
+
+  const handleRoleUserSearch = async () => {
+    const q = roleSearch.trim();
+
+    if (q.length < 2) {
+      setRoleChangeError("Please enter at least 2 characters to search users.");
+      return;
+    }
+
+    try {
+      setRoleSearchLoading(true);
+      setRoleChangeError("");
+      setRoleSearchTouched(true);
+      const result = await searchUsersForRoleChange(q);
+      setRoleUsers(result.users || []);
+    } catch (err) {
+      setRoleChangeError(err.response?.data?.message || err.message || "Failed to search users.");
+    } finally {
+      setRoleSearchLoading(false);
+    }
+  };
+
+  const handleCreateRoleChangeRequest = async () => {
+    if (!selectedRoleUser) {
+      setRoleChangeError("Please select a user.");
+      return;
+    }
+
+    if (!requestedRole) {
+      setRoleChangeError("Please select the requested role.");
+      return;
+    }
+
+    if (selectedRoleUser.role === requestedRole) {
+      setRoleChangeError("Requested role must be different from the user's current role.");
+      return;
+    }
+
+    if (roleChangeReason.trim().length < 10) {
+      setRoleChangeError("Reason must be at least 10 characters.");
+      return;
+    }
+
+    try {
+      setRoleChangeSubmitting(true);
+      setRoleChangeError("");
+
+      await createRoleChangeRequestRequest({
+        userId: selectedRoleUser._id,
+        requestedRole,
+        reason: roleChangeReason.trim(),
+      });
+
+      const history = await fetchMyRoleChangeRequests();
+      setMyRoleChangeRequests(history.requests || []);
+
+      setSelectedRoleUser(null);
+      setRequestedRole("");
+      setRoleChangeReason("");
+      setRoleUsers([]);
+      setRoleSearch("");
+
+      showToast("Role change request submitted successfully.");
+    } catch (err) {
+      setRoleChangeError(err.response?.data?.message || err.message || "Failed to create role change request.");
+    } finally {
+      setRoleChangeSubmitting(false);
+    }
   };
 
   return (
@@ -1584,6 +2056,28 @@ export default function EditorDashboard({ user }) {
           onDone={handleModalDone}
         />
       )}
+
+      <RoleChangeRequestModal
+        open={showRoleChangeModal}
+        onClose={onCloseRoleChangeModal}
+        roleSearch={roleSearch}
+        roleSearchTouched={roleSearchTouched}
+        setRoleSearch={setRoleSearch}
+        onSearch={handleRoleUserSearch}
+        searchLoading={roleSearchLoading}
+        users={roleUsers}
+        selectedUser={selectedRoleUser}
+        setSelectedUser={setSelectedRoleUser}
+        requestedRole={requestedRole}
+        setRequestedRole={setRequestedRole}
+        reason={roleChangeReason}
+        setReason={setRoleChangeReason}
+        onSubmit={handleCreateRoleChangeRequest}
+        submitting={roleChangeSubmitting}
+        error={roleChangeError}
+        history={myRoleChangeRequests}
+        historyLoading={roleHistoryLoading}
+      />
 
       {/* Toast */}
       {toast && <Toast message={toast.message} type={toast.type} />}

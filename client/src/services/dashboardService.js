@@ -246,3 +246,46 @@ export const updatePaymentStatus = async (submissionId, paymentStatus, note) => 
   );
   return response.data?.data ?? null;
 };
+
+// SEARCH USERS FOR ROLE CHANGE REQUEST (EDITOR)
+// Endpoint: GET /api/admin/role-change-request-users?search=john&page=1&limit=10
+export const searchUsersForRoleChange = async (search, page = 1, limit = 10) => {
+  const response = await api.get("/admin/role-change-request-users", {
+    params: { search, page, limit },
+  });
+
+  return {
+    users: response.data?.data?.users ?? [],
+    pagination: response.data?.data?.pagination ?? null,
+  };
+};
+
+// CREATE ROLE CHANGE REQUEST (EDITOR)
+// Endpoint: POST /api/admin/role-change-requests
+// Body: { userId, requestedRole, reason }
+export const createRoleChangeRequest = async ({ userId, requestedRole, reason }) => {
+  const response = await api.post("/admin/role-change-requests", {
+    userId,
+    requestedRole,
+    reason,
+  });
+
+  return response.data?.data?.request ?? null;
+};
+
+// FETCH MY ROLE CHANGE REQUESTS (EDITOR)
+// Endpoint: GET /api/admin/my-role-change-requests?status=PENDING&page=1&limit=10
+export const fetchMyRoleChangeRequests = async (status = "", page = 1, limit = 10) => {
+  const response = await api.get("/admin/my-role-change-requests", {
+    params: {
+      ...(status ? { status } : {}),
+      page,
+      limit,
+    },
+  });
+
+  return {
+    requests: response.data?.data?.requests ?? [],
+    pagination: response.data?.data?.pagination ?? null,
+  };
+};

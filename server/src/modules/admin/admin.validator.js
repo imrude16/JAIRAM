@@ -126,6 +126,46 @@ export const getRoleChangeRequestsSchema = {
 };
 
 // ================================================
+// SEARCH USERS FOR ROLE CHANGE REQUEST (EDITOR)
+// ================================================
+
+export const searchRoleChangeUsersSchema = {
+    query: Joi.object({
+        search: Joi.string()
+            .trim()
+            .min(2)
+            .max(100)
+            .required()
+            .messages({
+                "string.min": "Search must be at least 2 characters",
+                "string.max": "Search cannot exceed 100 characters",
+                "any.required": "Search term is required",
+            }),
+
+        page: Joi.number().integer().min(1).default(1).optional(),
+        limit: Joi.number().integer().min(1).max(20).default(10).optional(),
+    }),
+};
+
+// ================================================
+// GET MY ROLE CHANGE REQUESTS (EDITOR)
+// ================================================
+
+export const getMyRoleChangeRequestsSchema = {
+    query: Joi.object({
+        status: Joi.string()
+            .valid("PENDING", "APPROVED", "REJECTED")
+            .optional()
+            .messages({
+                "any.only": "Status must be one of: PENDING, APPROVED, REJECTED",
+            }),
+
+        page: Joi.number().integer().min(1).default(1).optional(),
+        limit: Joi.number().integer().min(1).max(20).default(10).optional(),
+    }),
+};
+
+// ================================================
 // UPDATE USER ROLE (DIRECT - ADMIN ONLY)
 // ================================================
 

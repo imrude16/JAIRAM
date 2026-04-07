@@ -26,6 +26,36 @@ const createRoleChangeRequest = async (req, res) => {
     );
 };
 
+const searchRoleChangeUsers = async (req, res) => {
+    const result = await adminService.searchRoleChangeUsers(req.user.id, req.query);
+
+    sendSuccess(
+        res,
+        result.message,
+        {
+            users: result.users,
+            pagination: result.pagination,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
+const getMyRoleChangeRequests = async (req, res) => {
+    const result = await adminService.getMyRoleChangeRequests(req.user.id, req.query);
+
+    sendSuccess(
+        res,
+        result.message,
+        {
+            requests: result.requests,
+            pagination: result.pagination,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const reviewRoleChangeRequest = async (req, res) => {
     const { requestId } = req.params;
     const { decision, adminComments } = req.body;
@@ -146,6 +176,8 @@ const updateUserStatus = async (req, res) => {
 
 export default {
     createRoleChangeRequest,
+    searchRoleChangeUsers,
+    getMyRoleChangeRequests,
     reviewRoleChangeRequest,
     getRoleChangeRequests,
     updateUserRole,
