@@ -407,6 +407,30 @@ const assignTechnicalEditor = async (req, res) => {
     );
 };
 
+const respondToTechnicalEditorAssignment = async (req, res) => {
+    const { id } = req.params;
+    const { decision, rejectionReason } = req.body;
+
+    const result = await submissionService.respondToTechnicalEditorAssignment(
+        id,
+        req.user.id,
+        decision,
+        rejectionReason
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        {
+            assignmentStatus: result.assignmentStatus,
+            respondedAt: result.respondedAt,
+            rejectionReason: result.rejectionReason,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const assignReviewers = async (req, res) => {
     const { id } = req.params;
     const { reviewerIds, remarks, revisedManuscript, attachments } = req.body;
@@ -587,6 +611,7 @@ export default {
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
     assignTechnicalEditor,
+    respondToTechnicalEditorAssignment,
     assignReviewers,
     generateUploadUrl,
     getTokenInfo,

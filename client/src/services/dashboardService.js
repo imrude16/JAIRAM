@@ -247,6 +247,52 @@ export const updatePaymentStatus = async (submissionId, paymentStatus, note) => 
   return response.data?.data ?? null;
 };
 
+// FETCH TECHNICAL EDITOR SUBMISSIONS
+// Endpoint: GET /api/submissions
+export const fetchTechnicalEditorSubmissions = async () => {
+  const response = await api.get("/submissions", {
+    params: {
+      limit: 100,
+      sortBy: "submittedAt",
+      sortOrder: "desc",
+    },
+  });
+
+  return response.data?.data?.submissions ?? [];
+};
+
+// RESPOND TO TECHNICAL EDITOR ASSIGNMENT
+// Endpoint: POST /api/submissions/:id/technical-editor-assignment-response
+export const respondToTechnicalEditorAssignment = async (submissionId, decision, rejectionReason = "") => {
+  const response = await api.post(`/submissions/${submissionId}/technical-editor-assignment-response`, {
+    decision,
+    ...(decision === "REJECT" ? { rejectionReason } : {}),
+  });
+
+  return response.data?.data ?? null;
+};
+
+// SUBMIT TECHNICAL EDITOR REVIEW
+// Endpoint: POST /api/submissions/revisions
+export const submitTechnicalEditorReview = async ({
+  submissionId,
+  recommendation,
+  remarks,
+  revisedManuscript,
+}) => {
+  const response = await api.post("/submissions/revisions", {
+    originalSubmissionId: submissionId,
+    submitterRoleType: "Technical Editor",
+    revisionStage: "TECH_EDITOR_TO_EDITOR",
+    recommendation,
+    remarks,
+    revisedManuscript,
+    attachments: [],
+  });
+
+  return response.data?.data ?? null;
+};
+
 // SEARCH USERS FOR ROLE CHANGE REQUEST (EDITOR)
 // Endpoint: GET /api/admin/role-change-request-users?search=john&page=1&limit=10
 export const searchUsersForRoleChange = async (search, page = 1, limit = 10) => {

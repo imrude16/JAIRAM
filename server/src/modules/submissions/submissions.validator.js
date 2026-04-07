@@ -599,7 +599,7 @@ export const submitRevisionSchema = {
             )
             .required(),
 
-        // Remarks (required)
+        // Remarks (required for all revision stages)
         remarks: Joi.string()
             .trim()
             .min(10)
@@ -611,17 +611,13 @@ export const submitRevisionSchema = {
                 "any.required": "Remarks are required",
             }),
 
-        // Recommendation (optional)
+        // Recommendation (required for all revision stages)
         recommendation: Joi.string()
             .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
-            .when("revisionStage", {
-                is: Joi.valid("TECH_EDITOR_TO_EDITOR", "REVIEWER_TO_EDITOR"),
-                then: Joi.required(),
-                otherwise: Joi.optional(),
-            })
+            .required()
             .messages({
                 "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
-                "any.required": "Recommendation is required for this stage",
+                "any.required": "Recommendation is required",
             }),
 
         // Reviewer Checklist (required for REVIEWER_TO_EDITOR)
@@ -643,8 +639,10 @@ export const submitRevisionSchema = {
             otherwise: Joi.optional(),
         }),
 
-        // File uploads (optional)
-        revisedManuscript: fileSchema.optional(),
+        // File uploads (required for all revision stages)
+        revisedManuscript: fileSchema.required().messages({
+            "any.required": "Revised manuscript is required",
+        }),
         attachments: Joi.array().items(fileSchema).max(10).optional(),
     }),
 };
@@ -943,6 +941,44 @@ export const searchReviewersSchema = {
                 "number.min": "Limit must be at least 1",
                 "number.max": "Limit cannot exceed 100",
             }),
+    }),
+};
+
+// ================================================
+// TECHNICAL EDITOR ASSIGNMENT RESPONSE SCHEMA
+// ================================================
+
+export const technicalEditorAssignmentResponseSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+
+    body: Joi.object({
+        decision: Joi.string()
+            .valid("ACCEPT", "REJECT")
+            .required()
+            .messages({
+                "any.only": "Decision must be either ACCEPT or REJECT",
+                "any.required": "Decision is required",
+            }),
+
+        rejectionReason: Joi.when("decision", {
+            is: "REJECT",
+            then: Joi.string()
+                .trim()
+                .min(10)
+                .max(1000)
+                .required()
+                .messages({
+                    "string.min": "Rejection reason must be at least 10 characters",
+                    "string.max": "Rejection reason cannot exceed 1000 characters",
+                    "any.required": "Rejection reason is required when rejecting assignment",
+                }),
+            otherwise: Joi.string()
+                .trim()
+                .allow("", null)
+                .optional(),
+        }),
     }),
 };
 

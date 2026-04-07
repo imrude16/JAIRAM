@@ -159,6 +159,15 @@ const validateSubmitterRoleType = (user, submitterRoleType, isRevision = false) 
     }
 };
 
+const findTechnicalEditorAssignment = (techEditorDoc, technicalEditorId) => {
+    if (!techEditorDoc?.assignedTechnicalEditors?.length) return null;
+
+    return techEditorDoc.assignedTechnicalEditors.find((assignment) => {
+        const assignedId = assignment.technicalEditor?._id || assignment.technicalEditor;
+        return assignedId?.toString() === technicalEditorId.toString();
+    }) || null;
+};
+
 const trackRejectedConsentIssue = (submission, consent) => {
     const coAuthorName = [
         consent.coAuthorFirstName,
@@ -729,11 +738,8 @@ const checkCanViewSubmission = async (submission, userId, userRole, userEmail, i
                 submission._id,
                 currentCycle._id
             );
-            const isAssigned = techEditorDoc?.assignedTechnicalEditors?.some(te => {
-                const techEditorId = te.technicalEditor?._id || te.technicalEditor;
-                return techEditorId.toString() === userId.toString();
-            });
-            if (isAssigned) {
+            const assignment = findTechnicalEditorAssignment(techEditorDoc, userId);
+            if (assignment && assignment.status !== "REJECT") {
                 return { canView: true, viewLevel: "FULL", showTimeline: false };
             }
         }
@@ -1186,7 +1192,12 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             query.status = { $ne: "DRAFT" };
         } else if (userRole === "TECHNICAL_EDITOR") {
             const techEditorDocs = await TechnicalEditor.find({
-                "assignedTechnicalEditors.technicalEditor": userId,
+                assignedTechnicalEditors: {
+                    $elemMatch: {
+                        technicalEditor: userId,
+                        status: { $in: ["PENDING", "ACCEPT"] },
+                    },
+                },
             }).select("submissionId");
 
             const submissionIds = techEditorDocs.map(doc => doc.submissionId);
@@ -1251,6 +1262,34 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 const key = sub._id?.toString();
                 sub._assignedTechEditor = teMap[key] ?? null;
                 sub._assignedReviewers = rvMap[key] ?? null;
+            }
+        }
+
+        // ── TECHNICAL_EDITOR role: enrich with assignment status + editor remarks ──
+        if (userRole === "TECHNICAL_EDITOR") {
+            const submissionIds = submissions.map(s => s._id);
+
+            const techEditorDocs = await TechnicalEditor.find({
+                submissionId: { $in: submissionIds },
+            })
+                .select("submissionId assignedTechnicalEditors technicalEditorReview")
+                .lean();
+
+            const teMap = {};
+            for (const doc of techEditorDocs) {
+                teMap[doc.submissionId?.toString()] = doc;
+            }
+
+            for (const sub of submissions) {
+                const key = sub._id?.toString();
+                const techEditorDoc = teMap[key] ?? null;
+                const assignment = findTechnicalEditorAssignment(techEditorDoc, userId);
+
+                sub._technicalEditorAssignmentStatus = assignment?.status || "PENDING";
+                sub._technicalEditorRespondedAt = assignment?.respondedAt || null;
+                sub._technicalEditorRejectionReason = assignment?.rejectionReason || null;
+                sub._technicalEditorReviewSubmitted = !!techEditorDoc?.technicalEditorReview?.reviewedAt;
+                sub._editorRemarksForTechEditor = sub.currentCycleId?.editorRemarksForTechEditor || null;
             }
         }
 
@@ -1907,14 +1946,20 @@ const submitRevision = async (userId, payload) => {
                 submission._id,
                 currentCycle._id
             );
-            const isAssigned = techEditorDoc?.assignedTechnicalEditors?.some(
-                te => te.technicalEditor.toString() === userId
-            );
-            if (!isAssigned) {
+            const assignment = findTechnicalEditorAssignment(techEditorDoc, userId);
+            if (!assignment) {
                 throw new AppError(
                     "You are not assigned as technical editor for this submission",
                     STATUS_CODES.FORBIDDEN,
                     "NOT_ASSIGNED_TECH_EDITOR"
+                );
+            }
+
+            if (assignment.status !== "ACCEPT") {
+                throw new AppError(
+                    "You must accept the assignment before submitting technical editor feedback",
+                    STATUS_CODES.FORBIDDEN,
+                    "TECH_EDITOR_ASSIGNMENT_NOT_ACCEPTED"
                 );
             }
         }
@@ -3067,6 +3112,83 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
     }
 };
 
+const respondToTechnicalEditorAssignment = async (submissionId, technicalEditorId, decision, rejectionReason) => {
+    try {
+        console.log("🔵 [SERVICE] respondToTechnicalEditorAssignment started");
+
+        const submission = await findSubmissionById(submissionId);
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        const technicalEditor = await User.findById(technicalEditorId);
+        if (!technicalEditor || technicalEditor.role !== "TECHNICAL_EDITOR") {
+            throw new AppError(
+                "Only technical editors can respond to assignment",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_TECHNICAL_EDITOR"
+            );
+        }
+
+        const currentCycle = await SubmissionCycle.getCurrentCycle(submission._id);
+        if (!currentCycle) {
+            throw new AppError(
+                "Active submission cycle not found",
+                STATUS_CODES.NOT_FOUND,
+                "CYCLE_NOT_FOUND"
+            );
+        }
+
+        const techEditorDoc = await TechnicalEditor.getCurrentCycleDoc(submission._id, currentCycle._id);
+        if (!techEditorDoc) {
+            throw new AppError(
+                "Technical editor assignment record not found",
+                STATUS_CODES.NOT_FOUND,
+                "TECH_EDITOR_DOC_NOT_FOUND"
+            );
+        }
+
+        const assignment = findTechnicalEditorAssignment(techEditorDoc, technicalEditorId);
+        if (!assignment) {
+            throw new AppError(
+                "You are not assigned as technical editor for this submission",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_ASSIGNED_TECH_EDITOR"
+            );
+        }
+
+        if (assignment.status !== "PENDING") {
+            throw new AppError(
+                `Assignment has already been responded to with status ${assignment.status}`,
+                STATUS_CODES.BAD_REQUEST,
+                "TECH_EDITOR_ASSIGNMENT_ALREADY_RESPONDED"
+            );
+        }
+
+        assignment.status = decision;
+        assignment.respondedAt = new Date();
+        assignment.rejectionReason = decision === "REJECT" ? rejectionReason.trim() : null;
+
+        await techEditorDoc.save();
+
+        return {
+            message: `Technical editor assignment ${decision === "ACCEPT" ? "accepted" : "rejected"} successfully`,
+            assignmentStatus: assignment.status,
+            respondedAt: assignment.respondedAt,
+            rejectionReason: assignment.rejectionReason,
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in respondToTechnicalEditorAssignment:", error);
+        throw new AppError(
+            "Failed to respond to technical editor assignment",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "TECH_EDITOR_ASSIGNMENT_RESPONSE_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 // ================================================
 // ASSIGN REVIEWERS
 // ================================================
@@ -3552,6 +3674,7 @@ export default {
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
     assignTechnicalEditor,
+    respondToTechnicalEditorAssignment,
     assignReviewers,
     generateUploadUrl,
     searchAuthors,

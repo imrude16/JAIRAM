@@ -25,6 +25,7 @@ import {
     reviewerInvitationResponseSchema,
     editorApproveConsentOverrideSchema,
     assignTechnicalEditorSchema,
+    technicalEditorAssignmentResponseSchema,
     assignReviewersSchema,
     generateUploadUrlSchema,
     searchAuthorsSchema,
@@ -68,6 +69,7 @@ const {
     autoRejectExpiredConsents,
     editorApproveConsentOverride,
     assignTechnicalEditor,
+    respondToTechnicalEditorAssignment,
     assignReviewers,
     generateUploadUrl,
     searchAuthors,
@@ -878,6 +880,26 @@ router.post(
     allowRoles(ROLES.EDITOR, ROLES.ADMIN),
     validateRequest(assignTechnicalEditorSchema),
     asyncHandler(assignTechnicalEditor)
+);
+
+/**
+ * TECHNICAL EDITOR ASSIGNMENT RESPONSE
+ *
+ * POST /api/submissions/:id/technical-editor-assignment-response
+ * Headers: Authorization: Bearer <token>
+ * Body: {
+ *   decision: "ACCEPT" | "REJECT",
+ *   rejectionReason?: "..." // required when decision = REJECT
+ * }
+ *
+ * Auth: Required + TECHNICAL_EDITOR role
+ */
+router.post(
+    "/:id/technical-editor-assignment-response",
+    requireAuth,
+    allowRoles(ROLES.TECHNICAL_EDITOR, ROLES.ADMIN),
+    validateRequest(technicalEditorAssignmentResponseSchema),
+    asyncHandler(respondToTechnicalEditorAssignment)
 );
 
 /**

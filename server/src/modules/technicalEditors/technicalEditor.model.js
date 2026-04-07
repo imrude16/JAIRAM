@@ -33,9 +33,20 @@ const technicalEditorSchema = new Schema(
                 },
                 status: {
                     type: String,
-                    enum: ["PENDING", "IN_PROGRESS", "COMPLETED"],
+                    enum: ["PENDING", "ACCEPT", "REJECT"],
                     default: "PENDING",
                 },
+                respondedAt: {
+                    type: Date,
+                    default: null,
+                },
+                rejectionReason: {
+                    type: String,
+                    trim: true,
+                    maxlength: [1000, "Rejection reason cannot exceed 1000 characters"],
+                    default: null,
+                },
+
             },
         ],
 
