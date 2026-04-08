@@ -250,11 +250,11 @@ function App() {
         <Route
           path="/reviewer-checklist"
           element={
-
-            <PageTransition>
-              <ReviewerChecklist />
-            </PageTransition>
-
+            <ProtectedRoute>
+              <PageTransition>
+                <ReviewerChecklist />
+              </PageTransition>
+            </ProtectedRoute>
           }
         />
 

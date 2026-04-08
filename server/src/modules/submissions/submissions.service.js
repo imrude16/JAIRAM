@@ -168,6 +168,15 @@ const findTechnicalEditorAssignment = (techEditorDoc, technicalEditorId) => {
     }) || null;
 };
 
+const findReviewerAssignment = (reviewerDoc, reviewerId) => {
+    if (!reviewerDoc?.assignedReviewers?.length) return null;
+
+    return reviewerDoc.assignedReviewers.find((assignment) => {
+        const assignedId = assignment.reviewer?._id || assignment.reviewer;
+        return assignedId?.toString() === reviewerId.toString();
+    }) || null;
+};
+
 const trackRejectedConsentIssue = (submission, consent) => {
     const coAuthorName = [
         consent.coAuthorFirstName,
@@ -627,12 +636,12 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
 
         let isAssignedReviewer = false;
         if (userRole === "REVIEWER") {
-            const { Reviewer } = await import("../reviewers/reviewer.model.js");
             const reviewerDoc = await Reviewer.findOne({
                 submissionId: submissionId,
                 "assignedReviewers.reviewer": userId,
             });
-            isAssignedReviewer = !!reviewerDoc;
+            const assignment = findReviewerAssignment(reviewerDoc, userId);
+            isAssignedReviewer = !!assignment && assignment.status !== "REJECT";
         }
 
         const permissionCheck = await checkCanViewSubmission(submission, userId, userRole, user.email, isAssignedReviewer);
@@ -1183,9 +1192,13 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 { _id: { $in: approvedSubmissionIds } }
             ];
         } else if (userRole === "REVIEWER") {
-            const { Reviewer } = await import("../reviewers/reviewer.model.js");
             const reviewerDocs = await Reviewer.find({
-                "assignedReviewers.reviewer": userId,
+                assignedReviewers: {
+                    $elemMatch: {
+                        reviewer: userId,
+                        status: { $in: ["PENDING", "ACCEPT"] },
+                    },
+                },
             }).select("submissionId");
             const submissionIds = reviewerDocs.map(r => r.submissionId);
             query._id = { $in: submissionIds };
@@ -1290,6 +1303,37 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 sub._technicalEditorRejectionReason = assignment?.rejectionReason || null;
                 sub._technicalEditorReviewSubmitted = !!techEditorDoc?.technicalEditorReview?.reviewedAt;
                 sub._editorRemarksForTechEditor = sub.currentCycleId?.editorRemarksForTechEditor || null;
+            }
+        }
+
+        // ── REVIEWER role: enrich with assignment status + editor remarks ──
+        if (userRole === "REVIEWER") {
+            const submissionIds = submissions.map(s => s._id);
+
+            const reviewerDocs = await Reviewer.find({
+                submissionId: { $in: submissionIds },
+            })
+                .select("submissionId assignedReviewers reviewerFeedback")
+                .lean();
+
+            const reviewerMap = {};
+            for (const doc of reviewerDocs) {
+                reviewerMap[doc.submissionId?.toString()] = doc;
+            }
+
+            for (const sub of submissions) {
+                const key = sub._id?.toString();
+                const reviewerDoc = reviewerMap[key] ?? null;
+                const assignment = findReviewerAssignment(reviewerDoc, userId);
+
+                sub._reviewerAssignmentStatus = assignment?.status || "PENDING";
+                sub._reviewerRespondedAt = assignment?.respondedAt || null;
+                sub._reviewerRejectionReason = assignment?.rejectionReason || null;
+                sub._reviewerReviewSubmitted = !!(reviewerDoc?.reviewerFeedback || []).some((feedback) => {
+                    const feedbackUserId = feedback.user?._id || feedback.user;
+                    return feedbackUserId?.toString() === userId.toString();
+                });
+                sub._editorRemarksForReviewer = sub.currentCycleId?.editorRemarksForReviewers || null;
             }
         }
 
@@ -1964,17 +2008,22 @@ const submitRevision = async (userId, payload) => {
             }
         }
         else if (payload.submitterRoleType === "Reviewer") {
-            const { Reviewer } = await import("../reviewers/reviewer.model.js");
             const reviewerDoc = await Reviewer.findOne({
                 submissionId: submission._id,
-                "assignedReviewers.reviewer": userId,
             });
-            const isAssigned = !!reviewerDoc;
-            if (!isAssigned) {
+            const assignment = findReviewerAssignment(reviewerDoc, userId);
+            if (!assignment) {
                 throw new AppError(
                     "You are not assigned as reviewer for this submission",
                     STATUS_CODES.FORBIDDEN,
                     "NOT_ASSIGNED_REVIEWER"
+                );
+            }
+            if (assignment.status !== "ACCEPT") {
+                throw new AppError(
+                    "You must accept the assignment before submitting reviewer feedback",
+                    STATUS_CODES.FORBIDDEN,
+                    "REVIEWER_ASSIGNMENT_NOT_ACCEPTED"
                 );
             }
         }
@@ -2111,7 +2160,6 @@ const submitRevision = async (userId, payload) => {
                 break;
 
             case "REVIEWER_TO_EDITOR":
-                const { Reviewer } = await import("../reviewers/reviewer.model.js");
                 const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
                 if (!reviewerDoc) {
                     throw new AppError("Reviewer document not found", STATUS_CODES.NOT_FOUND, "REVIEWER_DOC_NOT_FOUND");
@@ -2123,7 +2171,10 @@ const submitRevision = async (userId, payload) => {
                     email: user.email,
                     recommendation: payload.recommendation,
                     remarks: payload.remarks,
+                    confidentialToEditor: payload.confidentialToEditor,
                     reviewerChecklist: payload.reviewerChecklist,
+                    revisedManuscript: payload.revisedManuscript || null,
+                    responseToEditorComments: payload.responseToEditorComments || null,
                     reviewedAt: new Date(),
                 });
                 await reviewerDoc.save();
@@ -3189,6 +3240,74 @@ const respondToTechnicalEditorAssignment = async (submissionId, technicalEditorI
     }
 };
 
+const respondToReviewerAssignment = async (submissionId, reviewerId, decision, rejectionReason) => {
+    try {
+        console.log("🔵 [SERVICE] respondToReviewerAssignment started");
+
+        const submission = await findSubmissionById(submissionId);
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        const reviewerUser = await User.findById(reviewerId);
+        if (!reviewerUser || reviewerUser.role !== "REVIEWER") {
+            throw new AppError(
+                "Only reviewers can respond to assignment",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_REVIEWER"
+            );
+        }
+
+        const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
+        if (!reviewerDoc) {
+            throw new AppError(
+                "Reviewer assignment record not found",
+                STATUS_CODES.NOT_FOUND,
+                "REVIEWER_DOC_NOT_FOUND"
+            );
+        }
+
+        const assignment = findReviewerAssignment(reviewerDoc, reviewerId);
+        if (!assignment) {
+            throw new AppError(
+                "You are not assigned as reviewer for this submission",
+                STATUS_CODES.FORBIDDEN,
+                "NOT_ASSIGNED_REVIEWER"
+            );
+        }
+
+        if (assignment.status !== "PENDING") {
+            throw new AppError(
+                `Assignment has already been responded to with status ${assignment.status}`,
+                STATUS_CODES.BAD_REQUEST,
+                "REVIEWER_ASSIGNMENT_ALREADY_RESPONDED"
+            );
+        }
+
+        assignment.status = decision;
+        assignment.respondedAt = new Date();
+        assignment.rejectionReason = decision === "REJECT" ? rejectionReason.trim() : null;
+
+        await reviewerDoc.save();
+
+        return {
+            message: `Reviewer assignment ${decision === "ACCEPT" ? "accepted" : "rejected"} successfully`,
+            assignmentStatus: assignment.status,
+            respondedAt: assignment.respondedAt,
+            rejectionReason: assignment.rejectionReason,
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in respondToReviewerAssignment:", error);
+        throw new AppError(
+            "Failed to respond to reviewer assignment",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "REVIEWER_ASSIGNMENT_RESPONSE_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 // ================================================
 // ASSIGN REVIEWERS
 // ================================================
@@ -3264,7 +3383,6 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
                     reviewerDoc.assignedReviewers.push({
                         reviewer: reviewerId,
                         assignedDate: new Date(),
-                        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                         status: "PENDING",
                         isAnonymous: true,
                     });
@@ -3675,6 +3793,7 @@ export default {
     editorApproveConsentOverride,
     assignTechnicalEditor,
     respondToTechnicalEditorAssignment,
+    respondToReviewerAssignment,
     assignReviewers,
     generateUploadUrl,
     searchAuthors,

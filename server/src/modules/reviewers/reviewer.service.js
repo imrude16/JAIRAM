@@ -17,6 +17,7 @@ import { Reviewer } from "./reviewer.model.js";
  * WHAT THIS SERVICE DOES NOT DO:
  * - Create reviewer document → done in submissions.service.js at submitManuscript()
  * - Assign reviewers → done in submissions.service.js at assignReviewers()
+ * - Reviewer assignment response → done in submissions.service.js at reviewer-assignment-response
  * - Submit reviewer feedback → done in submissions.service.js at submitRevision()
  *   (kept in submissions.service.js so Editor can access it via unified endpoint)
  *
@@ -179,73 +180,9 @@ const isAssignedReviewer = async (submissionId, userId) => {
     }
 };
 
-// ================================================
-// UPDATE REVIEWER STATUS
-// ================================================
-
-/**
- * Update status of a specific assigned reviewer
- * e.g., PENDING → IN_PROGRESS → COMPLETED
- */
-const updateReviewerStatus = async (submissionId, reviewerId, newStatus) => {
-    try {
-        const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED"];
-        if (!validStatuses.includes(newStatus)) {
-            throw new AppError(
-                `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-                STATUS_CODES.BAD_REQUEST,
-                "INVALID_STATUS"
-            );
-        }
-
-        const reviewerDoc = await Reviewer.findOne({ submissionId });
-
-        if (!reviewerDoc) {
-            throw new AppError(
-                "Reviewer document not found for this submission",
-                STATUS_CODES.NOT_FOUND,
-                "REVIEWER_DOC_NOT_FOUND"
-            );
-        }
-
-        const assignedReviewer = reviewerDoc.assignedReviewers.find(
-            r => r.reviewer.toString() === reviewerId.toString()
-        );
-
-        if (!assignedReviewer) {
-            throw new AppError(
-                "This reviewer is not assigned to this submission",
-                STATUS_CODES.NOT_FOUND,
-                "REVIEWER_NOT_ASSIGNED"
-            );
-        }
-
-        assignedReviewer.status = newStatus;
-        await reviewerDoc.save();
-
-        console.log(`✅ [REVIEWER-SERVICE] Reviewer status updated to ${newStatus}`);
-
-        return {
-            message: `Reviewer status updated to ${newStatus}`,
-            assignedReviewer,
-        };
-
-    } catch (error) {
-        if (error instanceof AppError) throw error;
-        console.error("❌ [REVIEWER-SERVICE] Error in updateReviewerStatus:", error);
-        throw new AppError(
-            "Failed to update reviewer status",
-            STATUS_CODES.INTERNAL_SERVER_ERROR,
-            "UPDATE_REVIEWER_STATUS_ERROR",
-            { originalError: error.message }
-        );
-    }
-};
-
 export default {
     getReviewerDocument,
     getAssignedReviewers,
     getReviewerFeedback,
     isAssignedReviewer,
-    updateReviewerStatus,
 };

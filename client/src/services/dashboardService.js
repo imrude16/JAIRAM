@@ -293,6 +293,58 @@ export const submitTechnicalEditorReview = async ({
   return response.data?.data ?? null;
 };
 
+// FETCH REVIEWER SUBMISSIONS
+// Endpoint: GET /api/submissions
+export const fetchReviewerSubmissions = async () => {
+  const response = await api.get("/submissions", {
+    params: {
+      limit: 100,
+      sortBy: "submittedAt",
+      sortOrder: "desc",
+    },
+  });
+
+  return response.data?.data?.submissions ?? [];
+};
+
+// RESPOND TO REVIEWER ASSIGNMENT
+// Endpoint: POST /api/submissions/:id/reviewer-assignment-response
+export const respondToReviewerAssignment = async (submissionId, decision, rejectionReason = "") => {
+  const response = await api.post(`/submissions/${submissionId}/reviewer-assignment-response`, {
+    decision,
+    ...(decision === "REJECT" ? { rejectionReason } : {}),
+  });
+
+  return response.data?.data ?? null;
+};
+
+// SUBMIT REVIEWER REVIEW
+// Endpoint: POST /api/submissions/revisions
+export const submitReviewerReview = async ({
+  submissionId,
+  reviewerChecklist,
+  remarks,
+  confidentialToEditor,
+  recommendation,
+  revisedManuscript,
+  responseToEditorComments,
+}) => {
+  const response = await api.post("/submissions/revisions", {
+    originalSubmissionId: submissionId,
+    submitterRoleType: "Reviewer",
+    revisionStage: "REVIEWER_TO_EDITOR",
+    reviewerChecklist,
+    remarks,
+    confidentialToEditor,
+    recommendation,
+    revisedManuscript,
+    responseToEditorComments,
+    attachments: [],
+  });
+
+  return response.data?.data ?? null;
+};
+
 // SEARCH USERS FOR ROLE CHANGE REQUEST (EDITOR)
 // Endpoint: GET /api/admin/role-change-request-users?search=john&page=1&limit=10
 export const searchUsersForRoleChange = async (search, page = 1, limit = 10) => {

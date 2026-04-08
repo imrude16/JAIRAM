@@ -23,10 +23,11 @@ import {
     checkReviewerMajoritySchema,
     tokenInfoSchema,
     reviewerInvitationResponseSchema,
-    editorApproveConsentOverrideSchema,
-    assignTechnicalEditorSchema,
-    technicalEditorAssignmentResponseSchema,
-    assignReviewersSchema,
+      editorApproveConsentOverrideSchema,
+      assignTechnicalEditorSchema,
+      technicalEditorAssignmentResponseSchema,
+      reviewerAssignmentResponseSchema,
+      assignReviewersSchema,
     generateUploadUrlSchema,
     searchAuthorsSchema,
     searchReviewersSchema,
@@ -70,6 +71,7 @@ const {
     editorApproveConsentOverride,
     assignTechnicalEditor,
     respondToTechnicalEditorAssignment,
+    respondToReviewerAssignment,
     assignReviewers,
     generateUploadUrl,
     searchAuthors,
@@ -894,13 +896,21 @@ router.post(
  *
  * Auth: Required + TECHNICAL_EDITOR role
  */
-router.post(
-    "/:id/technical-editor-assignment-response",
-    requireAuth,
-    allowRoles(ROLES.TECHNICAL_EDITOR, ROLES.ADMIN),
-    validateRequest(technicalEditorAssignmentResponseSchema),
-    asyncHandler(respondToTechnicalEditorAssignment)
-);
+  router.post(
+      "/:id/technical-editor-assignment-response",
+      requireAuth,
+      allowRoles(ROLES.TECHNICAL_EDITOR, ROLES.ADMIN),
+      validateRequest(technicalEditorAssignmentResponseSchema),
+      asyncHandler(respondToTechnicalEditorAssignment)
+  );
+
+  router.post(
+      "/:id/reviewer-assignment-response",
+      requireAuth,
+      allowRoles(ROLES.REVIEWER, ROLES.ADMIN),
+      validateRequest(reviewerAssignmentResponseSchema),
+      asyncHandler(respondToReviewerAssignment)
+  );
 
 /**
  * ASSIGN REVIEWERS

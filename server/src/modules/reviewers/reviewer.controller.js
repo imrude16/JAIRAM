@@ -69,32 +69,8 @@ const getReviewerFeedback = async (req, res) => {
     );
 };
 
-// ================================================
-// UPDATE REVIEWER STATUS
-// ================================================
-
-const updateReviewerStatus = async (req, res) => {
-    const { submissionId, reviewerId } = req.params;
-    const { status } = req.body;
-
-    const result = await reviewerService.updateReviewerStatus(
-        submissionId,
-        reviewerId,
-        status
-    );
-
-    sendSuccess(
-        res,
-        result.message,
-        { assignedReviewer: result.assignedReviewer },
-        null,
-        STATUS_CODES.OK
-    );
-};
-
 export default {
     getReviewerDocument,
     getAssignedReviewers,
     getReviewerFeedback,
-    updateReviewerStatus,
 };

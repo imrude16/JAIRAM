@@ -9,7 +9,6 @@ import {
     getReviewerDocumentSchema,
     getAssignedReviewersSchema,
     getReviewerFeedbackSchema,
-    updateReviewerStatusSchema,
 } from "./reviewer.validator.js";
 
 /**
@@ -28,6 +27,7 @@ import {
  * WHAT IS NOT HERE:
  * - Reviewer feedback submission → POST /api/submissions/revisions
  *   (submitterRoleType: "Reviewer", revisionStage: "REVIEWER_TO_EDITOR")
+ * - Reviewer assignment response → POST /api/submissions/:id/reviewer-assignment-response
  * - Assigning reviewers → POST /api/submissions/:id/assign-reviewers
  * - Moving to review → POST /api/submissions/:id/move-to-review
  *
@@ -39,7 +39,6 @@ const {
     getReviewerDocument,
     getAssignedReviewers,
     getReviewerFeedback,
-    updateReviewerStatus,
 } = reviewerController;
 
 const router = Router();
@@ -81,20 +80,6 @@ router.get(
     allowRoles(ROLES.EDITOR, ROLES.ADMIN),
     validateRequest(getReviewerFeedbackSchema),
     asyncHandler(getReviewerFeedback)
-);
-
-/**
- * UPDATE ASSIGNED REVIEWER STATUS
- * PATCH /api/reviewers/:submissionId/assigned/:reviewerId/status
- * Auth: EDITOR | ADMIN
- * Body: { status: "PENDING" | "IN_PROGRESS" | "COMPLETED" }
- */
-router.patch(
-    "/:submissionId/assigned/:reviewerId/status",
-    requireAuth,
-    allowRoles(ROLES.EDITOR, ROLES.ADMIN),
-    validateRequest(updateReviewerStatusSchema),
-    asyncHandler(updateReviewerStatus)
 );
 
 export default router;

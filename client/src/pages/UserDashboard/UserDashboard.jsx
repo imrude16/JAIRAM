@@ -19,6 +19,7 @@ import useDashboard from "../../hooks/useDashboard";
 import { acceptConsentFromDashboard, rejectConsentFromDashboard } from "../../services/dashboardService";
 import EditorDashboard from "../EditorDashboard/EditorDashboard";   // ← NEW import
 import TechnicalEditorDashboard from "../TechnicalEditorDashboard/TechnicalEditorDashboard";
+import ReviewerDashboard from "../ReviewerDashboard/ReviewerDashboard";
 
 // ─── STATUS / CONSENT CONFIG ──────────────────────────────────────────────────
 
@@ -507,6 +508,8 @@ const RolePlaceholder = ({ role }) => {
 
 // ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
 
+void RolePlaceholder;
+
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -620,7 +623,12 @@ const UserDashboard = () => {
         )}
 
         {role === "REVIEWER" && (
-          <RolePlaceholder role={role} />
+          <>
+            <ProfileCard user={fullProfile || user} />
+            <div style={{ marginTop: 20 }}>
+              <ReviewerDashboard user={user} />
+            </div>
+          </>
         )}
 
         {/* ══════════════════════════════════════════════

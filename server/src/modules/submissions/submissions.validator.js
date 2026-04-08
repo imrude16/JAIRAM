@@ -639,9 +639,35 @@ export const submitRevisionSchema = {
             otherwise: Joi.optional(),
         }),
 
+        confidentialToEditor: Joi.when("revisionStage", {
+            is: "REVIEWER_TO_EDITOR",
+            then: Joi.string()
+                .trim()
+                .min(10)
+                .max(10000)
+                .required()
+                .messages({
+                    "string.min": "Confidential Letter for Editor must be at least 10 characters",
+                    "string.max": "Confidential Letter for Editor cannot exceed 10000 characters",
+                    "any.required": "Confidential Letter for Editor is required",
+                }),
+            otherwise: Joi.string()
+                .trim()
+                .max(10000)
+                .optional()
+                .allow(""),
+        }),
+
         // File uploads (required for all revision stages)
         revisedManuscript: fileSchema.required().messages({
             "any.required": "Revised manuscript is required",
+        }),
+        responseToEditorComments: Joi.when("revisionStage", {
+            is: "REVIEWER_TO_EDITOR",
+            then: fileSchema.required().messages({
+                "any.required": "Response to Editor's Comments file is required",
+            }),
+            otherwise: fileSchema.optional(),
         }),
         attachments: Joi.array().items(fileSchema).max(10).optional(),
     }),
@@ -949,6 +975,40 @@ export const searchReviewersSchema = {
 // ================================================
 
 export const technicalEditorAssignmentResponseSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+
+    body: Joi.object({
+        decision: Joi.string()
+            .valid("ACCEPT", "REJECT")
+            .required()
+            .messages({
+                "any.only": "Decision must be either ACCEPT or REJECT",
+                "any.required": "Decision is required",
+            }),
+
+        rejectionReason: Joi.when("decision", {
+            is: "REJECT",
+            then: Joi.string()
+                .trim()
+                .min(10)
+                .max(1000)
+                .required()
+                .messages({
+                    "string.min": "Rejection reason must be at least 10 characters",
+                    "string.max": "Rejection reason cannot exceed 1000 characters",
+                    "any.required": "Rejection reason is required when rejecting assignment",
+                }),
+            otherwise: Joi.string()
+                .trim()
+                .allow("", null)
+                .optional(),
+        }),
+    }),
+};
+
+export const reviewerAssignmentResponseSchema = {
     params: Joi.object({
         id: objectIdField("Submission ID").required(),
     }),

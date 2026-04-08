@@ -82,17 +82,25 @@ const reviewerSchema = new Schema(
                     default: Date.now,
                 },
 
-                dueDate: {
-                    type: Date,
-                },
-
                 status: {
                     type: String,
                     enum: {
-                        values: ["PENDING", "IN_PROGRESS", "COMPLETED"],
+                        values: ["PENDING", "ACCEPT", "REJECT"],
                         message: "{VALUE} is not a valid reviewer status",
                     },
                     default: "PENDING",
+                },
+
+                respondedAt: {
+                    type: Date,
+                    default: null,
+                },
+
+                rejectionReason: {
+                    type: String,
+                    trim: true,
+                    maxlength: [1000, "Rejection reason cannot exceed 1000 characters"],
+                    default: null,
                 },
 
                 isAnonymous: {
