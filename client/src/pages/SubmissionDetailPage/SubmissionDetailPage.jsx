@@ -137,6 +137,47 @@ const getConsentIssueFinalStateLabel = (consentDeadlineStatus, issue) => {
   return "Pending";
 };
 
+const getAssignmentStatusBadgeType = (status) => {
+  if (status === "ACCEPT") return "success";
+  if (status === "REJECT") return "danger";
+  return "warning";
+};
+
+const getAssignmentDisplayName = (person, fallback = "Unassigned") => {
+  if (!person) return fallback;
+  const name = `${person.firstName || ""} ${person.lastName || ""}`.trim();
+  return name || person.email || fallback;
+};
+
+const AssignmentPersonCard = ({
+  title,
+  name,
+  email,
+  status,
+  assignedDate,
+  respondedAt,
+  rejectionReason,
+}) => (
+  <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, background: "#fff" }}>
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+      <div>
+        <div style={{ fontSize: "0.94rem", fontWeight: 800, color: "#0f172a" }}>{name}</div>
+        <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 4 }}>{email || "-"}</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Badge type="info">{title}</Badge>
+        <Badge type={getAssignmentStatusBadgeType(status)}>{status || "PENDING"}</Badge>
+      </div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+      <ModalField label="Assigned At" value={formatDateTime(assignedDate)} />
+      <ModalField label="Responded At" value={status === "ACCEPT" ? formatDateTime(respondedAt) : status === "REJECT" ? formatDateTime(respondedAt) : "-"} />
+      <ModalField label="Rejection Reason" value={status === "REJECT" ? rejectionReason || "-" : "-"} />
+    </div>
+  </div>
+);
+
 const SubmissionDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -215,6 +256,8 @@ const SubmissionDetailPage = () => {
   const consentIssues = Array.isArray(submission?.consentIssues) ? submission.consentIssues : [];
   const unresolvedIssues = consentIssues.filter((issue) => !issue.resolvedAt);
   const hasConsentIssue = consentIssues.length > 0;
+  const assignedTechnicalEditors = Array.isArray(submission?._assignedTechnicalEditors) ? submission._assignedTechnicalEditors : [];
+  const assignedReviewers = Array.isArray(submission?._assignedReviewers) ? submission._assignedReviewers : [];
   const canResolveConsentIssue =
     isEditor &&
     submission?.consentDeadlineStatus !== "RESOLVED" &&
@@ -626,37 +669,6 @@ const SubmissionDetailPage = () => {
               )}
 
               <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
-                <div style={{ padding: "16px 18px", borderBottom: "1px solid #eef2f7", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <ShieldCheck size={18} color="#0f3460" />
-                    <div style={{ fontWeight: 800, color: "#0f3460" }}>Suggested Reviewer Response</div>
-                  </div>
-                  <Badge type={majorityStatus?.majorityMet ? "success" : "warning"}>
-                    {majorityStatus?.majorityMet ? "Majority Met" : "Majority Pending"}
-                  </Badge>
-                </div>
-
-                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
-                    <StatCard label="Total Suggested" value={suggestedReviewerResponses.totalSuggested ?? 0} />
-                    <StatCard label="Accepted" value={suggestedReviewerResponses.accepted ?? 0} accent="#15803d" />
-                    <StatCard label="Declined" value={suggestedReviewerResponses.declined ?? 0} accent="#b91c1c" />
-                    <StatCard label="Pending" value={suggestedReviewerResponses.pending ?? 0} accent="#b45309" />
-                    <StatCard label="Majority Met" value={(majorityStatus?.majorityMet ?? suggestedReviewerResponses.majorityMet) ? "Yes" : "No"} accent={(majorityStatus?.majorityMet ?? suggestedReviewerResponses.majorityMet) ? "#15803d" : "#b45309"} />
-                  </div>
-
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
-                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                      Majority Status
-                    </div>
-                    <div style={{ fontSize: "0.92rem", color: "#0f172a", fontWeight: 600 }}>
-                      {majorityStatus?.message || "No majority information available."}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
                 <div style={{ padding: "16px 18px", borderBottom: "1px solid #eef2f7", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <MessageSquareWarning size={18} color="#0f3460" />
@@ -814,6 +826,105 @@ const SubmissionDetailPage = () => {
                       Consent issue has already been resolved.
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: "1px solid #eef2f7", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <User size={18} color="#0f3460" />
+                    <div style={{ fontWeight: 800, color: "#0f3460" }}>Assigned Technical Editors</div>
+                  </div>
+                  <Badge type={assignedTechnicalEditors.length > 0 ? "info" : "default"}>
+                    {assignedTechnicalEditors.length > 0 ? `${assignedTechnicalEditors.length} Assigned` : "No Assignment"}
+                  </Badge>
+                </div>
+
+                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {assignedTechnicalEditors.length === 0 ? (
+                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <AlertCircle size={18} color="#64748b" />
+                      <div style={{ fontSize: "0.92rem", color: "#475569", fontWeight: 700 }}>No technical editor has been assigned yet.</div>
+                    </div>
+                  ) : (
+                    assignedTechnicalEditors.map((assignment, index) => (
+                      <AssignmentPersonCard
+                        key={`${assignment?.technicalEditor?._id || assignment?.technicalEditor?.email || "technical"}-${index}`}
+                        title="Technical Editor"
+                        name={getAssignmentDisplayName(assignment.technicalEditor, "Assigned Technical Editor")}
+                        email={assignment?.technicalEditor?.email || "-"}
+                        status={assignment.status}
+                        assignedDate={assignment.assignedDate}
+                        respondedAt={assignment.respondedAt}
+                        rejectionReason={assignment.rejectionReason}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: "1px solid #eef2f7", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Users size={18} color="#0f3460" />
+                    <div style={{ fontWeight: 800, color: "#0f3460" }}>Assigned Reviewers</div>
+                  </div>
+                  <Badge type={assignedReviewers.length > 0 ? "info" : "default"}>
+                    {assignedReviewers.length > 0 ? `${assignedReviewers.length} Assigned` : "No Assignment"}
+                  </Badge>
+                </div>
+
+                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {assignedReviewers.length === 0 ? (
+                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <AlertCircle size={18} color="#64748b" />
+                      <div style={{ fontSize: "0.92rem", color: "#475569", fontWeight: 700 }}>No reviewer has been assigned yet.</div>
+                    </div>
+                  ) : (
+                    assignedReviewers.map((assignment, index) => (
+                      <AssignmentPersonCard
+                        key={`${assignment?.reviewer?._id || assignment?.reviewer?.email || "reviewer"}-${index}`}
+                        title={assignment.isAnonymous ? "Reviewer (Anonymous)" : "Reviewer"}
+                        name={getAssignmentDisplayName(assignment.reviewer, "Assigned Reviewer")}
+                        email={assignment?.reviewer?.email || "-"}
+                        status={assignment.status}
+                        assignedDate={assignment.assignedDate}
+                        respondedAt={assignment.respondedAt}
+                        rejectionReason={assignment.rejectionReason}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ padding: "16px 18px", borderBottom: "1px solid #eef2f7", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <ShieldCheck size={18} color="#0f3460" />
+                    <div style={{ fontWeight: 800, color: "#0f3460" }}>Suggested Reviewer Response</div>
+                  </div>
+                  <Badge type={majorityStatus?.majorityMet ? "success" : "warning"}>
+                    {majorityStatus?.majorityMet ? "Majority Met" : "Majority Pending"}
+                  </Badge>
+                </div>
+
+                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
+                    <StatCard label="Total Suggested" value={suggestedReviewerResponses.totalSuggested ?? 0} />
+                    <StatCard label="Accepted" value={suggestedReviewerResponses.accepted ?? 0} accent="#15803d" />
+                    <StatCard label="Declined" value={suggestedReviewerResponses.declined ?? 0} accent="#b91c1c" />
+                    <StatCard label="Pending" value={suggestedReviewerResponses.pending ?? 0} accent="#b45309" />
+                    <StatCard label="Majority Met" value={(majorityStatus?.majorityMet ?? suggestedReviewerResponses.majorityMet) ? "Yes" : "No"} accent={(majorityStatus?.majorityMet ?? suggestedReviewerResponses.majorityMet) ? "#15803d" : "#b45309"} />
+                  </div>
+
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                      Majority Status
+                    </div>
+                    <div style={{ fontSize: "0.92rem", color: "#0f172a", fontWeight: 600 }}>
+                      {majorityStatus?.message || "No majority information available."}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

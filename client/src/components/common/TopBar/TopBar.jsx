@@ -9,6 +9,7 @@ import {
   Bell,
   ChevronDown,
 } from "lucide-react";
+import useAuthStore from "../../../store/authStore";
 
 // ============= OPTIMIZED SEARCH COMPONENT =============
 const SearchBar = React.memo(
@@ -39,11 +40,10 @@ const SearchBar = React.memo(
     return (
       <div className={`${isMobile ? "space-y-3" : "flex items-center gap-3"}`}>
         <div
-          className={`flex ${
-            isMobile
-              ? "flex-col sm:flex-row gap-2"
-              : "items-center rounded-lg overflow-hidden"
-          }`}
+          className={`flex ${isMobile
+            ? "flex-col sm:flex-row gap-2"
+            : "items-center rounded-lg overflow-hidden"
+            }`}
           style={{
             border: "1px solid rgba(15,42,68,0.25)",
             boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
@@ -105,6 +105,75 @@ const SearchBar = React.memo(
 
 SearchBar.displayName = "SearchBar";
 
+const getUserInitials = (user) => {
+  if (!user) return "";
+
+  const first = user.firstName?.trim()?.[0] || user.name?.trim()?.[0] || "";
+  const last = user.lastName?.trim()?.[0] || "";
+
+  return `${first}${last}`.toUpperCase();
+};
+
+const getDashboardLabel = (user) => {
+  if (!user) return "Dashboard";
+
+  switch (user.role) {
+    case "EDITOR":
+      return "Editor Dashboard";
+    case "TECHNICAL_EDITOR":
+      return "Technical Dashboard";
+    case "REVIEWER":
+      return "Reviewer Dashboard";
+    case "ADMIN":
+      return "Admin Dashboard";
+    default:
+      return "Dashboard";
+  }
+};
+
+const DashboardShortcut = ({ initials, label, onOpen, mobile = false }) => (
+  <button
+    type="button"
+    onClick={onOpen}
+    className={`group inline-flex items-center ${
+      mobile
+        ? "w-full justify-center gap-3 rounded-xl px-4 py-2.5"
+        : "gap-2 rounded-xl px-3 py-1.5"
+    } border text-sm font-semibold transition-all duration-200`}
+    style={{
+      borderColor: "rgba(26,74,122,0.28)",
+      color: "#102f4d",
+      background:
+        "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(226,236,248,0.98))",
+      boxShadow: "0 4px 14px rgba(15,42,68,0.10)",
+    }}
+  >
+    <span
+      className={`flex items-center justify-center rounded-full font-bold text-white shadow-sm ${
+        mobile ? "h-9 w-9 text-sm" : "h-7 w-7 text-[11px]"
+      }`}
+      style={{
+        background: "linear-gradient(135deg, #0f2a44, #215a90)",
+        boxShadow: "0 0 0 3px rgba(33,90,144,0.08)",
+      }}
+      aria-hidden="true"
+    >
+      {initials || "U"}
+    </span>
+    <span
+      className={`${mobile ? "" : "hidden xl:inline"} tracking-[0.01em]`}
+      style={{ color: "#102f4d" }}
+    >
+      {label}
+    </span>
+    {!mobile && (
+      <span className="xl:hidden tracking-[0.01em]" style={{ color: "#102f4d" }}>
+        Dashboard
+      </span>
+    )}
+  </button>
+);
+
 const TopBar = () => {
   const [showLoginMenu, setShowLoginMenu] = useState(false);
   const [searchType, setSearchType] = useState("Articles");
@@ -115,6 +184,8 @@ const TopBar = () => {
   const location = useLocation();
   const mobileSearchRef = useRef(null);
   const prevPathnameRef = useRef(null);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const handleLogin = () => {
     setShowLoginMenu(false);
@@ -161,6 +232,8 @@ const TopBar = () => {
     }),
     [searchType, searchQuery, handleSearch],
   );
+  const userInitials = useMemo(() => getUserInitials(user), [user]);
+  const dashboardLabel = useMemo(() => getDashboardLabel(user), [user]);
 
   return (
     <div
@@ -171,7 +244,7 @@ const TopBar = () => {
         backdropFilter: "blur(8px)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 relative flex flex-wrap items-center justify-between gap-3">
         {/* Left actions */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Login/Register Dropdown */}
@@ -255,9 +328,32 @@ const TopBar = () => {
         </div>
 
         {/* Right — Desktop Search */}
-        <div className="hidden lg:flex items-center shrink-0">
+        <div className="hidden lg:flex items-center shrink-0 mr-32">
           <SearchBar {...searchProps} />
         </div>
+
+        {isAuthenticated && user && (
+          <div className="hidden lg:flex items-center absolute -right-20 top-1/2 -translate-y-1/2">
+            <DashboardShortcut
+              initials={userInitials}
+              label={dashboardLabel}
+              onOpen={() => navigate("/dashboard")}
+            />
+          </div>
+        )}
+
+
+
+        {isAuthenticated && user && (
+          <div className="w-full lg:hidden ">
+            <DashboardShortcut
+              initials={userInitials}
+              label={dashboardLabel}
+              onOpen={() => navigate("/dashboard")}
+              mobile={true}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

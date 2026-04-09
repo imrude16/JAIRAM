@@ -663,6 +663,39 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         // Convert mongoose document to plain object
         const submissionObj = submission.toObject();
 
+        // Enrich detail response with assignment data from reviewer/technical editor collections.
+        if (userRole === "EDITOR" || userRole === "ADMIN") {
+            const [technicalEditorDoc, reviewerDoc] = await Promise.all([
+                TechnicalEditor.findOne({ submissionId: submission._id })
+                    .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")
+                    .select("assignedTechnicalEditors")
+                    .lean(),
+                Reviewer.findOne({ submissionId: submission._id })
+                    .populate("assignedReviewers.reviewer", "firstName lastName email")
+                    .select("assignedReviewers")
+                    .lean(),
+            ]);
+
+            submissionObj._assignedTechnicalEditors =
+                technicalEditorDoc?.assignedTechnicalEditors?.map((assignment) => ({
+                    technicalEditor: assignment.technicalEditor || null,
+                    status: assignment.status || "PENDING",
+                    assignedDate: assignment.assignedDate || null,
+                    respondedAt: assignment.respondedAt || null,
+                    rejectionReason: assignment.rejectionReason || null,
+                })) || [];
+
+            submissionObj._assignedReviewers =
+                reviewerDoc?.assignedReviewers?.map((assignment) => ({
+                    reviewer: assignment.reviewer || null,
+                    status: assignment.status || "PENDING",
+                    assignedDate: assignment.assignedDate || null,
+                    respondedAt: assignment.respondedAt || null,
+                    rejectionReason: assignment.rejectionReason || null,
+                    isAnonymous: assignment.isAnonymous ?? true,
+                })) || [];
+        }
+
         // Enrich co-author response with linked user details while preserving raw ObjectId.
         const coAuthorUserIds = (submissionObj.coAuthors || [])
             .map((coAuthor) => coAuthor.user)

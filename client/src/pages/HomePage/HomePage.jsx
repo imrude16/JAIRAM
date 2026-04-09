@@ -16,7 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-// import HeroSection from "../../components/home/HeroSection/HeroSection";
+import HeroSection from "../../components/home/HeroSection/HeroSection";
 import Navigation from "../../components/layout/Navigation/Navigation";
 import CurrentIssue from "../../components/home/CurrentIssue/CurrentIssue";
 import ArticleList from "../../components/home/ArticleList/ArticleList";
