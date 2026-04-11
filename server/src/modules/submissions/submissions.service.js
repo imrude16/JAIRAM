@@ -1828,10 +1828,13 @@ const processCoAuthorConsentFromDashboard = async (submissionId, userId, userEma
 
         const { Consent } = await import("../consents/consent.model.js");
 
-        // Find consent record by submission + user email
+        // Match registered co-authors by userId, with email fallback for manual-entry flows.
         const consent = await Consent.findOne({
             submissionId,
-            coAuthorEmail: userEmail,
+            $or: [
+                { coAuthorId: userId },
+                ...(userEmail ? [{ coAuthorEmail: userEmail }] : []),
+            ],
         }).select("+consentToken +consentTokenExpires");
 
         if (!consent) {
@@ -3723,8 +3726,11 @@ const getMyConsentInvitations = async (userId) => {
         const { Consent } = await import("../consents/consent.model.js");
 
         const consents = await Consent.find({
-            coAuthorEmail: user.email,
-        }).select("submissionId status respondedAt coAuthorEmail consentTokenExpires").lean();
+            $or: [
+                { coAuthorId: userId },
+                { coAuthorEmail: user.email },
+            ],
+        }).select("submissionId status respondedAt coAuthorEmail coAuthorId consentTokenExpires").lean();
 
         // Populate submission info
         const submissionIds = consents.map(c => c.submissionId);
