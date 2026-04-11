@@ -253,6 +253,66 @@ const formatFileSize = (size = 0) => {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 };
 
+const AssignedFilesModal = ({ submission, remarks, onClose }) => {
+  const revisedManuscript = remarks?.revisedManuscript || null;
+  const attachments = Array.isArray(remarks?.attachments) ? remarks.attachments : [];
+
+  const FileRow = ({ file, label }) => (
+    <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+          {file?.fileName || "Unnamed file"}
+        </div>
+        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 3 }}>
+          {formatFileSize(file?.fileSize)}{file?.mimeType ? ` • ${file.mimeType}` : ""}
+        </div>
+      </div>
+      <a
+        href={file?.fileUrl}
+        target="_blank"
+        rel="noreferrer"
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid #0f346040", background: "#e8eef6", color: "#0f3460", fontSize: "0.74rem", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}
+      >
+        Open
+      </a>
+    </div>
+  );
+
+  return (
+    <ModalShell
+      title="Assigned Files"
+      subtitle={submission?.title || "Files shared by the editor for this assignment"}
+      onClose={onClose}
+      maxWidth={720}
+    >
+      <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div>
+          <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Revised Manuscript</div>
+          {revisedManuscript ? (
+            <FileRow file={revisedManuscript} label="Primary File" />
+          ) : (
+            <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>No revised manuscript was attached.</div>
+          )}
+        </div>
+
+        <div>
+          <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Attachments</div>
+          {attachments.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {attachments.map((file, index) => (
+                <FileRow key={`${file?.fileUrl || file?.fileName || "attachment"}-${index}`} file={file} label={`Attachment ${index + 1}`} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>No optional attachments were provided.</div>
+          )}
+        </div>
+      </div>
+    </ModalShell>
+  );
+};
+
 const ReviewUploadSection = ({
   file,
   uploading,
@@ -769,11 +829,10 @@ const TechnicalEditorTable = ({ subs, onAction }) => {
                           <div style={{ fontSize: "0.76rem", color: "#334155", lineHeight: 1.45 }}>
                             {remarks.remarks}
                           </div>
-                          {remarks?.revisedManuscript?.fileUrl && (
-                            <a
-                              href={remarks.revisedManuscript.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                          {(remarks?.revisedManuscript?.fileUrl || (remarks?.attachments && remarks.attachments.length > 0)) && (
+                            <button
+                              type="button"
+                              onClick={() => onAction("files", sub)}
                               style={{
                                 marginTop: 10,
                                 display: "inline-flex",
@@ -788,10 +847,11 @@ const TechnicalEditorTable = ({ subs, onAction }) => {
                                 fontWeight: 600,
                                 textDecoration: "none",
                                 letterSpacing: "0.02em",
+                                cursor: "pointer",
                               }}
                             >
-                              View Revised Manuscript
-                            </a>
+                              View Assigned Files
+                            </button>
                           )}
                         </div>
                       ) : (
@@ -884,6 +944,11 @@ export default function TechnicalEditorDashboard() {
       } finally {
         setActionLoading(false);
       }
+      return;
+    }
+
+    if (type === "files") {
+      setModal({ type, submission });
       return;
     }
 
@@ -996,6 +1061,14 @@ export default function TechnicalEditorDashboard() {
           onClose={() => setModal(null)}
           onSubmit={handleSubmitReview}
           loading={actionLoading}
+        />
+      )}
+
+      {modal?.type === "files" && (
+        <AssignedFilesModal
+          submission={modal.submission}
+          remarks={modal.submission?._editorRemarksForTechEditor}
+          onClose={() => setModal(null)}
         />
       )}
 
