@@ -437,16 +437,28 @@ const CoAuthorTable = ({ subs, consentLoading, onAccept, onRejectClick }) => (
                   {s.consentStatus === "REJECTED" && <span style={{ display: "inline-flex", alignItems: "center", fontWeight: 600, borderRadius: 20, color: "#dc2626", background: "#fee2e2", fontSize: "0.7rem", padding: "3px 10px" }}>✗ Rejected</span>}
                 </td>
                 <td style={TD(true)}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                    {s.consentStatus === "PENDING" && s.tokenValid && (
-                      <>
-                        <Btn icon={CheckCircle} label="Accept" color="#15803d" onClick={() => onAccept(s.id)} disabled={consentLoading[s.id]} />
-                        <Btn icon={XCircle} label="Reject" color="#dc2626" onClick={() => onRejectClick(s.id, s.title)} disabled={consentLoading[s.id]} />
-                      </>
-                    )}
-                    {s.consentStatus === "PENDING" && !s.tokenValid && <span style={{ fontSize: "0.65rem", color: "#94a3b8" }}>Use email link</span>}
-                    {s.isCorrespondingCoAuthor && s.consentStatus !== "PENDING" && <Btn icon={Eye} label="View" color="#0e7490" onClick={() => window.open(`/submissions/${s.id}`, "_self")} />}
-                    {!s.isCorrespondingCoAuthor && s.consentStatus !== "PENDING" && <span style={{ fontSize: "0.68rem", color: "#cbd5e1" }}>—</span>}
+                  <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+                    <Btn
+                      icon={Eye}
+                      label="View"
+                      color="#0e7490"
+                      onClick={() => window.open(`/submissions/${s.id}`, "_self")}
+                      disabled={!s.canView}
+                    />
+                    <Btn
+                      icon={CheckCircle}
+                      label="Accept"
+                      color="#15803d"
+                      onClick={() => onAccept(s.id)}
+                      disabled={!s.canRespond || consentLoading[s.id]}
+                    />
+                    <Btn
+                      icon={XCircle}
+                      label="Reject"
+                      color="#dc2626"
+                      onClick={() => onRejectClick(s.id, s.title)}
+                      disabled={!s.canRespond || consentLoading[s.id]}
+                    />
                   </div>
                 </td>
               </tr>

@@ -245,6 +245,7 @@ const SubmissionDetailPage = () => {
 
   const statusCfg = STATUS_CFG[submission?.status] || STATUS_CFG.DRAFT;
   const consentDeadlineCfg = CONSENT_DEADLINE_CFG[submission?.consentDeadlineStatus] || CONSENT_DEADLINE_CFG.ACTIVE;
+  const isMinimalView = submission?.viewLevel === "MINIMAL";
   const suggestedReviewerResponses = submission?.suggestedReviewerResponses || {
     totalSuggested: 0,
     accepted: 0,
@@ -543,61 +544,65 @@ const SubmissionDetailPage = () => {
                 </div>
               </Section>
 
-              <Section title="Ethics & Registrations" icon={Scale}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>IEC Approval</div>
-                    {submission.iecApproval?.hasIEC ? (
-                      <div style={{ fontSize: "0.85rem", color: "#15803d", background: "#dcfce7", padding: "8px 12px", borderRadius: 6, fontWeight: 500, border: "1px solid #bbf7d0" }}>
-                        {submission.iecApproval.iecDetails}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Not Applicable / None</div>
+              {!isMinimalView && (
+                <Section title="Ethics & Registrations" icon={Scale}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>IEC Approval</div>
+                      {submission.iecApproval?.hasIEC ? (
+                        <div style={{ fontSize: "0.85rem", color: "#15803d", background: "#dcfce7", padding: "8px 12px", borderRadius: 6, fontWeight: 500, border: "1px solid #bbf7d0" }}>
+                          {submission.iecApproval.iecDetails}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Not Applicable / None</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <Field label="Prospero" value={submission.prosperoRegistration?.hasProspero ? "Yes" : "No"} />
+                      <Field label="Trial Reg." value={submission.trialRegistration?.hasTrial ? "Yes" : "No"} />
+                      <Field label="COI" value={submission.conflictOfInterest?.hasConflict ? "Reported" : "None"} />
+                    </div>
+                  </div>
+                </Section>
+              )}
+
+              {!isMinimalView && (
+                <Section title="Manuscript Files" icon={FileCheck}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {[
+                      { label: "Cover Letter", file: submission.coverLetter },
+                      { label: "Blind Manuscript", file: submission.blindManuscriptFile },
+                    ].map(
+                      (item, idx) =>
+                        item.file && (
+                          <div key={idx} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+                              <div style={{ background: "#e0f2fe", padding: "8px", borderRadius: 6 }}>
+                                <FileText size={16} color="#0369a1" />
+                              </div>
+                              <div style={{ overflow: "hidden" }}>
+                                <div style={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                                  {item.label}
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{(item.file.fileSize / 1024).toFixed(1)} KB</div>
+                              </div>
+                            </div>
+                            <a
+                              href={item.file.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, color: "#0f3460", textDecoration: "none", transition: "all 0.2s" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                            >
+                              View
+                            </a>
+                          </div>
+                        )
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <Field label="Prospero" value={submission.prosperoRegistration?.hasProspero ? "Yes" : "No"} />
-                    <Field label="Trial Reg." value={submission.trialRegistration?.hasTrial ? "Yes" : "No"} />
-                    <Field label="COI" value={submission.conflictOfInterest?.hasConflict ? "Reported" : "None"} />
-                  </div>
-                </div>
-              </Section>
-
-              <Section title="Manuscript Files" icon={FileCheck}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {[
-                    { label: "Cover Letter", file: submission.coverLetter },
-                    { label: "Blind Manuscript", file: submission.blindManuscriptFile },
-                  ].map(
-                    (item, idx) =>
-                      item.file && (
-                        <div key={idx} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                            <div style={{ background: "#e0f2fe", padding: "8px", borderRadius: 6 }}>
-                              <FileText size={16} color="#0369a1" />
-                            </div>
-                            <div style={{ overflow: "hidden" }}>
-                              <div style={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                                {item.label}
-                              </div>
-                              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{(item.file.fileSize / 1024).toFixed(1)} KB</div>
-                            </div>
-                          </div>
-                          <a
-                            href={item.file.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, color: "#0f3460", textDecoration: "none", transition: "all 0.2s" }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
-                          >
-                            View
-                          </a>
-                        </div>
-                      )
-                  )}
-                </div>
-              </Section>
+                </Section>
+              )}
             </div>
           </div>
         )}

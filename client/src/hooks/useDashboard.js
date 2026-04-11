@@ -29,17 +29,29 @@ const normaliseForAuthorTable = (sub, consentData = {}) => ({
     _raw: sub,
 });
 
-const normaliseForCoAuthorTable = (sub, userId, consentMap = {}) => {
-    const myEntry = sub.coAuthors?.find(
-        (ca) => (ca.user && ca.user.toString() === userId)
-    );
-    // Use real consent status from Consent collection via consentMap
+const normaliseForCoAuthorTable = (sub, userId, userEmail, consentMap = {}) => {
+    const myEntry =
+        sub._myCoAuthorEntry ||
+        sub.coAuthors?.find((ca) => {
+            const linkedId = ca.user?._id || ca.user;
+            const linkedMatch = linkedId && linkedId.toString() === userId;
+            const emailMatch =
+                ca.email &&
+                userEmail &&
+                ca.email.toLowerCase() === userEmail.toLowerCase();
+            return linkedMatch || emailMatch;
+        });
+
     const consent = consentMap[sub._id?.toString()] ?? {};
     const rawStatus = consent.status ?? "PENDING";
     const consentStatus =
         rawStatus === "APPROVED" ? "APPROVED"
             : rawStatus === "REJECTED" ? "REJECTED"
                 : "PENDING";
+
+    const canView = consentStatus !== "REJECTED";
+    const canViewFull = !!myEntry?.isCorresponding && consentStatus === "APPROVED";
+    const canRespond = consentStatus === "PENDING";
 
     return {
         id: sub._id,
@@ -51,8 +63,11 @@ const normaliseForCoAuthorTable = (sub, userId, consentMap = {}) => {
             : "—",
         status: sub.status ?? "SUBMITTED",
         consentStatus,
-        tokenValid: consent.tokenValid ?? false,  // NEW: Token validity for dashboard buttons
-        isCorrespondingCoAuthor: myEntry?.isCorresponding ?? false,
+        tokenValid: consent.tokenValid ?? false,
+        isCorrespondingCoAuthor: !!myEntry?.isCorresponding,
+        canView,
+        canViewFull,
+        canRespond,
         _raw: sub,
     };
 };
@@ -128,7 +143,7 @@ const useDashboard = () => {
                     const consentData = consentDataMap[sub._id?.toString()] || {};
                     authorRows.push(normaliseForAuthorTable(sub, consentData));
                 } else {
-                    coAuthorRows.push(normaliseForCoAuthorTable(sub, myId, myConsentMap));
+                    coAuthorRows.push(normaliseForCoAuthorTable(sub, myId, user.email, myConsentMap));
                 }
             }
 
@@ -144,7 +159,7 @@ const useDashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.id]);
+    }, [user?.email, user?.id]);
 
     useEffect(() => { load(); }, [load]);
 

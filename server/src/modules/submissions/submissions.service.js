@@ -802,30 +802,35 @@ const checkCanViewSubmission = async (submission, userId, userRole, userEmail, i
 
     // Co-author access
     if (submission.coAuthors && submission.coAuthors.length > 0) {
-        const userCoAuthor = submission.coAuthors.find(ca => {
-            const isUserEmail = ca.email === userEmail;
-            const isUserLinked = ca.user && (ca.user._id || ca.user).toString() === userId.toString();
-            return (isUserEmail || isUserLinked);
+        const userCoAuthor = submission.coAuthors.find((ca) => {
+            const linkedId = ca.user?._id || ca.user;
+            const isUserLinked = linkedId && linkedId.toString() === userId.toString();
+            const isUserEmail = ca.email && userEmail && ca.email.toLowerCase() === userEmail.toLowerCase();
+            return isUserLinked || isUserEmail;
         });
 
         if (userCoAuthor) {
-            // Verify consent approved in Consent collection
             const { Consent } = await import("../consents/consent.model.js");
+
             const consent = await Consent.findOne({
                 submissionId: submission._id,
-                coAuthorEmail: userCoAuthor.email || null,
-                status: "APPROVED",
-            });
+                $or: [
+                    ...(userCoAuthor.user ? [{ coAuthorId: userId }] : []),
+                    ...(userEmail ? [{ coAuthorEmail: userEmail }] : []),
+                ],
+            }).select("status");
 
-            if (!consent) {
+            const consentStatus = consent?.status || "PENDING";
+
+            if (consentStatus === "REJECTED") {
                 return { canView: false, viewLevel: "NONE", showTimeline: false };
             }
 
-            if (userCoAuthor.isCorresponding) {
+            if (consentStatus === "APPROVED" && userCoAuthor.isCorresponding) {
                 return { canView: true, viewLevel: "FULL", showTimeline: false };
-            } else {
-                return { canView: true, viewLevel: "MINIMAL", showTimeline: false };
             }
+
+            return { canView: true, viewLevel: "MINIMAL", showTimeline: false };
         }
     }
 
@@ -843,6 +848,7 @@ const filterSubmissionByViewLevel = (submission, viewLevel, showTimeline) => {
             id: submission._id,
             submissionNumber: submission.submissionNumber,
             title: submission.title,
+            runningTitle: submission.runningTitle,
             abstract: submission.abstract,
             articleType: submission.articleType,
             author: {
@@ -850,7 +856,8 @@ const filterSubmissionByViewLevel = (submission, viewLevel, showTimeline) => {
                 lastName: submission.author?.lastName
             },
             status: submission.status,
-            submittedAt: submission.submittedAt
+            submittedAt: submission.submittedAt,
+            viewLevel: "MINIMAL",
         };
     }
 
@@ -877,6 +884,7 @@ const filterSubmissionByViewLevel = (submission, viewLevel, showTimeline) => {
         });
     }
 
+    response.viewLevel = "FULL";
     return response;
 };
 
@@ -1208,21 +1216,21 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
         let query = {};
 
         if (userRole === "USER") {
-            const { Consent } = await import("../consents/consent.model.js");
             const currentUser = await User.findById(userId).select("email");
-            const approvedConsents = await Consent.find({
-                $or: [
-                    { coAuthorId: userId },
-                    { coAuthorEmail: currentUser.email },
-                ],
-                status: "APPROVED",
-            }).select("submissionId");
-
-            const approvedSubmissionIds = approvedConsents.map(c => c.submissionId);
+            const currentEmail = currentUser?.email || null;
 
             query.$or = [
                 { author: userId },
-                { _id: { $in: approvedSubmissionIds } }
+                {
+                    coAuthors: {
+                        $elemMatch: {
+                            $or: [
+                                { user: userId },
+                                ...(currentEmail ? [{ email: currentEmail }] : []),
+                            ],
+                        },
+                    },
+                },
             ];
         } else if (userRole === "REVIEWER") {
             const reviewerDocs = await Reviewer.find({
@@ -1308,6 +1316,27 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 const key = sub._id?.toString();
                 sub._assignedTechEditor = teMap[key] ?? null;
                 sub._assignedReviewers = rvMap[key] ?? null;
+            }
+        }
+
+        if (userRole === "USER") {
+            const currentUser = await User.findById(userId).select("email").lean();
+            const currentEmail = currentUser?.email?.toLowerCase() || null;
+
+            for (const sub of submissions) {
+                const myCoAuthorEntry = sub.coAuthors?.find((ca) => {
+                    const linkedId = ca.user?._id || ca.user;
+                    const linkedMatch = linkedId && linkedId.toString() === userId.toString();
+                    const emailMatch = ca.email && currentEmail && ca.email.toLowerCase() === currentEmail;
+                    return linkedMatch || emailMatch;
+                }) || null;
+
+                sub._myCoAuthorEntry = myCoAuthorEntry
+                    ? {
+                        isCorresponding: !!myCoAuthorEntry.isCorresponding,
+                        order: myCoAuthorEntry.order ?? null,
+                    }
+                    : null;
             }
         }
 
