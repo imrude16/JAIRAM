@@ -2277,6 +2277,9 @@ const SubmitManuscript = () => {
             return coAuthorData;
           }),
 
+          suggestedReviewers: buildSuggestedReviewersPayload(),
+          conflictOfInterest: buildConflictOfInterestPayload(),
+
           coverLetter: files.coverLetter,
           blindManuscriptFile: files.blindManuscript,
           figures: files.images,
@@ -2536,24 +2539,9 @@ const SubmitManuscript = () => {
             : {}),
         })) : undefined,
 
-        suggestedReviewers: reviewers.filter(r => r.firstName || r.email).length > 0
-          ? reviewers.filter(r => r.firstName || r.email).map(r => ({
-            title: r.title,
-            firstName: r.firstName,
-            lastName: r.lastName,
-            email: r.email,
-            specialization: r.specialization,
-            institution: r.institution,
-            country: r.country,
-            source: r.source || "MANUAL_ENTRY",
-            ...(r.source === "DATABASE_SEARCH" && r.id ? { user: r.id } : {}),
-          }))
-          : undefined,
+        suggestedReviewers: buildSuggestedReviewersPayload(),
 
-        conflictOfInterest: conflictHasConflict ? {
-          hasConflict: conflictHasConflict === "Yes",
-          details: conflictHasConflict === "Yes" ? conflictDetails : "",
-        } : undefined,
+        conflictOfInterest: buildConflictOfInterestPayload(),
 
       };
 
@@ -2591,6 +2579,30 @@ const SubmitManuscript = () => {
       if (showToast) setAutoSaving(false);
     }
   }, [formData, files, authors, selfCorresponding, reviewers, conflictHasConflict, conflictDetails]);
+
+  useEffect(() => {
+    if (draftLoading || currentStep !== 4) return;
+
+    const hasReviewerInput = reviewers.some((r) => r.firstName || r.email);
+    const hasConflictInput =
+      conflictHasConflict !== null ||
+      (typeof conflictDetails === "string" && conflictDetails.trim().length > 0);
+
+    if (!hasReviewerInput && !hasConflictInput) return;
+
+    const timer = setTimeout(() => {
+      saveDraft(false);
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [
+    currentStep,
+    draftLoading,
+    reviewers,
+    conflictHasConflict,
+    conflictDetails,
+    saveDraft,
+  ]);
 
   // Optional: Delete draft function (not currently used in UI)
   // const deleteDraft = useCallback(async () => {
@@ -2668,6 +2680,37 @@ const SubmitManuscript = () => {
       ? `${ca.title} ${ca.firstName} ${ca.lastName} — ${ca.email || "no email"}`
       : "—";
   })();
+
+  const buildSuggestedReviewersPayload = useCallback(
+    () =>
+      reviewers.filter((r) => r.firstName || r.email).length > 0
+        ? reviewers.filter((r) => r.firstName || r.email).map((r) => ({
+          title: r.title,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          email: r.email,
+          specialization: r.specialization,
+          institution: r.institution,
+          country: r.country,
+          source: r.source || "MANUAL_ENTRY",
+          ...(r.source === "DATABASE_SEARCH" && (r.user || r.id)
+            ? { user: r.user || r.id }
+            : {}),
+        }))
+        : undefined,
+    [reviewers],
+  );
+
+  const buildConflictOfInterestPayload = useCallback(
+    () =>
+      conflictHasConflict
+        ? {
+          hasConflict: conflictHasConflict === "Yes",
+          details: conflictHasConflict === "Yes" ? conflictDetails : "",
+        }
+        : undefined,
+    [conflictHasConflict, conflictDetails],
+  );
 
   const existingAuthorEmails = authors.map((a) => a.email).filter(Boolean);
 
