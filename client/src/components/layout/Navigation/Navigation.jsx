@@ -1,4 +1,10 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from "react";
 import {
   Home,
   BookOpen,
@@ -23,12 +29,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 // ============= CONSTANTS AND DATA =============
 const FOR_AUTHORS_MENU = [
-  {
-    icon: Send,
-    label: "Submit Manuscript",
-    description: "Submit your research online",
-    path: "/manuscript-login",
-  },
   {
     icon: Edit,
     label: "Author Guidelines",
@@ -90,11 +90,38 @@ const JOURNAL_INFO_MENU = [
 
 const NAV_ITEMS = [
   { id: "home", label: "Home", icon: Home, path: "/" },
-  { id: "current-issue", label: "Current Issue", icon: BookOpen, path: "/current-issue" },
-  { id: "all-issues", label: "Previous Issues", icon: FileText, path: "/issues" },
-  { id: "ahead", label: "Published Ahead-of-Print", icon: Clock, path: "/ahead-of-print" },
-  { id: "authors", label: "For Authors", icon: Edit, hasDropdown: true, menu: FOR_AUTHORS_MENU },
-  { id: "info", label: "Journal Info", icon: Info, hasDropdown: true, menu: JOURNAL_INFO_MENU },
+  {
+    id: "current-issue",
+    label: "Current Issue",
+    icon: BookOpen,
+    path: "/current-issue",
+  },
+  {
+    id: "all-issues",
+    label: "Previous Issues",
+    icon: FileText,
+    path: "/issues",
+  },
+  {
+    id: "ahead",
+    label: "Published Ahead-of-Print",
+    icon: Clock,
+    path: "/ahead-of-print",
+  },
+  {
+    id: "authors",
+    label: "For Authors",
+    icon: Edit,
+    hasDropdown: true,
+    menu: FOR_AUTHORS_MENU,
+  },
+  {
+    id: "info",
+    label: "Journal Info",
+    icon: Info,
+    hasDropdown: true,
+    menu: JOURNAL_INFO_MENU,
+  },
 ];
 
 // ============= DROPDOWN MENU =============

@@ -118,16 +118,6 @@ const Button = ({
 const IssuesPage = () => {
   const navigate = useNavigate();
 
-  const handleSubmitManuscript = () => {
-    const token = localStorage.getItem("token");
-    // 👆 Later this will come from backend login
-
-    if (token) {
-      navigate("/submit"); // logged in → submit page
-    } else {
-      navigate("/manuscript-login"); // not logged in → manuscript login
-    }
-  };
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [viewMode, setViewMode] = useState("grid");
@@ -409,22 +399,7 @@ const IssuesPage = () => {
 
         {/* Quick Links */}
         <div className="mt-8 grid md:grid-cols-3 gap-6">
-          <Card hover className="text-center">
-            <FileText className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Submit Manucript
-            </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Share your research with our community
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSubmitManuscript}
-            >
-              Submit
-            </Button>
-          </Card>
+         
           <Card hover className="text-center">
             <Download className="w-12 h-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-2">

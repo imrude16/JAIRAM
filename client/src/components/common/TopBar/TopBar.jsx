@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
@@ -40,10 +46,11 @@ const SearchBar = React.memo(
     return (
       <div className={`${isMobile ? "space-y-3" : "flex items-center gap-3"}`}>
         <div
-          className={`flex ${isMobile
-            ? "flex-col sm:flex-row gap-2"
-            : "items-center rounded-lg overflow-hidden"
-            }`}
+          className={`flex ${
+            isMobile
+              ? "flex-col sm:flex-row gap-2"
+              : "items-center rounded-lg overflow-hidden"
+          }`}
           style={{
             border: "1px solid rgba(15,42,68,0.25)",
             boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
@@ -167,7 +174,10 @@ const DashboardShortcut = ({ initials, label, onOpen, mobile = false }) => (
       {label}
     </span>
     {!mobile && (
-      <span className="xl:hidden tracking-[0.01em]" style={{ color: "#102f4d" }}>
+      <span
+        className="xl:hidden tracking-[0.01em]"
+        style={{ color: "#102f4d" }}
+      >
         Dashboard
       </span>
     )}
@@ -176,6 +186,7 @@ const DashboardShortcut = ({ initials, label, onOpen, mobile = false }) => (
 
 const TopBar = () => {
   const [showLoginMenu, setShowLoginMenu] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [searchType, setSearchType] = useState("Articles");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -201,13 +212,33 @@ const TopBar = () => {
     alert("Subscribe to email alerts for new issues and articles");
   };
 
-  const handleSubmitManuscript = () => {
-    navigate("/manuscript-submission-portal");
+  const roles = [
+    { label: "Author", value: "USER" },
+    { label: "Editor", value: "EDITOR" },
+    { label: "Technical Editor", value: "TECHNICAL_EDITOR" },
+    { label: "Reviewer", value: "REVIEWER" },
+  ];
+
+  const handleRoleSelect = (role) => {
+    setShowRoleDropdown(false);
+
+    // NOT LOGGED IN → go to auth
+    if (!isAuthenticated) {
+      navigate("/auth/login");
+      return;
+    }
+
+    // LOGGED IN → check role
+    if (user?.role === role) {
+      navigate("/dashboard");
+    }
   };
 
   const handleSearch = useCallback(() => {
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}&type=${searchType}`);
+      navigate(
+        `/search?q=${encodeURIComponent(searchQuery)}&type=${searchType}`,
+      );
       if (showMobileSearch) setShowMobileSearch(false);
     }
   }, [searchQuery, searchType, navigate, showMobileSearch]);
@@ -301,16 +332,50 @@ const TopBar = () => {
           </div>
 
           {/* Submit Manuscript (Primary CTA) */}
-          <button
-            onClick={handleSubmitManuscript}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-semibold text-white shadow-md transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #0f2a44, #1a4a7a)",
-            }}
-          >
-            <FileText size={14} />
-            Submit Manuscript
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowRoleDropdown((v) => !v)}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-semibold text-white shadow-md transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #0f2a44, #1a4a7a)",
+              }}
+            >
+              <FileText size={14} />
+              Submit Manuscript
+              <ChevronDown size={12} />
+            </button>
+
+            {showRoleDropdown && (
+              <div
+                className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg overflow-hidden z-50"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid rgba(15,42,68,0.2)",
+                }}
+              >
+                {roles.map((role) => {
+                  const isAllowed =
+                    !isAuthenticated || user?.role === role.value;
+
+                  return (
+                    <button
+                      key={role.value}
+                      onClick={() => isAllowed && handleRoleSelect(role.value)}
+                      disabled={!isAllowed}
+                      className={`w-full text-left px-4 py-2 text-sm ${
+                        isAllowed
+                          ? "hover:bg-blue-50 cursor-pointer"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
+                      style={{ color: "#0f2a44" }}
+                    >
+                      {role.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Email Alerts */}
           <button
@@ -341,8 +406,6 @@ const TopBar = () => {
             />
           </div>
         )}
-
-
 
         {isAuthenticated && user && (
           <div className="w-full lg:hidden ">
