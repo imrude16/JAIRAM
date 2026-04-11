@@ -20,6 +20,7 @@ import {
   LockOpen,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import useAuthStore from "../../../store/authStore";
 
 // ============= CONSTANTS AND DATA =============
 const FOR_AUTHORS_MENU = [
@@ -100,8 +101,8 @@ const NAV_ITEMS = [
 // ============= DROPDOWN MENU =============
 const DropdownMenu = React.memo(({ menu, isMobile, onClose, onNavigate }) => {
   const handleClick = useCallback(
-    (path) => {
-      onNavigate(path);
+    (menuItem) => {
+      onNavigate(menuItem);
       onClose();
     },
     [onNavigate, onClose],
@@ -118,7 +119,7 @@ const DropdownMenu = React.memo(({ menu, isMobile, onClose, onNavigate }) => {
       {menu.map((menuItem, idx) => (
         <button
           key={`${menuItem.path}-${idx}`}
-          onClick={() => handleClick(menuItem.path)}
+          onClick={() => handleClick(menuItem)}
           className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors ${
             isMobile ? "hover:bg-slate-50" : "hover:bg-blue-50"
           }`}
@@ -154,6 +155,20 @@ const Navigation = React.memo(() => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const selectedPortalRole = useAuthStore((state) => state.selectedPortalRole);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
+
+  const roleNames = useMemo(
+    () => ({
+      USER: "Author",
+      EDITOR: "Editor",
+      TECHNICAL_EDITOR: "Technical Editor",
+      REVIEWER: "Reviewer",
+    }),
+    [],
+  );
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -175,14 +190,60 @@ const Navigation = React.memo(() => {
     [location.pathname],
   );
 
-  const handleNavigation = useCallback((path) => navigate(path), [navigate]);
+  const handleSubmissionEntry = useCallback(() => {
+    if (!selectedPortalRole) {
+      navigate("/auth/login");
+      return;
+    }
+
+    if (isAuthenticated) {
+      if (user?.role !== selectedPortalRole) {
+        alert(
+          `Your account is registered as ${roleNames[user?.role] || user?.role}. Please use the role selected in the top bar that matches your account.`,
+        );
+        return;
+      }
+
+      navigate("/dashboard");
+      return;
+    }
+
+    setPostAuthRedirect("/dashboard");
+    navigate("/auth/login");
+  }, [
+    isAuthenticated,
+    navigate,
+    roleNames,
+    selectedPortalRole,
+    setPostAuthRedirect,
+    user,
+  ]);
+
+  const handleNavigation = useCallback(
+    (target) => {
+      if (typeof target === "string") {
+        navigate(target);
+        return;
+      }
+
+      const menuItem = target;
+
+      if (menuItem?.label === "Submit Manuscript") {
+        handleSubmissionEntry();
+        return;
+      }
+
+      navigate(menuItem.path);
+    },
+    [handleSubmissionEntry, navigate],
+  );
 
   return (
     <nav className="bg-gradient-to-r from-blue-50 to-slate-50 border-b border-slate-200 relative z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="hidden lg:flex items-center gap-4">
           {NAV_ITEMS.map((item) => (
-            <div key={item.id} className="relative">
+            <div key={item.id} className="relative" ref={activeDropdown === item.id ? dropdownRef : null}>
               <button
                 onClick={() =>
                   item.hasDropdown
@@ -229,17 +290,27 @@ const Navigation = React.memo(() => {
         {mobileMenuOpen && (
           <div className="lg:hidden bg-white border-t border-slate-200 py-3 space-y-1">
             {NAV_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                onClick={() =>
-                  item.hasDropdown
-                    ? setActiveDropdown((p) => (p === item.id ? null : item.id))
-                    : handleNavigation(item.path)
-                }
-                className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                {item.label}
-              </button>
+              <div key={item.id}>
+                <button
+                  onClick={() =>
+                    item.hasDropdown
+                      ? setActiveDropdown((p) => (p === item.id ? null : item.id))
+                      : handleNavigation(item.path)
+                  }
+                  className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  {item.label}
+                </button>
+
+                {item.hasDropdown && activeDropdown === item.id && (
+                  <DropdownMenu
+                    menu={item.menu}
+                    isMobile={true}
+                    onClose={() => setActiveDropdown(null)}
+                    onNavigate={handleNavigation}
+                  />
+                )}
+              </div>
             ))}
           </div>
         )}

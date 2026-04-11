@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
+import useAuthStore from "../../../store/authStore";
 
 const home =
   process.env.NODE_ENV === "production"
@@ -93,13 +94,60 @@ const SOCIAL_LINKS = [
 
 const FooterLinkSection = React.memo(({ section }) => {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const selectedPortalRole = useAuthStore((state) => state.selectedPortalRole);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
+  const roleNames = useMemo(
+    () => ({
+      USER: "Author",
+      EDITOR: "Editor",
+      TECHNICAL_EDITOR: "Technical Editor",
+      REVIEWER: "Reviewer",
+    }),
+    [],
+  );
+
   const handleClick = useCallback(
     (path) => {
+      if (path === "/manuscript-login") {
+        if (!selectedPortalRole) {
+          navigate("/auth/login");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        if (isAuthenticated) {
+          if (user?.role !== selectedPortalRole) {
+            alert(
+              `Your account is registered as ${roleNames[user?.role] || user?.role}. Please use the role selected in the top bar that matches your account.`,
+            );
+            return;
+          }
+
+          navigate("/dashboard");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        setPostAuthRedirect("/dashboard");
+        navigate("/auth/login");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
       navigate(path);
       // Scroll to top on navigation
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [navigate],
+    [
+      isAuthenticated,
+      navigate,
+      roleNames,
+      selectedPortalRole,
+      setPostAuthRedirect,
+      user,
+    ],
   );
 
   return (

@@ -20,7 +20,6 @@ import ArticleDetail from "./components/articles/ArticleDetail/ArticleDetail";
 import AuthPage from "./pages/AuthPage/AuthPage";
 import MinimalHeader from "./components/layout/Header/MinimalHeader";
 import EditorialBoard from "./pages/Editor-Board/EditorialBoard";
-import ManuscriptSubmissionPortal from "./pages/ManuscriptSubmissionPortal/ManuscriptSubmissionPortal";
 import PoweredTrustPage from "./pages/PoweredTrustPage/PoweredTrustPage";
 import OtpVerificationPage from "./pages/OtpVerificationPage/OtpVerificationPage";
 import ReviewerChecklist from "./pages/ReviewerChecklist/ReviewerChecklist";
@@ -168,15 +167,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/manuscript-submission-portal"
-          element={
-            <PageTransition>
-              <ManuscriptSubmissionPortal />
-            </PageTransition>
-          }
-        />
-
         {/* Submit Route */}
         <Route
           path="/submit"

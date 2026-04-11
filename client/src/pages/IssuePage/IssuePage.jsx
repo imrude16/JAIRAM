@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import useAuthStore from "../../store/authStore";
 import {
   Calendar,
   FileText,
@@ -117,17 +118,40 @@ const Button = ({
 
 const IssuesPage = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
+  const selectedPortalRole = useAuthStore((state) => state.selectedPortalRole);
 
-  const handleSubmitManuscript = () => {
-    const token = localStorage.getItem("token");
-    // 👆 Later this will come from backend login
-
-    if (token) {
-      navigate("/submit"); // logged in → submit page
-    } else {
-      navigate("/manuscript-login"); // not logged in → manuscript login
-    }
+  const roleNames = {
+    USER: "Author",
+    EDITOR: "Editor",
+    TECHNICAL_EDITOR: "Technical Editor",
+    REVIEWER: "Reviewer",
   };
+
+  const handleSubmitEntry = () => {
+    if (!selectedPortalRole) {
+      navigate("/auth/login");
+      return;
+    }
+
+    if (isAuthenticated) {
+      if (user?.role !== selectedPortalRole) {
+        alert(
+          `Your account is registered as ${roleNames[user?.role] || user?.role}. Please select that role to open the matching dashboard.`,
+        );
+        return;
+      }
+
+      navigate("/dashboard");
+      return;
+    }
+
+    setPostAuthRedirect("/dashboard");
+    navigate("/auth/login");
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [viewMode, setViewMode] = useState("grid");
@@ -298,7 +322,7 @@ const IssuesPage = () => {
                     </div>
                     <div className="flex items-center">
                       <FileText className="w-4 h-4 mr-2 text-gray-400" />
-                      {issue.articles} articles • pp. {issue.pages}
+                      {issue.articles} articles â€¢ pp. {issue.pages}
                     </div>
                   </div>
 
@@ -417,11 +441,7 @@ const IssuesPage = () => {
             <p className="text-gray-600 text-sm mb-4">
               Share your research with our community
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSubmitManuscript}
-            >
+            <Button variant="outline" size="sm" onClick={handleSubmitEntry}>
               Submit
             </Button>
           </Card>

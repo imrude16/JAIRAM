@@ -109,7 +109,7 @@ const LoginForm = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
-  const { login } = useAuthStore();
+  const { login, consumePostAuthRedirect } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -123,7 +123,7 @@ const LoginForm = () => {
       const { token, user } = await loginUser({ email, password });
       login(token, user);
       toast.success("Welcome back!");
-      navigate("/dashboard", { replace: true });
+      navigate(consumePostAuthRedirect() || "/dashboard", { replace: true });
     } catch (err) {
       toast.error(err.message || "Invalid credentials. Please try again.");
     } finally {
@@ -181,7 +181,7 @@ const LoginForm = () => {
       });
       login(token, user);
       toast.success(message || "Password reset successful.");
-      navigate("/dashboard", { replace: true });
+      navigate(consumePostAuthRedirect() || "/dashboard", { replace: true });
     } catch (err) {
       toast.error(err.message || "Failed to reset password.");
     } finally {

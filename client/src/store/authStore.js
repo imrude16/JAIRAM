@@ -13,8 +13,14 @@ import { create } from "zustand";
 const TOKEN_KEY = "jairam_token";
 const USER_KEY = "jairam_user";
 const PENDING_EMAIL_KEY = "jairam_pending_email";
+const POST_AUTH_REDIRECT_KEY = "jairam_post_auth_redirect";
+const SELECTED_PORTAL_ROLE_KEY = "jairam_selected_portal_role";
 
 const readToken = () => localStorage.getItem(TOKEN_KEY) || null;
+const readPostAuthRedirect = () =>
+  localStorage.getItem(POST_AUTH_REDIRECT_KEY) || null;
+const readSelectedPortalRole = () =>
+  localStorage.getItem(SELECTED_PORTAL_ROLE_KEY) || null;
 const readUser = () => {
   try {
     const raw = localStorage.getItem(USER_KEY);
@@ -38,6 +44,8 @@ const useAuthStore = create((set) => ({
    * closes the tab they should start registration again.
    */
   pendingEmail: localStorage.getItem(PENDING_EMAIL_KEY) || null,
+  postAuthRedirect: readPostAuthRedirect(),
+  selectedPortalRole: readSelectedPortalRole(),
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -69,6 +77,44 @@ const useAuthStore = create((set) => ({
   setPendingEmail: (email) => {
     localStorage.setItem(PENDING_EMAIL_KEY, email);
     set({ pendingEmail: email });
+  },
+
+  /**
+   * Store the route that should open once authentication finishes.
+   */
+  setPostAuthRedirect: (path) => {
+    if (!path) {
+      localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+      set({ postAuthRedirect: null });
+      return;
+    }
+
+    localStorage.setItem(POST_AUTH_REDIRECT_KEY, path);
+    set({ postAuthRedirect: path });
+  },
+
+  /**
+   * Return and clear any pending post-auth redirect.
+   */
+  consumePostAuthRedirect: () => {
+    const path = readPostAuthRedirect();
+    localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    set({ postAuthRedirect: null });
+    return path;
+  },
+
+  /**
+   * Persist the role selected from the public submit entry points.
+   */
+  setSelectedPortalRole: (role) => {
+    if (!role) {
+      localStorage.removeItem(SELECTED_PORTAL_ROLE_KEY);
+      set({ selectedPortalRole: null });
+      return;
+    }
+
+    localStorage.setItem(SELECTED_PORTAL_ROLE_KEY, role);
+    set({ selectedPortalRole: role });
   },
 
   /**

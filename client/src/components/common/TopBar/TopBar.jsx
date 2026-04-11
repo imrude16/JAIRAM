@@ -176,6 +176,7 @@ const DashboardShortcut = ({ initials, label, onOpen, mobile = false }) => (
 
 const TopBar = () => {
   const [showLoginMenu, setShowLoginMenu] = useState(false);
+  const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [searchType, setSearchType] = useState("Articles");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -183,17 +184,46 @@ const TopBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const mobileSearchRef = useRef(null);
+  const roleMenuRef = useRef(null);
   const prevPathnameRef = useRef(null);
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
+  const setSelectedPortalRole = useAuthStore((state) => state.setSelectedPortalRole);
+
+  const manuscriptRoles = useMemo(
+    () => [
+      { key: "author", label: "Author", dashboardRole: "USER" },
+      { key: "editor", label: "Editor", dashboardRole: "EDITOR" },
+      {
+        key: "technical-editor",
+        label: "Technical Editor",
+        dashboardRole: "TECHNICAL_EDITOR",
+      },
+      { key: "reviewer", label: "Reviewer", dashboardRole: "REVIEWER" },
+    ],
+    [],
+  );
+
+  const roleNames = useMemo(
+    () => ({
+      USER: "Author",
+      EDITOR: "Editor",
+      TECHNICAL_EDITOR: "Technical Editor",
+      REVIEWER: "Reviewer",
+    }),
+    [],
+  );
 
   const handleLogin = () => {
     setShowLoginMenu(false);
+    setPostAuthRedirect(null);
     navigate("/auth/login");
   };
 
   const handleRegister = () => {
     setShowLoginMenu(false);
+    setPostAuthRedirect(null);
     navigate("/auth/register");
   };
 
@@ -201,8 +231,24 @@ const TopBar = () => {
     alert("Subscribe to email alerts for new issues and articles");
   };
 
-  const handleSubmitManuscript = () => {
-    navigate("/manuscript-submission-portal");
+  const handleRoleSelect = (dashboardRole) => {
+    setShowRoleMenu(false);
+    setSelectedPortalRole(dashboardRole);
+
+    if (isAuthenticated) {
+      if (user?.role !== dashboardRole) {
+        alert(
+          `Your account is registered as ${roleNames[user?.role] || user?.role}. Please select that role to open the matching dashboard.`,
+        );
+        return;
+      }
+
+      navigate("/dashboard");
+      return;
+    }
+
+    setPostAuthRedirect("/dashboard");
+    navigate("/auth/login");
   };
 
   const handleSearch = useCallback(() => {
@@ -221,6 +267,17 @@ const TopBar = () => {
     }
     prevPathnameRef.current = location.pathname;
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!roleMenuRef.current?.contains(event.target)) {
+        setShowRoleMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const searchProps = useMemo(
     () => ({
@@ -301,16 +358,70 @@ const TopBar = () => {
           </div>
 
           {/* Submit Manuscript (Primary CTA) */}
-          <button
-            onClick={handleSubmitManuscript}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-semibold text-white shadow-md transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #0f2a44, #1a4a7a)",
-            }}
-          >
-            <FileText size={14} />
-            Submit Manuscript
-          </button>
+          <div className="relative" ref={roleMenuRef}>
+            <button
+              onClick={() => setShowRoleMenu((value) => !value)}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-semibold text-white shadow-md transition-transform duration-150 hover:scale-[1.02] hover:shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #0f2a44, #1a4a7a)",
+              }}
+            >
+              <FileText size={14} />
+              Submit Manuscript
+              <ChevronDown
+                size={12}
+                style={{
+                  transition: "transform 0.2s",
+                  transform: showRoleMenu ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
+
+            {showRoleMenu && (
+              <div
+                className="absolute left-0 mt-2 w-56 rounded-lg shadow-lg overflow-hidden z-50"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid rgba(15,42,68,0.2)",
+                }}
+              >
+                {manuscriptRoles.map((role, index) => {
+                  const isDisabled =
+                    isAuthenticated && user?.role !== role.dashboardRole;
+
+                  return (
+                    <button
+                      key={role.key}
+                      type="button"
+                      onClick={() => handleRoleSelect(role.dashboardRole)}
+                      disabled={isDisabled}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left"
+                      style={{
+                        color: isDisabled ? "#94a3b8" : "#0f2a44",
+                        borderTop:
+                          index === 0
+                            ? "none"
+                            : "1px solid rgba(15,42,68,0.08)",
+                        background: isDisabled ? "#f8fafc" : "#ffffff",
+                        cursor: isDisabled ? "not-allowed" : "pointer",
+                        opacity: isDisabled ? 0.75 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isDisabled) e.currentTarget.style.background = "#eff6ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = isDisabled
+                          ? "#f8fafc"
+                          : "#ffffff";
+                      }}
+                    >
+                      {role.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Email Alerts */}
           <button
