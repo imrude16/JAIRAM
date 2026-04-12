@@ -41,7 +41,6 @@ const FOOTER_SECTIONS = [
     title: "For Authors",
     icon: Users,
     links: [
-      { label: "Submit Manuscript", path: "/manuscript-login" },
       { label: "Author Guidelines", path: "/authors-guidelines" },
       { label: "Peer Review Process", path: "/peer-review-process" },
       { label: "Ethics & Policies", path: "/ethics" },
