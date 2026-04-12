@@ -21,6 +21,7 @@ import {
     editorDecisionSchema,
     checkCoAuthorConsentSchema,
     checkReviewerMajoritySchema,
+    editorApproveSuggestedReviewerSchema,
     tokenInfoSchema,
     reviewerInvitationResponseSchema,
       editorApproveConsentOverrideSchema,
@@ -60,6 +61,7 @@ const {
     processCoAuthorConsent,
     processCoAuthorConsentFromDashboard,
     moveToReview,
+    updateSuggestedReviewerEditorApproval,
     getSubmissionTimeline,
     submitRevision,
     makeEditorDecision,
@@ -622,6 +624,25 @@ router.post(
     allowRoles(ROLES.EDITOR, ROLES.ADMIN),
     validateRequest(getSubmissionByIdSchema),
     asyncHandler(moveToReview)
+);
+
+/**
+ * EDITOR APPROVE SUGGESTED REVIEWER
+ *
+ * PATCH /api/submissions/:id/suggested-reviewers/:reviewerIndex/editor-approval
+ * Headers: Authorization: Bearer <token>
+ * Body: { editorApproved: true | false }
+ *
+ * Auth: Required + EDITOR or ADMIN role
+ * Purpose: Toggles suggestedReviewers[reviewerIndex].editorApproved for UI display/audit only.
+ * Note: This does not control SUBMITTED -> UNDER_REVIEW.
+ */
+router.patch(
+    "/:id/suggested-reviewers/:reviewerIndex/editor-approval",
+    requireAuth,
+    allowRoles(ROLES.EDITOR, ROLES.ADMIN),
+    validateRequest(editorApproveSuggestedReviewerSchema),
+    asyncHandler(updateSuggestedReviewerEditorApproval)
 );
 
 /**

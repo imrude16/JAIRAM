@@ -218,6 +218,30 @@ const moveToReview = async (req, res) => {
     );
 };
 
+const updateSuggestedReviewerEditorApproval = async (req, res) => {
+    const { id, reviewerIndex } = req.params;
+    const { editorApproved } = req.body;
+
+    const result = await submissionService.updateSuggestedReviewerEditorApproval(
+        id,
+        Number(reviewerIndex),
+        editorApproved,
+        req.user.id,
+        req.user.role
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        {
+            reviewer: result.reviewer,
+            submission: result.submission,
+        },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const getSubmissionTimeline = async (req, res) => {
     const { id } = req.params;
 
@@ -627,6 +651,7 @@ export default {
     processCoAuthorConsent,
     processCoAuthorConsentFromDashboard,
     moveToReview,
+    updateSuggestedReviewerEditorApproval,
     getSubmissionTimeline,
     submitRevision,
     makeEditorDecision,

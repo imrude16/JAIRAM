@@ -909,23 +909,37 @@ submissionSchema.methods.updateStatus = function (newStatus) {
     return this;
 };
 
-// Check if can move to review (minimum 2 approved)
+// Check if can move to review (majority accepted, or at least one accepted DB reviewer)
 submissionSchema.methods.canMoveToReview = function () {
-    const approvedReviewers = this.suggestedReviewers.filter(r =>
-        r.invitationStatus === "ACCEPTED" &&
-        r.editorApproved === true
+    const totalSuggested = this.suggestedReviewers.length;
+    const acceptedReviewers = this.suggestedReviewers.filter(
+        (r) => r.invitationStatus === "ACCEPTED"
+    );
+    const hasAcceptedDatabaseReviewer = acceptedReviewers.some(
+        (r) => r.source === "DATABASE_SEARCH"
     );
 
-    if (approvedReviewers.length < 2) {
+    if (totalSuggested < 2) {
         return {
             canMove: false,
-            reason: "Minimum 2 approved reviewers required",
-            current: approvedReviewers.length,
+            reason: "At least 2 suggested reviewers are required",
+            current: totalSuggested,
             required: 2
         };
     }
 
-    return { canMove: true, approvedReviewers };
+    const requiredAcceptances = Math.ceil(totalSuggested / 2);
+
+    if (acceptedReviewers.length < requiredAcceptances && !hasAcceptedDatabaseReviewer) {
+        return {
+            canMove: false,
+            reason: `Reviewer invitation majority not met. Required ${requiredAcceptances}/${totalSuggested} accepted invitations, or at least one accepted database-search reviewer`,
+            current: acceptedReviewers.length,
+            required: requiredAcceptances
+        };
+    }
+
+    return { canMove: true, acceptedReviewers };
 };
 
 // Permission checks for viewing/editing based on role and relationship to submission

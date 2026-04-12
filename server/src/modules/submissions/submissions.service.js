@@ -666,13 +666,13 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
         // Enrich detail response with assignment data from reviewer/technical editor collections.
         if (userRole === "EDITOR" || userRole === "ADMIN") {
             const [technicalEditorDoc, reviewerDoc] = await Promise.all([
-                TechnicalEditor.findOne({ submissionId: submission._id })
+                TechnicalEditor.findOne({ submissionId: submission._id, cycleId: submission.currentCycleId })
                     .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")
-                    .select("assignedTechnicalEditors")
+                    .select("assignedTechnicalEditors technicalEditorReview")
                     .lean(),
                 Reviewer.findOne({ submissionId: submission._id })
                     .populate("assignedReviewers.reviewer", "firstName lastName email")
-                    .select("assignedReviewers")
+                    .select("assignedReviewers reviewerFeedback")
                     .lean(),
             ]);
 
@@ -683,17 +683,35 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
                     assignedDate: assignment.assignedDate || null,
                     respondedAt: assignment.respondedAt || null,
                     rejectionReason: assignment.rejectionReason || null,
+                    reviewFiles:
+                        assignment.status === "ACCEPT" && technicalEditorDoc?.technicalEditorReview?.revisedManuscript
+                            ? {
+                                revisedManuscript: technicalEditorDoc.technicalEditorReview.revisedManuscript,
+                                reviewedAt: technicalEditorDoc.technicalEditorReview.reviewedAt || null,
+                            }
+                            : null,
                 })) || [];
 
             submissionObj._assignedReviewers =
-                reviewerDoc?.assignedReviewers?.map((assignment) => ({
-                    reviewer: assignment.reviewer || null,
-                    status: assignment.status || "PENDING",
-                    assignedDate: assignment.assignedDate || null,
-                    respondedAt: assignment.respondedAt || null,
-                    rejectionReason: assignment.rejectionReason || null,
-                    isAnonymous: assignment.isAnonymous ?? true,
-                })) || [];
+                reviewerDoc?.assignedReviewers?.map((assignment) => {
+                    const matchedFeedback = getReviewerFeedbackForAssignment(reviewerDoc, assignment);
+
+                    return {
+                        reviewer: assignment.reviewer || null,
+                        status: assignment.status || "PENDING",
+                        assignedDate: assignment.assignedDate || null,
+                        respondedAt: assignment.respondedAt || null,
+                        rejectionReason: assignment.rejectionReason || null,
+                        isAnonymous: assignment.isAnonymous ?? true,
+                        reviewFiles: matchedFeedback
+                            ? {
+                                revisedManuscript: matchedFeedback.revisedManuscript || null,
+                                responseToEditorComments: matchedFeedback.responseToEditorComments || null,
+                                reviewedAt: matchedFeedback.reviewedAt || null,
+                            }
+                            : null,
+                    };
+                }) || [];
         }
 
         // Enrich co-author response with linked user details while preserving raw ObjectId.
@@ -1479,6 +1497,35 @@ const pickClosestByDate = (items, targetDate, dateKey) => {
     });
 };
 
+const getReviewerFeedbackForAssignment = (reviewerDoc, assignment) => {
+    const feedbackEntries = reviewerDoc?.reviewerFeedback || [];
+    const assignmentReviewerId = getIdString(assignment?.reviewer?._id || assignment?.reviewer);
+    const assignmentEmail = assignment?.reviewer?.email?.toLowerCase?.() || null;
+
+    const directMatches = feedbackEntries.filter((feedback) => {
+        const feedbackUserId = getIdString(feedback?.user?._id || feedback?.user);
+        const feedbackEmail = feedback?.email?.toLowerCase?.() || null;
+
+        if (assignmentReviewerId && feedbackUserId && assignmentReviewerId === feedbackUserId) {
+            return true;
+        }
+
+        if (assignmentEmail && feedbackEmail && assignmentEmail === feedbackEmail) {
+            return true;
+        }
+
+        return false;
+    });
+
+    if (!directMatches.length) return null;
+
+    return directMatches.reduce((latest, current) => {
+        const latestTime = new Date(latest?.reviewedAt || 0).getTime();
+        const currentTime = new Date(current?.reviewedAt || 0).getTime();
+        return currentTime > latestTime ? current : latest;
+    });
+};
+
 const buildTimelineRemark = ({ version, cycle, cycleIndex, cycles, techDocsByCycleId, reviewerDoc }) => {
     switch (version.currentStage) {
         case "INITIAL_SUBMISSION":
@@ -1967,7 +2014,7 @@ const moveToReview = async (submissionId, userId, userRole) => {
         const { Reviewer } = await import("../reviewers/reviewer.model.js");
         let reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
         if (reviewerDoc) {
-            reviewerDoc.assignedReviewers = check.approvedReviewers.map(r => ({
+            reviewerDoc.assignedReviewers = check.acceptedReviewers.map(r => ({
                 reviewer: r.user,
                 assignedDate: new Date(),
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -1980,7 +2027,7 @@ const moveToReview = async (submissionId, userId, userRole) => {
         submission.updateStatus("UNDER_REVIEW");
 
         submission.internalNotes.push({
-            note: `Moved to peer review with ${check.approvedReviewers.length} approved reviewers`,
+            note: `Moved to peer review with ${check.acceptedReviewers.length} accepted reviewers`,
             addedBy: userId,
             isConfidential: true,
         });
@@ -2009,6 +2056,78 @@ const moveToReview = async (submissionId, userId, userRole) => {
 // ================================================
 
 // ⬇️⬇️⬇️ REPLACE FROM HERE
+
+const updateSuggestedReviewerEditorApproval = async (submissionId, reviewerIndex, editorApproved, editorId, editorRole) => {
+    try {
+        console.log("🔵 [SERVICE] updateSuggestedReviewerEditorApproval started");
+
+        if (editorRole !== "ADMIN" && editorRole !== "EDITOR") {
+            throw new AppError("Only editors can approve suggested reviewers", STATUS_CODES.FORBIDDEN, "FORBIDDEN");
+        }
+
+        if (editorApproved !== true) {
+            throw new AppError(
+                "Suggested reviewer approval can only be set to true",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_SUGGESTED_REVIEWER_APPROVAL_ACTION"
+            );
+        }
+
+        const submission = await findSubmissionById(submissionId);
+
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        if (!submission.suggestedReviewers || !submission.suggestedReviewers[reviewerIndex]) {
+            throw new AppError(
+                "Suggested reviewer not found at the provided index",
+                STATUS_CODES.NOT_FOUND,
+                "SUGGESTED_REVIEWER_NOT_FOUND",
+                { reviewerIndex }
+            );
+        }
+
+        const reviewer = submission.suggestedReviewers[reviewerIndex];
+
+        if (reviewer.editorApproved === true) {
+            throw new AppError(
+                "Suggested reviewer has already been approved by editor",
+                STATUS_CODES.BAD_REQUEST,
+                "SUGGESTED_REVIEWER_ALREADY_APPROVED",
+                { reviewerIndex }
+            );
+        }
+
+        reviewer.editorApproved = editorApproved;
+
+        submission.markModified("suggestedReviewers");
+        submission.internalNotes.push({
+            note: `Suggested reviewer ${reviewer.email || `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() || reviewerIndex} marked as editor approved`,
+            addedBy: editorId,
+            isConfidential: true,
+        });
+
+        await submission.save();
+
+        console.log("✅ [SERVICE] updateSuggestedReviewerEditorApproval completed successfully");
+
+        return {
+            message: "Suggested reviewer approved successfully",
+            reviewer: submission.suggestedReviewers[reviewerIndex],
+            submission,
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in updateSuggestedReviewerEditorApproval:", error);
+        throw new AppError(
+            "Failed to update suggested reviewer approval",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "SUGGESTED_REVIEWER_APPROVAL_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
 
 const submitRevision = async (userId, payload) => {
     try {
@@ -3914,6 +4033,7 @@ export default {
     processCoAuthorConsent,
     processCoAuthorConsentFromDashboard,
     moveToReview,
+    updateSuggestedReviewerEditorApproval,
     getSubmissionTimeline,
     submitRevision,
     makeEditorDecision,

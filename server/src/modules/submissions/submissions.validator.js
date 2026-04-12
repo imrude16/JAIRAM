@@ -611,14 +611,19 @@ export const submitRevisionSchema = {
                 "any.required": "Remarks are required",
             }),
 
-        // Recommendation (required for all revision stages)
-        recommendation: Joi.string()
-            .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
-            .required()
-            .messages({
-                "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
-                "any.required": "Recommendation is required",
-            }),
+        recommendation: Joi.when("revisionStage", {
+            is: "EDITOR_TO_AUTHOR",
+            then: Joi.string()
+                .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
+                .optional(),
+            otherwise: Joi.string()
+                .valid("ACCEPT", "MINOR_REVISION", "MAJOR_REVISION", "REJECT")
+                .required()
+                .messages({
+                    "any.only": "Recommendation must be one of: ACCEPT, MINOR_REVISION, MAJOR_REVISION, REJECT",
+                    "any.required": "Recommendation is required",
+                }),
+        }),
 
         // Reviewer Checklist (required for REVIEWER_TO_EDITOR)
         reviewerChecklist: Joi.object({
@@ -658,10 +663,14 @@ export const submitRevisionSchema = {
                 .allow(""),
         }),
 
-        // File uploads (required for all revision stages)
-        revisedManuscript: fileSchema.required().messages({
-            "any.required": "Revised manuscript is required",
+        revisedManuscript: Joi.when("revisionStage", {
+            is: "EDITOR_TO_AUTHOR",
+            then: fileSchema.optional(),
+            otherwise: fileSchema.required().messages({
+                "any.required": "Revised manuscript is required",
+            }),
         }),
+        
         responseToEditorComments: Joi.when("revisionStage", {
             is: "REVIEWER_TO_EDITOR",
             then: fileSchema.required().messages({
@@ -774,6 +783,30 @@ export const checkReviewerMajoritySchema = {
 // ================================================
 // EDITOR APPROVE CONSENT OVERRIDE SCHEMA
 // ================================================
+
+export const editorApproveSuggestedReviewerSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+        reviewerIndex: Joi.number()
+            .integer()
+            .min(0)
+            .required()
+            .messages({
+                "number.base": "Reviewer index must be a number",
+                "number.integer": "Reviewer index must be an integer",
+                "number.min": "Reviewer index cannot be negative",
+                "any.required": "Reviewer index is required",
+            }),
+    }),
+
+    body: Joi.object({
+        editorApproved: Joi.boolean()
+            .required()
+            .messages({
+                "any.required": "Editor approval value is required",
+            }),
+    }),
+};
 
 export const editorApproveConsentOverrideSchema = {
     params: Joi.object({

@@ -1379,6 +1379,131 @@ const RejectModal = ({ submission, onClose, onDone }) => {
 
 // ─── PAYMENT MODAL ────────────────────────────────────────────────────────────
 
+const RequestRevisionModal = ({ submission, onClose, onDone }) => {
+  const [remarks, setRemarks] = useState("");
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [attachmentProgress, setAttachmentProgress] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const canSubmit = remarks.trim().length >= 10 && !uploadingAttachments;
+
+  const handleAttachmentUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    setUploadingAttachments(true);
+    try {
+      const uploadedFiles = [];
+      for (const file of files) {
+        const uploaded = await uploadDashboardFile(file, "supplementary", setAttachmentProgress);
+        uploadedFiles.push(uploaded);
+      }
+      setAttachments((prev) => [...prev, ...uploadedFiles].slice(0, 10));
+    } catch (err) {
+      alert(err.message || "Failed to upload attachment.");
+    } finally {
+      setUploadingAttachments(false);
+      setAttachmentProgress(0);
+    }
+  };
+
+  const handleRemoveAttachment = (index) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    try {
+      await api.post("/submissions/revisions", {
+        originalSubmissionId: submission._id,
+        submitterRoleType: "Editor",
+        revisionStage: "EDITOR_TO_AUTHOR",
+        remarks: remarks.trim(),
+        attachments,
+      });
+      onDone("Revision requested successfully.");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to request revision.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="Request Revision"
+      subtitle={submission.title?.slice(0, 70)}
+      onClose={onClose}
+      maxWidth={560}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "11px 14px", fontSize: "0.78rem", color: "#92400e", lineHeight: 1.5 }}>
+          This will move the manuscript to <strong>Revision Requested</strong> and send your remarks and optional files to the author.
+        </div>
+
+        <div>
+          <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+            Remarks for Author <span style={{ color: "#dc2626" }}>*</span>
+            <span style={{ fontWeight: 400, color: "#94a3b8", textTransform: "none", letterSpacing: 0 }}> (min 10 characters)</span>
+          </label>
+          <textarea
+            value={remarks}
+            onChange={e => setRemarks(e.target.value)}
+            placeholder="Explain what the author should revise..."
+            rows={5}
+            style={{
+              width: "100%", padding: "10px 12px",
+              border: `1.5px solid ${remarks.length > 0 && remarks.trim().length < 10 ? "#fca5a5" : "#e2e8f0"}`,
+              borderRadius: 8, fontSize: "0.8rem", resize: "none", outline: "none",
+              fontFamily: "system-ui", color: "#1e293b", boxSizing: "border-box",
+            }}
+            onFocus={e => e.target.style.borderColor = "#b45309"}
+            onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+          />
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 4, textAlign: "right" }}>
+            {remarks.trim().length}/10 min
+          </div>
+        </div>
+
+        <UploadSection
+          label="Attachments"
+          helperText="Optional, up to 10 files"
+          multiple
+          uploading={uploadingAttachments}
+          progress={attachmentProgress}
+          files={attachments}
+          onPick={handleAttachmentUpload}
+          onRemove={handleRemoveAttachment}
+          accent="#b45309"
+        />
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 4 }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit || loading}
+            style={{
+              padding: "9px 20px", borderRadius: 8, border: "none",
+              background: (!canSubmit || loading) ? "#cbd5e1" : "linear-gradient(135deg,#b45309,#d97706)",
+              color: "#fff", fontWeight: 600, fontSize: "0.8rem",
+              cursor: (!canSubmit || loading) ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {loading && <Loader style={{ width: 13, height: 13, animation: "spin 0.8s linear infinite" }} />}
+            {loading ? "Submitting..." : "Submit Revision Request"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+};
+
 const PaymentModal = ({ submission, onClose, onDone }) => {
   const [newStatus, setNewStatus] = useState(!submission.paymentStatus);
   const [note, setNote] = useState("");
@@ -1698,6 +1823,18 @@ const EditorTable = ({ subs, onAction }) => {
 
                       {/* Accept — disabled if already Accepted or Rejected */}
                       <EBtn
+                        icon={CreditCard} label="Provisionally Accept" color="#7c3aed"
+                        onClick={() => onAction("provisionallyAccept", sub)}
+                        disabled={sub.status !== "UNDER_REVIEW" || !!sub.paymentStatus}
+                      />
+
+                      <EBtn
+                        icon={FileText} label="Request Revision" color="#b45309"
+                        onClick={() => onAction("requestRevision", sub)}
+                        disabled={!["UNDER_REVIEW", "REVISION_REQUESTED", "PROVISIONALLY_ACCEPTED"].includes(sub.status)}
+                      />
+
+                      <EBtn
                         icon={CheckCircle} label="Accept" color="#15803d"
                         onClick={() => onAction("accept", sub)}
                         disabled={sub.status === "ACCEPTED" || sub.status === "REJECTED"}
@@ -1884,9 +2021,22 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
   }, [roleSearch, showRoleChangeModal]);
 
   // ── Action handler ────────────────────────────────────────────────────────
-  const handleAction = (type, submission) => {
+  const handleAction = async (type, submission) => {
     if (type === "view") {
       navigate(`/submissions/${submission._id}`);
+      return;
+    }
+    if (type === "provisionallyAccept") {
+      try {
+        await api.put(`/submissions/${submission._id}/status`, {
+          status: "PROVISIONALLY_ACCEPTED",
+          comments: "Provisionally accepted pending payment.",
+        });
+        showToast("Manuscript provisionally accepted.");
+        load();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to provisionally accept manuscript.");
+      }
       return;
     }
     setModal({ type, submission });
@@ -2044,6 +2194,13 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
       )}
       {modal?.type === "reject" && (
         <RejectModal
+          submission={modal.submission}
+          onClose={() => setModal(null)}
+          onDone={handleModalDone}
+        />
+      )}
+      {modal?.type === "requestRevision" && (
+        <RequestRevisionModal
           submission={modal.submission}
           onClose={() => setModal(null)}
           onDone={handleModalDone}

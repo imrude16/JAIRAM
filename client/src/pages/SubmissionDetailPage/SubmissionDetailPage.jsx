@@ -157,6 +157,8 @@ const AssignmentPersonCard = ({
   assignedDate,
   respondedAt,
   rejectionReason,
+  onViewFiles,
+  canViewFiles,
 }) => (
   <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, background: "#fff" }}>
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
@@ -172,7 +174,28 @@ const AssignmentPersonCard = ({
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
       <ModalField label="Assigned At" value={formatDateTime(assignedDate)} />
-      <ModalField label="Responded At" value={status === "ACCEPT" ? formatDateTime(respondedAt) : status === "REJECT" ? formatDateTime(respondedAt) : "-"} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <button
+            type="button"
+            onClick={onViewFiles}
+            disabled={!canViewFiles}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 9,
+              border: "1px solid #cbd5e1",
+              background: canViewFiles ? "#fff" : "#f8fafc",
+              color: canViewFiles ? "#0f3460" : "#94a3b8",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: canViewFiles ? "pointer" : "not-allowed",
+            }}
+          >
+            View Files
+          </button>
+        </div>
+        <ModalField label="Responded At" value={status === "ACCEPT" ? formatDateTime(respondedAt) : status === "REJECT" ? formatDateTime(respondedAt) : "-"} />
+      </div>
       <ModalField label="Rejection Reason" value={status === "REJECT" ? rejectionReason || "-" : "-"} />
     </div>
   </div>
@@ -194,6 +217,10 @@ const SubmissionDetailPage = () => {
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolveError, setResolveError] = useState("");
   const [resolveLoading, setResolveLoading] = useState(false);
+  const [suggestedReviewerApprovalLoading, setSuggestedReviewerApprovalLoading] = useState(null);
+  const [suggestedReviewerApprovalError, setSuggestedReviewerApprovalError] = useState("");
+  const [selectedSuggestedReviewer, setSelectedSuggestedReviewer] = useState(null);
+  const [selectedAssignmentFiles, setSelectedAssignmentFiles] = useState(null);
 
   const isEditor = user?.role === "EDITOR";
 
@@ -289,6 +316,35 @@ const SubmissionDetailPage = () => {
     } finally {
       setResolveLoading(false);
     }
+  };
+
+  const handleApproveSuggestedReviewer = async (reviewerIndex) => {
+    try {
+      setSuggestedReviewerApprovalLoading(reviewerIndex);
+      setSuggestedReviewerApprovalError("");
+
+      await api.patch(`/submissions/${id}/suggested-reviewers/${reviewerIndex}/editor-approval`, {
+        editorApproved: true,
+      });
+
+      await fetchSubmission();
+    } catch (err) {
+      setSuggestedReviewerApprovalError(err.response?.data?.message ?? "Failed to approve suggested reviewer.");
+    } finally {
+      setSuggestedReviewerApprovalLoading(null);
+    }
+  };
+
+  const closeSuggestedReviewerModal = () => {
+    setSelectedSuggestedReviewer(null);
+  };
+
+  const openAssignmentFilesModal = (payload) => {
+    setSelectedAssignmentFiles(payload);
+  };
+
+  const closeAssignmentFilesModal = () => {
+    setSelectedAssignmentFiles(null);
   };
 
   return (
@@ -570,35 +626,70 @@ const SubmissionDetailPage = () => {
                 <Section title="Manuscript Files" icon={FileCheck}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {[
-                      { label: "Cover Letter", file: submission.coverLetter },
-                      { label: "Blind Manuscript", file: submission.blindManuscriptFile },
-                    ].map(
-                      (item, idx) =>
-                        item.file && (
-                          <div key={idx} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                              <div style={{ background: "#e0f2fe", padding: "8px", borderRadius: 6 }}>
-                                <FileText size={16} color="#0369a1" />
-                              </div>
-                              <div style={{ overflow: "hidden" }}>
-                                <div style={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                                  {item.label}
-                                </div>
-                                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{(item.file.fileSize / 1024).toFixed(1)} KB</div>
-                              </div>
-                            </div>
-                            <a
-                              href={item.file.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, color: "#0f3460", textDecoration: "none", transition: "all 0.2s" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
-                            >
-                              View
-                            </a>
+                      { label: "Cover Letter", files: submission.coverLetter ? [submission.coverLetter] : [] },
+                      { label: "Blind Manuscript", files: submission.blindManuscriptFile ? [submission.blindManuscriptFile] : [] },
+                      { label: "Figures", files: Array.isArray(submission.figures) ? submission.figures : [] },
+                      { label: "Tables", files: Array.isArray(submission.tables) ? submission.tables : [] },
+                      { label: "Supplementary Files", files: Array.isArray(submission.supplementaryFiles) ? submission.supplementaryFiles : [] },
+                    ].map((group, groupIdx) =>
+                      group.files.length > 0 ? (
+                        <div
+                          key={groupIdx}
+                          style={{
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 10,
+                            padding: "14px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f3460", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            {group.label}
                           </div>
-                        )
+
+                          {group.files.map((file, fileIdx) => (
+                            <div
+                              key={`${groupIdx}-${fileIdx}`}
+                              style={{
+                                background: "#fff",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 8,
+                                padding: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 12,
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+                                <div style={{ background: "#e0f2fe", padding: "8px", borderRadius: 6 }}>
+                                  <FileText size={16} color="#0369a1" />
+                                </div>
+                                <div style={{ overflow: "hidden" }}>
+                                  <div style={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                                    {file.fileName || `${group.label} ${fileIdx + 1}`}
+                                  </div>
+                                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                    {typeof file.fileSize === "number" ? `${(file.fileSize / 1024).toFixed(1)} KB` : "File size unavailable"}
+                                  </div>
+                                </div>
+                              </div>
+                              <a
+                                href={file.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, color: "#0f3460", textDecoration: "none", transition: "all 0.2s", flexShrink: 0 }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                              >
+                                View
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null
                     )}
                   </div>
                 </Section>
@@ -862,6 +953,20 @@ const SubmissionDetailPage = () => {
                         assignedDate={assignment.assignedDate}
                         respondedAt={assignment.respondedAt}
                         rejectionReason={assignment.rejectionReason}
+                        canViewFiles={Boolean(assignment?.reviewFiles?.revisedManuscript)}
+                        onViewFiles={() =>
+                          openAssignmentFilesModal({
+                            title: "Technical Editor Review Files",
+                            personName: getAssignmentDisplayName(assignment.technicalEditor, "Assigned Technical Editor"),
+                            reviewedAt: assignment?.reviewFiles?.reviewedAt || assignment.respondedAt || null,
+                            sections: [
+                              {
+                                label: "Revised Manuscript",
+                                files: assignment?.reviewFiles?.revisedManuscript ? [assignment.reviewFiles.revisedManuscript] : [],
+                              },
+                            ],
+                          })
+                        }
                       />
                     ))
                   )}
@@ -896,6 +1001,24 @@ const SubmissionDetailPage = () => {
                         assignedDate={assignment.assignedDate}
                         respondedAt={assignment.respondedAt}
                         rejectionReason={assignment.rejectionReason}
+                        canViewFiles={Boolean(assignment?.reviewFiles?.revisedManuscript || assignment?.reviewFiles?.responseToEditorComments)}
+                        onViewFiles={() =>
+                          openAssignmentFilesModal({
+                            title: assignment.isAnonymous ? "Reviewer Review Files" : "Reviewer Files",
+                            personName: getAssignmentDisplayName(assignment.reviewer, "Assigned Reviewer"),
+                            reviewedAt: assignment?.reviewFiles?.reviewedAt || assignment.respondedAt || null,
+                            sections: [
+                              {
+                                label: "Revised Manuscript",
+                                files: assignment?.reviewFiles?.revisedManuscript ? [assignment.reviewFiles.revisedManuscript] : [],
+                              },
+                              {
+                                label: "Response To Editor Comments",
+                                files: assignment?.reviewFiles?.responseToEditorComments ? [assignment.reviewFiles.responseToEditorComments] : [],
+                              },
+                            ],
+                          })
+                        }
                       />
                     ))
                   )}
@@ -930,8 +1053,273 @@ const SubmissionDetailPage = () => {
                       {majorityStatus?.message || "No majority information available."}
                     </div>
                   </div>
+
+                  {suggestedReviewerApprovalError && (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 12, padding: "12px 14px", fontSize: "0.86rem", fontWeight: 700 }}>
+                      {suggestedReviewerApprovalError}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {submission?.suggestedReviewers?.length > 0 ? (
+                      submission.suggestedReviewers.map((reviewer, index) => {
+                        const reviewerName = `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() || reviewer.email || `Suggested Reviewer ${index + 1}`;
+                        const isApproved = reviewer.editorApproved === true;
+                        const isLoading = suggestedReviewerApprovalLoading === index;
+
+                        return (
+                          <div
+                            key={`${reviewer.email || "suggested"}-${index}`}
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 12,
+                              background: "#fff",
+                              padding: "14px 16px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 16,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <div style={{ fontSize: "0.94rem", fontWeight: 800, color: "#0f172a" }}>{reviewerName}</div>
+                              <div style={{ fontSize: "0.82rem", color: "#64748b" }}>{reviewer.email || "-"}</div>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSuggestedReviewer(reviewer)}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 9,
+                                  border: "1px solid #cbd5e1",
+                                  background: "#fff",
+                                  color: "#0f3460",
+                                  fontSize: "0.82rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                View
+                              </button>
+
+                              <Badge type={isApproved ? "success" : "default"}>
+                                {isApproved ? "Approved" : "Not Approved"}
+                              </Badge>
+
+                              {!isApproved && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveSuggestedReviewer(index)}
+                                  disabled={suggestedReviewerApprovalLoading !== null}
+                                  style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 10,
+                                    border: "1px solid #16a34a",
+                                    background: isLoading ? "#bbf7d0" : "#f0fdf4",
+                                    color: "#166534",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "1.05rem",
+                                    fontWeight: 800,
+                                    cursor: suggestedReviewerApprovalLoading !== null ? "not-allowed" : "pointer",
+                                  }}
+                                  title="Approve suggested reviewer"
+                                >
+                                  {isLoading ? "..." : "✅"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <AlertCircle size={18} color="#64748b" />
+                        <div style={{ fontSize: "0.92rem", color: "#475569", fontWeight: 700 }}>No suggested reviewers available.</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedSuggestedReviewer && (
+        <div
+          onClick={closeSuggestedReviewerModal}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.45)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            zIndex: 130,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(620px, 100%)",
+              background: "#fff",
+              border: "1px solid #dbe5f0",
+              borderRadius: 18,
+              boxShadow: "0 24px 64px rgba(15, 23, 42, 0.18)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0f172a" }}>Suggested Reviewer Details</div>
+                <div style={{ fontSize: "0.84rem", color: "#64748b", marginTop: 4 }}>
+                  Information stored in the submission record for this suggested reviewer
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeSuggestedReviewerModal}
+                style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 22 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18 }}>
+                <ModalField
+                  label="Full Name"
+                  value={`${selectedSuggestedReviewer.title || ""} ${selectedSuggestedReviewer.firstName || ""} ${selectedSuggestedReviewer.lastName || ""}`.trim()}
+                />
+                <ModalField label="Email" value={selectedSuggestedReviewer.email} />
+                <ModalField label="Specialization" value={selectedSuggestedReviewer.specialization} />
+                <ModalField label="Institution" value={selectedSuggestedReviewer.institution} />
+                <ModalField label="Country" value={selectedSuggestedReviewer.country} />
+                <ModalField label="Source" value={selectedSuggestedReviewer.source} />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <ModalField label="Invitation Sent At" value={formatDateTime(selectedSuggestedReviewer.invitationSentAt)} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedAssignmentFiles && (
+        <div
+          onClick={closeAssignmentFilesModal}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.45)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            zIndex: 130,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(700px, 100%)",
+              maxHeight: "86vh",
+              overflowY: "auto",
+              background: "#fff",
+              border: "1px solid #dbe5f0",
+              borderRadius: 18,
+              boxShadow: "0 24px 64px rgba(15, 23, 42, 0.18)",
+              overflowX: "hidden",
+            }}
+          >
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0f172a" }}>{selectedAssignmentFiles.title}</div>
+                <div style={{ fontSize: "0.84rem", color: "#64748b", marginTop: 4 }}>
+                  {selectedAssignmentFiles.personName} {selectedAssignmentFiles.reviewedAt ? `• Submitted ${formatDateTime(selectedAssignmentFiles.reviewedAt)}` : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeAssignmentFilesModal}
+                style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 16 }}>
+              {selectedAssignmentFiles.sections.map((section) =>
+                section.files.length > 0 ? (
+                  <div key={section.label} style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc", padding: 16 }}>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f3460", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>
+                      {section.label}
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {section.files.map((file, index) => (
+                        <div
+                          key={`${section.label}-${index}`}
+                          style={{
+                            background: "#fff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 10,
+                            padding: "12px 14px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 12,
+                          }}
+                        >
+                          <div style={{ overflow: "hidden" }}>
+                            <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {file.fileName || `${section.label} ${index + 1}`}
+                            </div>
+                            <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 4 }}>
+                              {typeof file.fileSize === "number" ? `${(file.fileSize / 1024).toFixed(1)} KB` : "File size unavailable"}
+                            </div>
+                          </div>
+
+                          <a
+                            href={file.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 8,
+                              border: "1px solid #cbd5e1",
+                              background: "#fff",
+                              color: "#0f3460",
+                              fontSize: "0.82rem",
+                              fontWeight: 700,
+                              textDecoration: "none",
+                              flexShrink: 0,
+                            }}
+                          >
+                            Open
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              )}
+
+              {!selectedAssignmentFiles.sections.some((section) => section.files.length > 0) && (
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <AlertCircle size={18} color="#64748b" />
+                  <div style={{ fontSize: "0.92rem", color: "#475569", fontWeight: 700 }}>No submitted files are available for this review.</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
