@@ -61,6 +61,7 @@ const submissionCycleSchema = new Schema(
                 uploadedAt: Date,
             },
             attachments: [{
+                _id: false,
                 fileName: String,
                 fileUrl: String,
                 fileSize: Number,
@@ -84,6 +85,7 @@ const submissionCycleSchema = new Schema(
                 uploadedAt: Date,
             },
             attachments: [{
+                _id: false,
                 fileName: String,
                 fileUrl: String,
                 fileSize: Number,
@@ -100,6 +102,7 @@ const submissionCycleSchema = new Schema(
                 maxlength: 2000,
             },
             attachments: [{
+                _id: false,
                 fileName: String,
                 fileUrl: String,
                 fileSize: Number,

@@ -2126,7 +2126,17 @@ const submitRevision = async (userId, payload) => {
                 submission._id,
                 currentCycle._id
             );
-            if (techEditorDoc?.technicalEditorReview?.reviewedAt) {
+            const existingReview = techEditorDoc?.technicalEditorReview || null;
+            const hasRealTechnicalEditorSubmission =
+                !!existingReview &&
+                !!(existingReview.user || existingReview.email) &&
+                !!(
+                    existingReview.recommendation ||
+                    existingReview.remarks ||
+                    existingReview.revisedManuscript
+                );
+
+            if (hasRealTechnicalEditorSubmission) {
                 throw new AppError(
                     "Technical Editor has already submitted review for this cycle (only 1 chance allowed)",
                     STATUS_CODES.FORBIDDEN,
