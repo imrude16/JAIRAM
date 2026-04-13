@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import {
   LogOut, FileText, Plus, Eye, Edit3, Upload,
   CheckCircle, XCircle, AlertCircle, BookOpen, Shield,
-  RefreshCw, Loader, User, X,
+  RefreshCw, Loader, User, X, ChevronDown, UserCog, UserRoundCheck,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import useDashboard from "../../hooks/useDashboard";
@@ -20,6 +20,7 @@ import { acceptConsentFromDashboard, rejectConsentFromDashboard } from "../../se
 import EditorDashboard from "../EditorDashboard/EditorDashboard";   // ← NEW import
 import TechnicalEditorDashboard from "../TechnicalEditorDashboard/TechnicalEditorDashboard";
 import ReviewerDashboard from "../ReviewerDashboard/ReviewerDashboard";
+import AdminDashboard from "../AdminDashboard/AdminDashboard";
 
 // ─── STATUS / CONSENT CONFIG ──────────────────────────────────────────────────
 
@@ -97,7 +98,10 @@ const Btn = ({ icon: I, label, color, onClick, disabled = false }) => (
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
-const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick }) => (
+const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick, onAdminToolSelect }) => {
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+
+  return (
   <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", position: "sticky", top: 0, zIndex: 50 }}>
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -131,15 +135,48 @@ const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick }) => (
         >
           <User style={{ width: 14, height: 14 }} />Profile
         </button>
-        {user?.role === "EDITOR" && (
+        {(user?.role === "EDITOR" || user?.role === "ADMIN") && (
           <button
             onClick={onRoleChangeClick}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "#0f3460"; e.currentTarget.style.color = "#0f3460"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}
           >
-            <Shield style={{ width: 14, height: 14 }} />Role Change Request
+            <Shield style={{ width: 14, height: 14 }} />
+            {user?.role === "ADMIN" ? "Review Role Change Requests" : "Role Change Request"}
           </button>
+        )}
+        {user?.role === "ADMIN" && (
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setAdminMenuOpen((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: "0.78rem", fontWeight: 500, cursor: "pointer" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#0f3460"; e.currentTarget.style.color = "#0f3460"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}
+            >
+              <Shield style={{ width: 14, height: 14 }} />
+              Admin Tools
+              <ChevronDown style={{ width: 13, height: 13 }} />
+            </button>
+            {adminMenuOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 220, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 12px 30px rgba(15,23,42,0.12)", overflow: "hidden", zIndex: 120 }}>
+                <button
+                  onClick={() => { setAdminMenuOpen(false); onAdminToolSelect?.("updateProfile"); }}
+                  style={{ width: "100%", border: "none", background: "#fff", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+                >
+                  <UserCog style={{ width: 14, height: 14 }} />
+                  Update Profiles
+                </button>
+                <button
+                  onClick={() => { setAdminMenuOpen(false); onAdminToolSelect?.("updateStatus"); }}
+                  style={{ width: "100%", border: "none", borderTop: "1px solid #f1f5f9", background: "#fff", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8, color: "#475569", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+                >
+                  <UserRoundCheck style={{ width: 14, height: 14 }} />
+                  Update User Status
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <button
           onClick={onLogout}
@@ -152,7 +189,8 @@ const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick }) => (
       </div>
     </div>
   </header>
-);
+  );
+};
 
 // ─── PROFILE CARD (used in USER views) ───────────────────────────────────────
 
@@ -534,6 +572,7 @@ const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState("author");
   const [showProfile, setShowProfile] = useState(false);
   const [showRoleChangeModal, setShowRoleChangeModal] = useState(false);
+  const [adminNavAction, setAdminNavAction] = useState(null);
   const [rejectModal, setRejectModal] = useState(null);
   const [consentLoading, setConsentLoading] = useState({});
 
@@ -579,7 +618,11 @@ const UserDashboard = () => {
     : "NORMAL";
 
   // ── Page title varies by role ──
-  const pageTitle = role === "EDITOR" ? "Editor Dashboard" : "My Dashboard";
+  const pageTitle = role === "EDITOR"
+    ? "Editor Dashboard"
+    : role === "ADMIN"
+      ? "Admin Dashboard"
+      : "My Dashboard";
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -588,6 +631,7 @@ const UserDashboard = () => {
         onLogout={handleLogout}
         onProfileClick={() => setShowProfile(true)}
         onRoleChangeClick={() => setShowRoleChangeModal(true)}
+        onAdminToolSelect={(action) => setAdminNavAction({ action, nonce: Date.now() })}
       />
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 28px" }}>
@@ -603,11 +647,11 @@ const UserDashboard = () => {
           <div style={{ marginTop: 10 }}>
             <span style={{
               fontSize: "0.68rem", fontWeight: 700, padding: "3px 12px", borderRadius: 20,
-              background: role === "EDITOR" ? "#ede9fe" : "#e8eef6",
-              color: role === "EDITOR" ? "#7c3aed" : "#0f3460",
+              background: role === "EDITOR" ? "#ede9fe" : role === "ADMIN" ? "#fef3c7" : "#e8eef6",
+              color: role === "EDITOR" ? "#7c3aed" : role === "ADMIN" ? "#b45309" : "#0f3460",
               letterSpacing: "0.06em", textTransform: "uppercase",
             }}>
-              {role === "EDITOR" ? "Editor" : "Researcher"}
+              {role === "EDITOR" ? "Editor" : role === "ADMIN" ? "Administrator" : "Researcher"}
             </span>
           </div>
         </div>
@@ -623,6 +667,20 @@ const UserDashboard = () => {
                 user={user}
                 showRoleChangeModal={showRoleChangeModal}
                 onCloseRoleChangeModal={() => setShowRoleChangeModal(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {role === "ADMIN" && (
+          <>
+            <ProfileCard user={fullProfile || user} />
+            <div style={{ marginTop: 20 }}>
+              <AdminDashboard
+                user={user}
+                showRoleChangeModal={showRoleChangeModal}
+                onCloseRoleChangeModal={() => setShowRoleChangeModal(false)}
+                adminNavAction={adminNavAction}
               />
             </div>
           </>

@@ -387,3 +387,108 @@ export const fetchMyRoleChangeRequests = async (status = "", page = 1, limit = 1
     pagination: response.data?.data?.pagination ?? null,
   };
 };
+
+// FETCH ALL SUBMISSIONS (ADMIN sees all non-draft submissions)
+// Endpoint : GET /api/submissions
+export const fetchAllSubmissionsForAdmin = async () => {
+  const response = await api.get("/submissions", {
+    params: {
+      limit: 100,
+      sortBy: "submittedAt",
+      sortOrder: "desc",
+    },
+  });
+
+  return response.data?.data?.submissions ?? [];
+};
+
+// FETCH ROLE CHANGE REQUESTS (ADMIN)
+// Endpoint: GET /api/admin/role-change-requests
+export const fetchAdminRoleChangeRequests = async (status = "", page = 1, limit = 20) => {
+  const response = await api.get("/admin/role-change-requests", {
+    params: {
+      ...(status ? { status } : {}),
+      page,
+      limit,
+    },
+  });
+
+  return {
+    requests: response.data?.data?.requests ?? [],
+    pagination: response.data?.data?.pagination ?? null,
+  };
+};
+
+// REVIEW ROLE CHANGE REQUEST (ADMIN)
+// Endpoint: PATCH /api/admin/role-change-requests/:requestId
+export const reviewAdminRoleChangeRequest = async (requestId, decision, adminComments = "") => {
+  const response = await api.patch(`/admin/role-change-requests/${requestId}`, {
+    decision,
+    adminComments,
+  });
+
+  return response.data?.data?.request ?? null;
+};
+
+// SEARCH / LIST USERS (ADMIN)
+// Endpoint: GET /api/admin/users
+export const searchAdminUsers = async ({
+  search = "",
+  status = "",
+  role = "",
+  page = 1,
+  limit = 20,
+} = {}) => {
+  const response = await api.get("/admin/users", {
+    params: {
+      ...(search ? { search } : {}),
+      ...(status ? { status } : {}),
+      ...(role ? { role } : {}),
+      page,
+      limit,
+    },
+  });
+
+  return {
+    users: response.data?.data?.users ?? [],
+    pagination: response.data?.data?.pagination ?? null,
+  };
+};
+
+// FETCH SINGLE USER (ADMIN)
+// Endpoint: GET /api/admin/users/:userId
+export const fetchAdminUserById = async (userId) => {
+  const response = await api.get(`/admin/users/${userId}`);
+  return response.data?.data?.user ?? null;
+};
+
+// UPDATE USER PROFILE (ADMIN)
+// Endpoint: PATCH /api/admin/users/:userId/profile
+export const updateAdminUserProfile = async (userId, updates) => {
+  const response = await api.patch(`/admin/users/${userId}/profile`, updates);
+  return response.data?.data?.user ?? null;
+};
+
+// UPDATE USER STATUS (ADMIN)
+// Endpoint: PATCH /api/admin/users/:userId/status
+export const updateAdminUserStatus = async (userId, status, reason = "") => {
+  const response = await api.patch(`/admin/users/${userId}/status`, {
+    status,
+    reason,
+  });
+
+  return {
+    user: response.data?.data?.user ?? null,
+    changes: response.data?.data?.changes ?? null,
+  };
+};
+
+// ASSIGN EDITOR TO SUBMISSION (ADMIN)
+// Endpoint: POST /api/submissions/:id/assign-editor
+export const assignEditorToSubmission = async (submissionId, editorId) => {
+  const response = await api.post(`/submissions/${submissionId}/assign-editor`, {
+    editorId,
+  });
+
+  return response.data?.data?.submission ?? null;
+};

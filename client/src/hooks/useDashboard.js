@@ -88,6 +88,15 @@ const useDashboard = () => {
         setError(null);
 
         try {
+            if (user.role !== "USER") {
+                const profile = await fetchUserProfile();
+                setFullProfile(profile);
+                setAuthorSubmissions([]);
+                setCoAuthorSubmissions([]);
+                setPendingConsents([]);
+                return;
+            }
+
             // Fetch submissions and full profile in parallel
             const [allSubmissions, profile, myConsents] = await Promise.all([
                 fetchUserSubmissions(),
@@ -159,7 +168,7 @@ const useDashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.email, user?.id]);
+    }, [user?.email, user?.id, user?.role]);
 
     useEffect(() => { load(); }, [load]);
 
