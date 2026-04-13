@@ -223,6 +223,7 @@ const SubmissionDetailPage = () => {
   const [selectedAssignmentFiles, setSelectedAssignmentFiles] = useState(null);
 
   const isEditor = user?.role === "EDITOR";
+  const isAdmin = user?.role === "ADMIN";
 
   const fetchSubmission = async () => {
     const res = await api.get(`/submissions/${id}`);
@@ -286,6 +287,9 @@ const SubmissionDetailPage = () => {
   const hasConsentIssue = consentIssues.length > 0;
   const assignedTechnicalEditors = Array.isArray(submission?._assignedTechnicalEditors) ? submission._assignedTechnicalEditors : [];
   const assignedReviewers = Array.isArray(submission?._assignedReviewers) ? submission._assignedReviewers : [];
+  const authorId = submission?.author?._id || submission?.author;
+  const isSubmissionAuthor = Boolean(authorId && user?.id && authorId.toString() === user.id.toString());
+  const canViewTimeline = isEditor || isAdmin || isSubmissionAuthor;
   const canResolveConsentIssue =
     isEditor &&
     submission?.consentDeadlineStatus !== "RESOLVED" &&
@@ -372,21 +376,23 @@ const SubmissionDetailPage = () => {
             <ArrowLeft size={16} /> Back
           </button>
 
+          {canViewTimeline && (
+            <button
+              onClick={() => navigate(`/submissions/${id}/timeline`)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #dbe5f0", background: "#f8fbff", color: "#0f3460", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#eef5ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#f8fbff";
+              }}
+            >
+              <ClipboardCheck size={16} /> View Timeline
+            </button>
+          )}
+
           {isEditor && (
             <>
-              <button
-                onClick={() => navigate(`/submissions/${id}/timeline`)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "1px solid #dbe5f0", background: "#f8fbff", color: "#0f3460", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#eef5ff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#f8fbff";
-                }}
-              >
-                <ClipboardCheck size={16} /> View Timeline
-              </button>
-
               <button
                 onClick={() => {
                   setInfoError("");

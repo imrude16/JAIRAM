@@ -376,7 +376,13 @@ const AuthorTable = ({ subs, nav }) => (
                 <td style={TD(true)}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
                     {s.status === "DRAFT" && <Btn icon={Edit3} label="Continue" color="#0f3460" onClick={() => nav("/submit")} />}
-                    {s.status === "REVISION_REQUESTED" && <Btn icon={Upload} label="Revise" color="#b45309" onClick={() => nav(`/submit?revise=${s.id}`)} />}
+                    <Btn
+                      icon={Upload}
+                      label="Revise"
+                      color="#b45309"
+                      onClick={() => nav(`/submit?revise=${s.id}`)}
+                      disabled={s.status !== "REVISION_REQUESTED"}
+                    />
                     {s.status !== "DRAFT" && <Btn icon={Eye} label="View" color="#0e7490" onClick={() => nav(`/submissions/${s.id}`)} />}
                   </div>
                 </td>
