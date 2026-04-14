@@ -1831,7 +1831,7 @@ const EditorTable = ({ subs, onAction }) => {
                       <EBtn
                         icon={FileText} label="Request Revision" color="#b45309"
                         onClick={() => onAction("requestRevision", sub)}
-                        disabled={!["UNDER_REVIEW", "REVISION_REQUESTED", "PROVISIONALLY_ACCEPTED"].includes(sub.status)}
+                        disabled={sub.status === "ACCEPTED" || sub.status === "REJECTED"}
                       />
 
                       <EBtn
