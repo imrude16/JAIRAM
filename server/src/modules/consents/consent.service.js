@@ -244,11 +244,13 @@ const linkConsentToUser = async (user) => {
     try {
         console.log("🔵 [CONSENT-SERVICE] Linking consents to registered user");
 
-        // Find pending consents with this email
+        // Find unlinked consents with this email.
+        // This must include already-approved manual-entry consents because
+        // a co-author may accept first and register later.
         const consents = await Consent.find({
             coAuthorEmail: user.email,
             coAuthorId: null,
-            status: "PENDING",
+            status: { $in: ["PENDING", "APPROVED"] },
         });
 
         if (consents.length === 0) {
@@ -279,7 +281,6 @@ const linkConsentToUser = async (user) => {
                 console.log(`✅ [CONSENT-SERVICE] Linked consent for submission ${consent.submissionId}`);
             } else {
                 console.log(`⚠️ [CONSENT-SERVICE] Cross-verification failed for consent ${consent._id}`);
-                console.log(`   Email: ${emailMatch}, Phone: ${phoneMatch}, First: ${firstNameMatch}, Last: ${lastNameMatch}`);
             }
         }
 
