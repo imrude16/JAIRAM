@@ -113,6 +113,11 @@ export const rejectConsentFromDashboard = async (submissionId, remark = null) =>
   return response.data?.data?.consentStatus ?? null;
 };
 
+export const resubmitAuthorRevision = async (submissionId, payload) => {
+  const response = await api.post(`/submissions/${submissionId}/resubmit-revision`, payload);
+  return response.data?.data?.submission ?? null;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ── EDITOR DASHBOARD SERVICES ────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────

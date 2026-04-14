@@ -16,7 +16,13 @@ import {
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import useDashboard from "../../hooks/useDashboard";
-import { acceptConsentFromDashboard, rejectConsentFromDashboard } from "../../services/dashboardService";
+import {
+  acceptConsentFromDashboard,
+  rejectConsentFromDashboard,
+  fetchSubmissionById,
+  uploadDashboardFile,
+  resubmitAuthorRevision,
+} from "../../services/dashboardService";
 import EditorDashboard from "../EditorDashboard/EditorDashboard";   // ← NEW import
 import TechnicalEditorDashboard from "../TechnicalEditorDashboard/TechnicalEditorDashboard";
 import ReviewerDashboard from "../ReviewerDashboard/ReviewerDashboard";
@@ -95,6 +101,12 @@ const Btn = ({ icon: I, label, color, onClick, disabled = false }) => (
     <I style={{ width: 11, height: 11 }} />{label}
   </button>
 );
+
+const formatFileSize = (size = 0) => {
+  if (!size) return "0 KB";
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+};
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
@@ -375,7 +387,7 @@ const NewSubmissionBanner = ({ onClick }) => (
 
 // ─── AUTHOR TABLE ─────────────────────────────────────────────────────────────
 
-const AuthorTable = ({ subs, nav }) => (
+const AuthorTable = ({ subs, nav, onRevise }) => (
   <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
     <div style={{ padding: "15px 20px", borderBottom: "2px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.92rem" }}>My Submissions</span>
@@ -418,7 +430,7 @@ const AuthorTable = ({ subs, nav }) => (
                       icon={Upload}
                       label="Revise"
                       color="#b45309"
-                      onClick={() => nav(`/submit?revise=${s.id}`)}
+                      onClick={() => onRevise?.(s)}
                       disabled={s.status !== "REVISION_REQUESTED"}
                     />
                     {s.status !== "DRAFT" && <Btn icon={Eye} label="View" color="#0e7490" onClick={() => nav(`/submissions/${s.id}`)} />}
@@ -432,6 +444,322 @@ const AuthorTable = ({ subs, nav }) => (
     )}
   </div>
 );
+
+const FileListBlock = ({ files = [], emptyText = "No files uploaded." }) => {
+  if (!files.length) {
+    return <div style={{ fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>{emptyText}</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {files.map((file, index) => (
+        <div
+          key={`${file.fileUrl || file.fileName || "file"}-${index}`}
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: 8,
+            background: "#fff",
+            padding: "10px 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#1e293b", overflowWrap: "anywhere" }}>
+              {file.fileName || "Unnamed file"}
+            </div>
+            <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>
+              {formatFileSize(file.fileSize)}{file.uploadedAt ? ` • ${new Date(file.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
+            </div>
+          </div>
+          {file.fileUrl && (
+            <a
+              href={file.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 11px",
+                borderRadius: 7,
+                border: "1px solid #cbd5e1",
+                background: "#fff",
+                color: "#0f3460",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Eye style={{ width: 12, height: 12 }} />
+              Open
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const RevisionUploadField = ({
+  label,
+  helperText,
+  files,
+  multiple = false,
+  onPick,
+  onRemove,
+  uploading = false,
+  required = false,
+}) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      {label} {required && <span style={{ color: "#dc2626" }}>*</span>}
+      {helperText && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#94a3b8" }}> {helperText}</span>}
+    </label>
+    <input
+      type="file"
+      multiple={multiple}
+      onChange={onPick}
+      disabled={uploading}
+      style={{
+        padding: "10px 12px",
+        borderRadius: 8,
+        border: "1.5px dashed #cbd5e1",
+        background: "#f8fafc",
+        fontSize: "0.78rem",
+      }}
+    />
+    {uploading && <div style={{ fontSize: "0.72rem", color: "#0e7490" }}>Uploading...</div>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {(files || []).length === 0 && (
+        <div style={{ fontSize: "0.74rem", color: "#94a3b8", fontStyle: "italic" }}>No files selected yet.</div>
+      )}
+      {(files || []).map((file, index) => (
+        <div
+          key={`${file.fileUrl || file.fileName || label}-${index}`}
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: 8,
+            background: "#fff",
+            padding: "9px 11px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "0.77rem", color: "#1e293b", fontWeight: 600, overflowWrap: "anywhere" }}>{file.fileName}</div>
+            <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>{formatFileSize(file.fileSize)}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            style={{
+              border: "none",
+              background: "#fee2e2",
+              color: "#dc2626",
+              borderRadius: 7,
+              padding: "6px 10px",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose, onSubmit }) => {
+  const [coverLetter, setCoverLetter] = useState([]);
+  const [blindManuscriptFile, setBlindManuscriptFile] = useState([]);
+  const [figures, setFigures] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [supplementaryFiles, setSupplementaryFiles] = useState([]);
+  const [uploadingKey, setUploadingKey] = useState("");
+
+  const editorBlock = submission?._editorRemarksForAuthor || null;
+  const canSubmit = coverLetter.length > 0 && blindManuscriptFile.length > 0 && !uploadingKey && !detailLoading && !submitting;
+
+  const uploadFiles = async (fileList, setter, multiple = false) => {
+    const selected = Array.from(fileList || []);
+    if (!selected.length) return;
+
+    setUploadingKey("active");
+    try {
+      const uploaded = [];
+      for (const file of selected) {
+        const uploadedFile = await uploadDashboardFile(file, "supplementary");
+        uploaded.push(uploadedFile);
+      }
+      setter((prev) => (multiple ? [...prev, ...uploaded] : uploaded.slice(0, 1)));
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || "Failed to upload file.");
+    } finally {
+      setUploadingKey("");
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.52)",
+        zIndex: 320,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 860,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 24px 60px rgba(15,23,42,0.18)",
+        }}
+      >
+        <div style={{ padding: "18px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.98rem" }}>Resubmit Revised Manuscript</div>
+            <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 4 }}>{submission?.title || "Loading submission..."}</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ border: "none", background: "#f8fafc", color: "#64748b", borderRadius: 8, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <X style={{ width: 15, height: 15 }} />
+          </button>
+        </div>
+
+        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
+          {detailLoading ? (
+            <div style={{ padding: "26px 18px", textAlign: "center", color: "#64748b", fontSize: "0.82rem" }}>Loading revision details...</div>
+          ) : (
+            <>
+              <div style={{ border: "1px solid #fde68a", background: "#fffbeb", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.06em" }}>Editor's Remarks</div>
+                  <div style={{ fontSize: "0.82rem", color: "#78350f", marginTop: 8, lineHeight: 1.65 }}>
+                    {editorBlock?.remarks || "No remarks were recorded."}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Attachments</div>
+                  <FileListBlock files={editorBlock?.attachments || []} emptyText="Editor did not upload any attachments." />
+                </div>
+              </div>
+
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#0f3460", fontSize: "0.92rem" }}>Upload Revised Files</div>
+                  <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 4 }}>Replace the live manuscript files for this submission. Your previous files stay preserved in earlier cycle versions.</div>
+                </div>
+
+                <RevisionUploadField
+                  label="Cover Letter"
+                  helperText="Required"
+                  files={coverLetter}
+                  onPick={(e) => uploadFiles(e.target.files, setCoverLetter, false)}
+                  onRemove={(index) => setCoverLetter((prev) => prev.filter((_, i) => i !== index))}
+                  uploading={uploadingKey === "active"}
+                  required
+                />
+
+                <RevisionUploadField
+                  label="Blind Manuscript"
+                  helperText="Required"
+                  files={blindManuscriptFile}
+                  onPick={(e) => uploadFiles(e.target.files, setBlindManuscriptFile, false)}
+                  onRemove={(index) => setBlindManuscriptFile((prev) => prev.filter((_, i) => i !== index))}
+                  uploading={uploadingKey === "active"}
+                  required
+                />
+
+                <RevisionUploadField
+                  label="Figures"
+                  helperText="Optional, multiple allowed"
+                  files={figures}
+                  multiple
+                  onPick={(e) => uploadFiles(e.target.files, setFigures, true)}
+                  onRemove={(index) => setFigures((prev) => prev.filter((_, i) => i !== index))}
+                  uploading={uploadingKey === "active"}
+                />
+
+                <RevisionUploadField
+                  label="Tables"
+                  helperText="Optional, multiple allowed"
+                  files={tables}
+                  multiple
+                  onPick={(e) => uploadFiles(e.target.files, setTables, true)}
+                  onRemove={(index) => setTables((prev) => prev.filter((_, i) => i !== index))}
+                  uploading={uploadingKey === "active"}
+                />
+
+                <RevisionUploadField
+                  label="Supplementary Files"
+                  helperText="Optional, multiple allowed"
+                  files={supplementaryFiles}
+                  multiple
+                  onPick={(e) => uploadFiles(e.target.files, setSupplementaryFiles, true)}
+                  onRemove={(index) => setSupplementaryFiles((prev) => prev.filter((_, i) => i !== index))}
+                  uploading={uploadingKey === "active"}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button onClick={onClose} disabled={submitting} style={{ padding: "9px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit({
+              coverLetter: coverLetter[0],
+              blindManuscriptFile: blindManuscriptFile[0],
+              figures,
+              tables,
+              supplementaryFiles,
+            })}
+            disabled={!canSubmit}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 8,
+              border: "none",
+              background: canSubmit ? "linear-gradient(135deg,#0f3460,#1a4a7a)" : "#cbd5e1",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: "0.8rem",
+              cursor: canSubmit ? "pointer" : "not-allowed",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            {submitting && <Loader style={{ width: 13, height: 13, animation: "spin 0.8s linear infinite" }} />}
+            {submitting ? "Submitting..." : "Submit Revised Files"}
+          </button>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+};
 
 // ─── CO-AUTHOR TABLE ──────────────────────────────────────────────────────────
 
@@ -575,6 +903,10 @@ const UserDashboard = () => {
   const [adminNavAction, setAdminNavAction] = useState(null);
   const [rejectModal, setRejectModal] = useState(null);
   const [consentLoading, setConsentLoading] = useState({});
+  const [revisionModal, setRevisionModal] = useState(null);
+  const [revisionDetail, setRevisionDetail] = useState(null);
+  const [revisionDetailLoading, setRevisionDetailLoading] = useState(false);
+  const [revisionSubmitting, setRevisionSubmitting] = useState(false);
 
   const { authorSubmissions, coAuthorSubmissions, fullProfile, loading, error, refetch } = useDashboard();
 
@@ -607,6 +939,38 @@ const UserDashboard = () => {
       alert("Error: " + (err.response?.data?.message || err.message));
     } finally {
       setConsentLoading(p => ({ ...p, [submissionId]: false }));
+    }
+  };
+
+  const handleOpenRevisionModal = async (submission) => {
+    setRevisionModal({ submissionId: submission.id, title: submission.title });
+    setRevisionDetail(null);
+    setRevisionDetailLoading(true);
+    try {
+      const detail = await fetchSubmissionById(submission.id);
+      setRevisionDetail(detail);
+    } catch (err) {
+      alert("Error: " + (err.response?.data?.message || err.message));
+      setRevisionModal(null);
+    } finally {
+      setRevisionDetailLoading(false);
+    }
+  };
+
+  const handleSubmitRevision = async (payload) => {
+    if (!revisionModal?.submissionId) return;
+
+    setRevisionSubmitting(true);
+    try {
+      await resubmitAuthorRevision(revisionModal.submissionId, payload);
+      alert("✓ Revised manuscript submitted successfully!");
+      setRevisionModal(null);
+      setRevisionDetail(null);
+      refetch();
+    } catch (err) {
+      alert("Error: " + (err.response?.data?.message || err.message));
+    } finally {
+      setRevisionSubmitting(false);
     }
   };
 
@@ -764,7 +1128,7 @@ const UserDashboard = () => {
                     <ProfileCard user={user} />
                     <Stats subs={authorSubmissions} />
                     <NewSubmissionBanner onClick={() => navigate("/submit")} />
-                    <AuthorTable subs={authorSubmissions} nav={navigate} />
+                    <AuthorTable subs={authorSubmissions} nav={navigate} onRevise={handleOpenRevisionModal} />
                   </div>
                 )}
 
@@ -787,7 +1151,7 @@ const UserDashboard = () => {
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <Stats subs={authorSubmissions} />
                         <NewSubmissionBanner onClick={() => navigate("/submit")} />
-                        <AuthorTable subs={authorSubmissions} nav={navigate} />
+                        <AuthorTable subs={authorSubmissions} nav={navigate} onRevise={handleOpenRevisionModal} />
                       </div>
                     )}
                     {activeTab === "coauthor" && (
@@ -815,6 +1179,20 @@ const UserDashboard = () => {
           onSubmit={remark => handleRejectConsent(rejectModal.submissionId, remark)}
           onSkip={() => setRejectModal(null)}
           isLoading={consentLoading[rejectModal.submissionId] || false}
+        />
+      )}
+
+      {revisionModal && (
+        <RevisionResubmitModal
+          submission={revisionDetail || { title: revisionModal.title }}
+          detailLoading={revisionDetailLoading}
+          submitting={revisionSubmitting}
+          onClose={() => {
+            if (revisionSubmitting) return;
+            setRevisionModal(null);
+            setRevisionDetail(null);
+          }}
+          onSubmit={handleSubmitRevision}
         />
       )}
     </div>

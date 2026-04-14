@@ -9,6 +9,7 @@ import {
     createSubmissionSchema,
     updateSubmissionSchema,
     submitManuscriptSchema,
+    resubmitAuthorRevisionSchema,
     getSubmissionByIdSchema,
     updateStatusSchema,
     updatePaymentStatusSchema,
@@ -54,6 +55,7 @@ const {
     getSubmissionById,
     updateSubmission,
     submitManuscript,
+    resubmitAuthorRevision,
     listSubmissions,
     updateStatus,
     updatePaymentStatus,
@@ -399,8 +401,9 @@ router.patch(
  * 
  * Side Effects:
  * - Generates submission number
- * - Sends invitation emails to suggested reviewers
- * - Sends confirmation email to author
+ * - Creates Cycle 1 + initial manuscript version
+ * - Sends co-author consent emails if needed
+ * - Sends reviewer invitation emails
  * - Status changes to SUBMITTED
  */
 router.post(
@@ -408,6 +411,39 @@ router.post(
     requireAuth,
     validateRequest(submitManuscriptSchema),
     asyncHandler(submitManuscript)
+);
+
+/**
+ * AUTHOR RESUBMIT REVISION
+ *
+ * POST /api/submissions/:id/resubmit-revision
+ * Headers: Authorization: Bearer <token>
+ * Body: {
+ *   coverLetter: {...},
+ *   blindManuscriptFile: {...},
+ *   figures?: [...],
+ *   tables?: [...],
+ *   supplementaryFiles?: [...]
+ * }
+ *
+ * Auth: Required
+ * Permission: Author only
+ *
+ * Valid only when submission.status = REVISION_REQUESTED
+ *
+ * Side Effects:
+ * - Keeps same Submission record
+ * - Replaces live manuscript files on the submission
+ * - Creates next SubmissionCycle
+ * - Creates new INITIAL_SUBMISSION version in that new cycle
+ * - Moves submission status back to SUBMITTED
+ * - Resets assigned reviewers for the new review round
+ */
+router.post(
+    "/:id/resubmit-revision",
+    requireAuth,
+    validateRequest(resubmitAuthorRevisionSchema),
+    asyncHandler(resubmitAuthorRevision)
 );
 
 // ============================================================

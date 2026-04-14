@@ -235,6 +235,33 @@ const createInitialCycle = async (submissionId) => {
     }
 };
 
+const createNextCycle = async (submissionId) => {
+    try {
+        const latestCycle = await SubmissionCycle.findOne({ submissionId })
+            .sort({ cycleNumber: -1 })
+            .select("cycleNumber");
+
+        const nextCycleNumber = (latestCycle?.cycleNumber || 0) + 1;
+
+        const cycle = await SubmissionCycle.create({
+            submissionId,
+            cycleNumber: nextCycleNumber,
+            status: "IN_PROGRESS",
+        });
+
+        console.log(`🔵 [HELPER] Next cycle ${nextCycleNumber} created for submission ${submissionId}`);
+        return cycle;
+    } catch (error) {
+        console.error("❌ [HELPER] Failed to create next cycle:", error);
+        throw new AppError(
+            "Failed to create next cycle",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "NEXT_CYCLE_CREATION_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
 // ================================================
 // GENERATE CLOUDINARY UPLOAD URL (NEW)
 // ================================================
@@ -747,6 +774,14 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
             }));
         }
 
+        if (permissionCheck.viewLevel === "FULL" && submission.currentCycleId) {
+            const currentCycle = await SubmissionCycle.findById(submission.currentCycleId)
+                .select("editorRemarksForAuthor")
+                .lean();
+
+            submissionObj._editorRemarksForAuthor = currentCycle?.editorRemarksForAuthor || null;
+        }
+
         const filteredSubmission = filterSubmissionByViewLevel(
             submissionObj,
             permissionCheck.viewLevel,
@@ -1216,6 +1251,95 @@ const submitManuscript = async (submissionId, userId, payload) => {
             "Failed to submit manuscript",
             STATUS_CODES.INTERNAL_SERVER_ERROR,
             "SUBMIT_MANUSCRIPT_ERROR",
+            { originalError: error.message }
+        );
+    }
+};
+
+const resubmitAuthorRevision = async (submissionId, userId, payload) => {
+    try {
+        console.log("🔵 [SERVICE] resubmitAuthorRevision started");
+
+        const submission = await findSubmissionById(submissionId);
+
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
+        if (submission.author.toString() !== userId) {
+            throw new AppError("Only the author can resubmit this manuscript", STATUS_CODES.FORBIDDEN, "FORBIDDEN");
+        }
+
+        if (submission.status !== "REVISION_REQUESTED") {
+            throw new AppError(
+                "This manuscript is not currently awaiting author revision",
+                STATUS_CODES.BAD_REQUEST,
+                "REVISION_NOT_REQUESTED"
+            );
+        }
+
+        if (!payload.coverLetter?.fileUrl) {
+            throw new AppError("Cover letter is required", STATUS_CODES.BAD_REQUEST, "COVER_LETTER_REQUIRED");
+        }
+
+        if (!payload.blindManuscriptFile?.fileUrl) {
+            throw new AppError("Blind manuscript file is required", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_FILE_REQUIRED");
+        }
+
+        submission.coverLetter = payload.coverLetter;
+        submission.blindManuscriptFile = payload.blindManuscriptFile;
+        submission.figures = payload.figures || [];
+        submission.tables = payload.tables || [];
+        submission.supplementaryFiles = payload.supplementaryFiles || [];
+
+        submission.updateStatus("SUBMITTED");
+
+        const cycle = await createNextCycle(submission._id);
+        submission.currentCycleId = cycle._id;
+
+        const fileRefs = [submission.blindManuscriptFile];
+        if (submission.coverLetter) fileRefs.push(submission.coverLetter);
+        if (submission.figures?.length > 0) fileRefs.push(...submission.figures);
+        if (submission.tables?.length > 0) fileRefs.push(...submission.tables);
+        if (submission.supplementaryFiles?.length > 0) fileRefs.push(...submission.supplementaryFiles);
+
+        const version = await manuscriptVersionService.createManuscriptVersion(
+            submission._id,
+            cycle._id,
+            userId,
+            "USER",
+            fileRefs,
+            "INITIAL_SUBMISSION"
+        );
+
+        const { Reviewer } = await import("../reviewers/reviewer.model.js");
+        await Reviewer.findOneAndUpdate(
+            { submissionId: submission._id },
+            {
+                $set: {
+                    cycleId: cycle._id,
+                    assignedReviewers: [],
+                },
+            }
+        );
+
+        await submission.save();
+
+        console.log("✅ [SERVICE] resubmitAuthorRevision completed successfully");
+
+        return {
+            message: "Revised manuscript submitted successfully",
+            submission,
+            cycle,
+            version,
+        };
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("❌ [SERVICE] Unexpected error in resubmitAuthorRevision:", error);
+        throw new AppError(
+            "Failed to resubmit revised manuscript",
+            STATUS_CODES.INTERNAL_SERVER_ERROR,
+            "AUTHOR_REVISION_RESUBMIT_ERROR",
             { originalError: error.message }
         );
     }
@@ -4026,6 +4150,7 @@ export default {
     getSubmissionById,
     updateSubmission,
     submitManuscript,
+    resubmitAuthorRevision,
     listSubmissions,
     updateStatus,
     updatePaymentStatus,

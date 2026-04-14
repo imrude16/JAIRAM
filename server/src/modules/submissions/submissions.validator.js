@@ -430,6 +430,24 @@ export const submitManuscriptSchema = {
     }),
 };
 
+export const resubmitAuthorRevisionSchema = {
+    params: Joi.object({
+        id: objectIdField("Submission ID").required(),
+    }),
+
+    body: Joi.object({
+        coverLetter: fileSchema.required().messages({
+            "any.required": "Cover letter is required",
+        }),
+        blindManuscriptFile: fileSchema.required().messages({
+            "any.required": "Blind manuscript file is required",
+        }),
+        figures: Joi.array().items(fileSchema).optional(),
+        tables: Joi.array().items(fileSchema).optional(),
+        supplementaryFiles: Joi.array().items(fileSchema).optional(),
+    }),
+};
+
 // ================================================
 // GET SUBMISSION BY ID SCHEMA
 // ================================================

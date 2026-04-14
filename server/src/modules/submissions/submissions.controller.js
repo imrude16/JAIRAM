@@ -80,6 +80,24 @@ const submitManuscript = async (req, res) => {
     );
 };
 
+const resubmitAuthorRevision = async (req, res) => {
+    const { id } = req.params;
+
+    const result = await submissionService.resubmitAuthorRevision(
+        id,
+        req.user.id,
+        req.body
+    );
+
+    sendSuccess(
+        res,
+        result.message,
+        { submission: result.submission },
+        null,
+        STATUS_CODES.OK
+    );
+};
+
 const listSubmissions = async (req, res) => {
     const result = await submissionService.listSubmissions(
         req.user.id,
@@ -644,6 +662,7 @@ export default {
     getSubmissionById,
     updateSubmission,
     submitManuscript,
+    resubmitAuthorRevision,
     listSubmissions,
     updateStatus,
     updatePaymentStatus,
