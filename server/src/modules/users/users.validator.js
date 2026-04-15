@@ -233,7 +233,11 @@ export const registerUserSchema = {
             }),
 
         orcid: Joi.string()
+            .trim()
             .pattern(/^\d{4}-\d{4}-\d{4}-\d{4}$/)
+            .optional()
+            .allow("")
+            .empty("")
             .messages({
                 "string.pattern.base": "ORCID must be in format 0000-0000-0000-0000",
             }),
