@@ -2079,7 +2079,11 @@ const SubmitManuscript = () => {
         : 0;
       if (wc === 0) e.abstract = "Abstract is required";
       else if (wc > 250) e.abstract = "Abstract must not exceed 250 words";
-      if (!formData.keywords) e.keywords = "Keywords are required";
+      const keywordsList = formData.keywords
+        ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+        : [];
+      if (keywordsList.length === 0) e.keywords = "Keywords are required";
+      else if (keywordsList.length < 3) e.keywords = "Please provide at least 3 keywords";
       if (!formData.totalWordCount) e.totalWordCount = "Word count is required";
       // if (!formData.bwFigures) e.bwFigures = "Required";
       // if (!formData.colorFigures) e.colorFigures = "Required";
@@ -3368,7 +3372,29 @@ const SubmitManuscript = () => {
                     </div>
                   </div>
                   <div>
-                    <FieldLabel required>Keywords</FieldLabel>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <FieldLabel required>Keywords</FieldLabel>
+                      {(() => {
+                        const keywordsList = formData.keywords
+                          ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+                          : [];
+                        const keywordCount = keywordsList.length;
+                        const isSufficient = keywordCount >= 3;
+                        return (
+                          <span
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                              isSufficient
+                                ? "bg-green-100 text-green-700 border border-green-300"
+                                : keywordCount === 0
+                                ? "bg-gray-100 text-gray-600 border border-gray-300"
+                                : "bg-amber-100 text-amber-700 border border-amber-300"
+                            }`}
+                          >
+                            {keywordCount}/3 required
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <KeywordsTagInput
                       value={formData.keywords}
                       onChange={(val) => handleField("keywords", val)}
@@ -3378,6 +3404,17 @@ const SubmitManuscript = () => {
                         }
                       }}
                     />
+                    {(() => {
+                      const keywordsList = formData.keywords
+                        ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+                        : [];
+                      return keywordsList.length > 0 && keywordsList.length < 3 ? (
+                        <p className="mt-2 text-sm text-amber-600 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          Add at least {3 - keywordsList.length} more keyword{3 - keywordsList.length !== 1 ? 's' : ''} to meet the minimum requirement
+                        </p>
+                      ) : null;
+                    })()}
                     <p className="text-xs text-gray-400 mt-1.5">
                       Maximum 6 keywords and According to MESH standards — press{" "}
                       <span className="font-semibold">Space</span> or{" "}
