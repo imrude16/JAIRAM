@@ -29,6 +29,8 @@ import {
   uploadDashboardFile,
   assignTechnicalEditor as assignTechnicalEditorRequest,
   assignReviewers as assignReviewersRequest,
+  fetchReviewerMajorityStatus as fetchReviewerMajorityStatusRequest,
+  moveSubmissionToReview as moveSubmissionToReviewRequest,
   searchUsersForRoleChange,
   createRoleChangeRequest as createRoleChangeRequestRequest,
   fetchMyRoleChangeRequests,
@@ -1504,6 +1506,163 @@ const RequestRevisionModal = ({ submission, onClose, onDone }) => {
   );
 };
 
+const MoveToReviewModal = ({ submission, onClose, onDone }) => {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [statusData, setStatusData] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadStatus = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const result = await fetchReviewerMajorityStatusRequest(submission._id);
+        if (!active) return;
+        setStatusData(result);
+      } catch (err) {
+        if (!active) return;
+        setError(err.response?.data?.message || "Failed to load move-to-review conditions.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadStatus();
+    return () => { active = false; };
+  }, [submission?._id]);
+
+  const totalSuggested = statusData?.totalSuggested ?? submission?.suggestedReviewers?.length ?? 0;
+  const acceptedCount = statusData?.accepted ?? 0;
+  const requiredAcceptances = statusData?.requiredAcceptances ?? Math.ceil(Math.max(totalSuggested, 0) / 2);
+  const hasAcceptedDatabaseReviewer = !!statusData?.hasAcceptedDatabaseReviewer;
+  const hasMinimumSuggestedReviewers = totalSuggested >= 2;
+  const majorityMet = !!statusData?.majorityMet;
+  const reviewerConditionMet = majorityMet || hasAcceptedDatabaseReviewer;
+  const canMove = !!statusData?.canMove && hasMinimumSuggestedReviewers && reviewerConditionMet;
+
+  const conditionRow = (ok, label, helper) => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "12px 14px",
+        borderRadius: 10,
+        border: `1px solid ${ok ? "#bbf7d0" : "#fecaca"}`,
+        background: ok ? "#f0fdf4" : "#fef2f2",
+      }}
+    >
+      <div style={{ fontSize: "1rem", lineHeight: 1.2, marginTop: 1 }}>{ok ? "✅" : "❌"}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>{label}</div>
+        <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 4, lineHeight: 1.5 }}>{helper}</div>
+      </div>
+    </div>
+  );
+
+  const handleMove = async () => {
+    try {
+      setSubmitting(true);
+      await moveSubmissionToReviewRequest(submission._id);
+      onDone("Submission moved to peer review successfully.");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to move submission to review.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="Move To Review"
+      subtitle={submission?.title || "Check whether this submission can move from Submitted to Under Review"}
+      onClose={onClose}
+      maxWidth={620}
+    >
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", fontSize: "0.9rem" }}>
+          <Loader style={{ width: 15, height: 15, animation: "spin 0.8s linear infinite" }} />
+          Checking conditions...
+        </div>
+      ) : error ? (
+        <div style={{ border: "1px solid #fecaca", background: "#fef2f2", color: "#b91c1c", padding: "12px 14px", borderRadius: 10, fontSize: "0.85rem" }}>
+          {error}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {conditionRow(
+            hasMinimumSuggestedReviewers,
+            "At least two Suggested Reviewers required",
+            `${totalSuggested} suggested reviewer${totalSuggested === 1 ? "" : "s"} currently available`
+          )}
+
+          {conditionRow(
+            reviewerConditionMet,
+            "Suggested Reviewer invitation accepted",
+            `Majority accepted: ${acceptedCount}/${totalSuggested} (need ${requiredAcceptances}) OR one accepted DATABASE_SEARCH reviewer`
+          )}
+
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: canMove ? "#eff6ff" : "#f8fafc",
+              border: `1px solid ${canMove ? "#bfdbfe" : "#e2e8f0"}`,
+              color: "#334155",
+              fontSize: "0.8rem",
+              lineHeight: 1.55,
+            }}
+          >
+            {canMove
+              ? "All required backend conditions are satisfied. You can now move this submission to Under Review."
+              : "One or more required conditions are not met yet. The Move To Review button stays disabled until all required conditions pass."}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "9px 14px",
+            borderRadius: 8,
+            border: "1px solid #cbd5e1",
+            background: "#fff",
+            color: "#334155",
+            fontWeight: 700,
+            fontSize: "0.82rem",
+            cursor: "pointer",
+          }}
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={handleMove}
+          disabled={loading || !!error || !canMove || submitting}
+          style={{
+            padding: "9px 14px",
+            borderRadius: 8,
+            border: "1px solid #0e7490",
+            background: loading || !!error || !canMove || submitting ? "#cbd5e1" : "#0e7490",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: "0.82rem",
+            cursor: loading || !!error || !canMove || submitting ? "not-allowed" : "pointer",
+            opacity: loading || !!error || !canMove || submitting ? 0.75 : 1,
+          }}
+        >
+          {submitting ? "Moving..." : "Move To Review"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+};
+
 const PaymentModal = ({ submission, onClose, onDone }) => {
   const [newStatus, setNewStatus] = useState(!submission.paymentStatus);
   const [note, setNote] = useState("");
@@ -1807,6 +1966,14 @@ const EditorTable = ({ subs, onAction }) => {
                       {/* View — always visible */}
                       <EBtn icon={Eye} label="View" color="#0e7490" onClick={() => onAction("view", sub)} />
 
+                      <EBtn
+                        icon={CheckCircle}
+                        label="Move To Review"
+                        color="#0e7490"
+                        onClick={() => onAction("moveToReview", sub)}
+                        disabled={sub.status !== "SUBMITTED"}
+                      />
+
                       {/* Tech Ed — disabled if already assigned OR submission is Accepted/Rejected */}
                       <EBtn
                         icon={UserPlus} label="Tech Ed" color="#7c3aed"
@@ -1831,7 +1998,9 @@ const EditorTable = ({ subs, onAction }) => {
                       <EBtn
                         icon={FileText} label="Request Revision" color="#b45309"
                         onClick={() => onAction("requestRevision", sub)}
-                        disabled={sub.status === "ACCEPTED" || sub.status === "REJECTED"}
+                        disabled={
+                          !["UNDER_REVIEW", "REVISION_REQUESTED", "PROVISIONALLY_ACCEPTED"].includes(sub.status)
+                        }
                       />
 
                       <EBtn
@@ -2026,6 +2195,10 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
       navigate(`/submissions/${submission._id}`);
       return;
     }
+    if (type === "moveToReview") {
+      setModal({ type, submission });
+      return;
+    }
     if (type === "provisionallyAccept") {
       try {
         await api.put(`/submissions/${submission._id}/status`, {
@@ -2201,6 +2374,13 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
       )}
       {modal?.type === "requestRevision" && (
         <RequestRevisionModal
+          submission={modal.submission}
+          onClose={() => setModal(null)}
+          onDone={handleModalDone}
+        />
+      )}
+      {modal?.type === "moveToReview" && (
+        <MoveToReviewModal
           submission={modal.submission}
           onClose={() => setModal(null)}
           onDone={handleModalDone}

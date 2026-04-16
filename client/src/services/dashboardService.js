@@ -219,6 +219,22 @@ export const assignReviewers = async (submissionId, reviewerIds, remarks, revise
   return response.data?.data ?? null;
 };
 
+// FETCH REVIEWER MAJORITY / MOVE-TO-REVIEW ELIGIBILITY STATUS
+// Endpoint : GET /api/submissions/:id/reviewer-majority-status
+//
+export const fetchReviewerMajorityStatus = async (submissionId) => {
+  const response = await api.get(`/submissions/${submissionId}/reviewer-majority-status`);
+  return response.data?.data?.majorityStatus ?? null;
+};
+
+// MOVE SUBMISSION TO REVIEW
+// Endpoint : POST /api/submissions/:id/move-to-review
+//
+export const moveSubmissionToReview = async (submissionId) => {
+  const response = await api.post(`/submissions/${submissionId}/move-to-review`);
+  return response.data?.data ?? null;
+};
+
 // MAKE EDITOR DECISION (Accept or Reject)
 // Endpoint : POST /api/submissions/:id/editor-decision
 // Body     : { decision: "ACCEPT"|"REJECT", decisionStage: string, remarks?: string }
