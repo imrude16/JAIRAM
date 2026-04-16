@@ -152,10 +152,8 @@ const ContactInfoItem = ({ icon: Icon, title, lines, delay }) => (
 // Social Media Component
 const SocialMediaLinks = () => {
   const socials = [
-    { icon: Facebook, color: "hover:bg-blue-600", label: "Facebook" },
     { icon: Twitter, color: "hover:bg-sky-500", label: "Twitter" },
     { icon: Linkedin, color: "hover:bg-blue-700", label: "LinkedIn" },
-    { icon: Instagram, color: "hover:bg-pink-600", label: "Instagram" },
   ];
 
   return (
@@ -320,19 +318,21 @@ const ContactForm = () => {
                     Office Hours
                   </h4>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-700 font-medium">
                         Monday - Friday
                       </span>
-                      <span className="text-blue-600 font-semibold">
+                      <span className="text-blue-600 font-semibold w-[140px] text-right">
                         9:00 AM - 5:00 PM
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-gray-700 font-medium">
                         Saturday - Sunday
                       </span>
-                      <span className="text-red-600 font-semibold">Closed</span>
+                      <span className="text-red-600 font-semibold w-[140px] text-right">
+                        Closed
+                      </span>
                     </div>
                   </div>
                   <p className="text-xs text-gray-600 mt-3">
@@ -486,29 +486,6 @@ const ContactForm = () => {
               +1 (555) 123-4567
             </button>
           </Card>
-
-          <Card
-            hover
-            className="text-center animate-slideUp"
-            style={{ animationDelay: "900ms" }}
-          >
-            <div className="w-16 h-16 bg-linear-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="font-bold text-gray-900 mb-2">Live Chat</h3>
-            <p className="text-sm text-gray-600 mb-3">Chat with our team now</p>
-            <button className="text-purple-600 font-semibold hover:underline">
-              Start Conversation
-            </button>
-          </Card>
-        </div>
-
-        {/* FAQ Link */}
-        <div className="text-center mt-12 animate-fadeIn">
-          <p className="text-gray-600 mb-3">Looking for quick answers?</p>
-          <button className="text-blue-600 font-semibold hover:underline text-lg">
-            Visit our FAQ Section →
-          </button>
         </div>
       </div>
 

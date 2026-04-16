@@ -42,12 +42,12 @@ export default function ArticleProcessingCharge() {
                 <h2 className="font-bold mb-1">
                   ● INR 10,000 (≈ USD 120 / EUR 110)
                 </h2>{" "}
-                Original Research Articles, Case Reports, Case Series, Clinical
+                Original Research Articles, Review Articles, Systematic Reviews, Meta-Analyses, Editorials Clinical
                 Trials <br />
                 <h2 className="mt-5 font-bold">
                   ● ₹6,000 (≈ USD 75 / EUR 65)
                 </h2>{" "}
-                Review Articles, Systematic Reviews, Meta-Analyses, Editorials
+                Case Reports, Case Series
               </p>
               <section className="border-l-4 border-gray-500 pl-6 bg-blue-50 bg-opacity-40 py-6 pr-6 rounded-r-lg">
                 <p className="text-start text-gray-700 leading-relaxed text-lg">

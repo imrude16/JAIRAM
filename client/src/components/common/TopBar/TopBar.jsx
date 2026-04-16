@@ -279,57 +279,59 @@ const TopBar = () => {
         {/* Left actions */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Login/Register Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLoginMenu((v) => !v)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm"
-              style={{
-                color: "#0f2a44",
-                border: "1px solid rgba(15,42,68,0.25)",
-                background: "rgba(255,255,255,0.75)",
-              }}
-            >
-              <User size={14} />
-              Log in / Register
-              <ChevronDown
-                size={12}
-                style={{
-                  transition: "transform 0.2s",
-                  transform: showLoginMenu ? "rotate(180deg)" : "rotate(0deg)",
-                }}
-              />
-            </button>
+         {!isAuthenticated && (
+  <div className="relative">
+    <button
+      onClick={() => setShowLoginMenu((v) => !v)}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm"
+      style={{
+        color: "#0f2a44",
+        border: "1px solid rgba(15,42,68,0.25)",
+        background: "rgba(255,255,255,0.75)",
+      }}
+    >
+      <User size={14} />
+      Log in / Register
+      <ChevronDown
+        size={12}
+        style={{
+          transition: "transform 0.2s",
+          transform: showLoginMenu ? "rotate(180deg)" : "rotate(0deg)",
+        }}
+      />
+    </button>
 
-            {showLoginMenu && (
-              <div
-                className="absolute left-0 mt-2 w-44 rounded-lg shadow-lg overflow-hidden z-50"
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid rgba(15,42,68,0.2)",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleLogin}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-blue-50"
-                  style={{ color: "#0f2a44" }}
-                >
-                  <LogIn size={14} className="text-blue-700" />
-                  Log In
-                </button>
+    {showLoginMenu && (
+      <div
+        className="absolute left-0 mt-2 w-44 rounded-lg shadow-lg overflow-hidden z-50"
+        style={{
+          background: "#ffffff",
+          border: "1px solid rgba(15,42,68,0.2)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleLogin}
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-blue-50"
+          style={{ color: "#0f2a44" }}
+        >
+          <LogIn size={14} className="text-blue-700" />
+          Log In
+        </button>
 
-                <button
-                  type="button"
-                  onClick={handleRegister}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-green-50 border-t"
-                  style={{ color: "#0f2a44" }}
-                >
-                  <UserPlus size={14} className="text-green-700" />
-                  Register
-                </button>
-              </div>
-            )}
-          </div>
+        <button
+          type="button"
+          onClick={handleRegister}
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-green-50 border-t"
+          style={{ color: "#0f2a44" }}
+        >
+          <UserPlus size={14} className="text-green-700" />
+          Register
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
           {/* Submit Manuscript (Primary CTA) */}
           <div className="relative">

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import api from "../../../services/api";
 import externalApi from "../../../services/externalApi"; // For search functions, to avoid auth issues with main api
+import { useNavigate } from "react-router-dom";
 import {
   Upload,
   Send,
@@ -1941,6 +1942,7 @@ const SubmitManuscript = () => {
     React.useState(false);
   // Replaced COPE with submission declaration checkbox
   const [submissionDeclared, setSubmissionDeclared] = React.useState(false);
+  const navigate = useNavigate();
   const [authorDraft, setAuthorDraft] = React.useState({
     title: "Dr.",
     firstName: "",
@@ -2733,31 +2735,17 @@ const SubmitManuscript = () => {
   }
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background:
-          "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)",
-      }}
-    >
-      <div
-        className="h-1.5 w-full"
-        style={{
-          background:
-            "linear-gradient(90deg, #0f3460 0%, #92701a 30%, #0e7490 65%, #0f3460 100%)",
-        }}
-      />
-
-      <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="min-h-screen">
+      <div className="max-w-5xl mx-auto px-6 py-6">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 bg-white rounded-2xl px-7 py-3.5 shadow-sm border border-[#c8d5e4] mb-6">
+         {/*} <div className="inline-flex items-center gap-3 bg-white rounded-2xl px-7 py-3.5 shadow-sm border border-[#c8d5e4] mb-6">
             <FlaskConical className="w-5 h-5 text-[#0e7490]" />
             <span className="text-sm font-bold text-[#0f3460] uppercase tracking-widest">
               Journal of Advanced & Integrated Research in Acute Medicine
             </span>
             <Stethoscope className="w-5 h-5 text-[#0f3460]" />
-          </div>
+          </div>*/}
           <h1 className="text-4xl font-black text-gray-900 mb-4 leading-tight">
             Submit Your <span style={{ color: "#0f3460" }}>Manuscript</span>
           </h1>
@@ -3661,7 +3649,7 @@ const SubmitManuscript = () => {
                       {[
                         "To connect a co-author's 16-digit ORCID iD, use the Send ORCID authentication email option from the Add Co-authors page.",
                         "The co-author will receive an email with a verification link and must confirm their ORCID through the link.",
-                        "Once verified, the ORCID iD will be successfully linked to the co-author's account.",
+                        "Once verified, the ORCID will be successfully linked to the co-author's account.",
                       ].map((pt, i) => (
                         <div
                           key={i}
@@ -4181,6 +4169,7 @@ const SubmitManuscript = () => {
         isOpen={showSuccess}
         onClose={() => {
           setShowSuccess(false);
+          navigate("/dashboard");
           setSubmissionNumber(null);
         }}
         submissionNumber={submissionNumber}

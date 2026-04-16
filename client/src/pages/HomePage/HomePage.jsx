@@ -1,104 +1,33 @@
 import React, { useState } from "react";
-import {
-  Calendar,
-  FileText,
-  Download,
-  BookOpen,
-  ChevronRight,
-  Bell,
-  Search,
-  ExternalLink,
-  Clock,
-  Eye,
-  Mail,
-  User,
-  Menu,
-  ChevronDown,
-} from "lucide-react";
+import { BookOpen, Clock } from "lucide-react";
 
-import HeroSection from "../../components/home/HeroSection/HeroSection";
-import Navigation from "../../components/layout/Navigation/Navigation";
 import CurrentIssue from "../../components/home/CurrentIssue/CurrentIssue";
-import ArticleList from "../../components/home/ArticleList/ArticleList";
-import QuickLinks from "../../components/sidebar/QuickLinks/QuickLinks";
-import CurrentIssueSidebar from "../../components/sidebar/CurrentIssueSidebar/CurrentIssueSidebar";
 import Announcements from "../../components/home/Announcements/Announcements";
-import { mockCurrentIssue, mockArticles } from "../../data/mockData";
+import { mockCurrentIssue } from "../../data/mockData";
 
 const HomePage = ({ onArticleClick, onSearch }) => {
-  const [activeTab, setActiveTab] = useState("featured");
-
-  const tabs = [
-    { id: "featured", label: "Featured Articles" },
-    { id: "recent", label: "Most Recent" },
-    { id: "popular", label: "Most Popular" },
-  ];
-
   return (
     <div className="min-h-screen bg-stone-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Sidebar */}
-          <div className="lg:col-span-2">
-            <CurrentIssue issue={mockCurrentIssue} />
+        
+        {/* Current Issue */}
+        <CurrentIssue issue={mockCurrentIssue} />
+
+        {/* Coming Soon - below the current issue */}
+        <div className="mt-8 text-center py-16 px-8 bg-white rounded-2xl shadow-sm border border-gray-100 w-full">
+          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <BookOpen className="w-10 h-10 text-blue-500" />
           </div>
-
-          {/* Quick Links */}
-          {/* <div className="lg:col-span-1 space-y-6">
-            <QuickLinks />
-          </div> */}
-
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {/* Tabs */}
-            <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
-              <div className="flex border-b">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 px-6 py-4 font-semibold transition-all ${
-                      activeTab === tab.id
-                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                        : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Articles */}
-            <ArticleList
-              articles={mockArticles}
-              onArticleClick={onArticleClick}
-            />
-
-            {/* Pagination */}
-            <div className="mt-8 flex justify-center">
-              <nav className="flex items-center space-x-2">
-                <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  Previous
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">
-                  1
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  2
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  3
-                </button>
-                <span className="px-4 py-2 text-sm text-gray-500">...</span>
-                <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  10
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  Next
-                </button>
-              </nav>
-            </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            Articles Coming Soon
+          </h2>
+          <p className="text-gray-500 text-sm leading-relaxed max-w-sm mx-auto mb-6">
+            We are currently reviewing submissions for our inaugural issue.
+            Published articles will appear here shortly.
+          </p>
+          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-medium px-4 py-2 rounded-full">
+            <Clock className="w-3.5 h-3.5" />
+            Jan–Jun 2026 · Volume 1 · Issue 1
           </div>
         </div>
 
@@ -106,6 +35,7 @@ const HomePage = ({ onArticleClick, onSearch }) => {
         <div className="mt-16">
           <Announcements />
         </div>
+
       </main>
     </div>
   );

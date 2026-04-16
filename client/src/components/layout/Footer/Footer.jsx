@@ -1,16 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Mail,
-  Phone,
-  MapPin,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Youtube,
   Send,
   AlertCircle,
   CheckCircle,
-  ExternalLink,
   BookOpen,
   Award,
   Users,
@@ -54,7 +46,6 @@ const FOOTER_SECTIONS = [
     title: "Resources",
     icon: FileText,
     links: [
-      { label: "Instructions", path: "/instructions" },
       { label: "Copyright Form", path: "/authors/copyright" },
       { label: "Indexing", path: "/indexing" },
       { label: "FAQs", path: "/faqs" },
@@ -63,58 +54,43 @@ const FOOTER_SECTIONS = [
   },
 ];
 
-const SOCIAL_LINKS = [
-  {
-    icon: Facebook,
-    label: "Facebook",
-    href: "https://facebook.com",
-    color: "hover:bg-blue-600",
-  },
-  {
-    icon: Twitter,
-    label: "Twitter",
-    href: "https://twitter.com",
-    color: "hover:bg-sky-500",
-  },
-  {
-    icon: Linkedin,
-    label: "LinkedIn",
-    href: "https://linkedin.com",
-    color: "hover:bg-blue-700",
-  },
-  {
-    icon: Youtube,
-    label: "YouTube",
-    href: "https://youtube.com",
-    color: "hover:bg-red-600",
-  },
-];
-
-const FooterLinkSection = React.memo(({ section }) => {
+const FooterLinkSection = React.memo(({ section, onCopyrightClick, onComingSoon }) => {
   const navigate = useNavigate();
   const handleClick = useCallback(
-    (path) => {
+    (path, label) => {
+      // Check if it's the Copyright Form link
+      if (label === "Copyright Form") {
+        onCopyrightClick();
+        return;
+      }
+      
+      // Check if it's the Indexing link - show coming soon
+      if (label === "Indexing" || label === "Archive") {
+        onComingSoon(label);
+        return;
+      }
+      
       navigate(path);
       // Scroll to top on navigation
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [navigate],
+    [navigate, onCopyrightClick, onComingSoon],
   );
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-5">
         <section.icon className="w-5 h-5 text-blue-400" />
         <h4 className="font-semibold text-base text-white">{section.title}</h4>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-3">
         {section.links.map((link, idx) => (
           <li key={idx}>
             <button
-              onClick={() => handleClick(link.path)}
-              className="text-gray-300 hover:text-blue-400 transition-colors text-sm flex items-center gap-1.5 group"
+              onClick={() => handleClick(link.path, link.label)}
+              className="text-gray-300 hover:text-blue-300 transition-colors text-sm flex items-center gap-2 group"
             >
-              <span className="w-1 h-1 bg-blue-500 rounded-full group-hover:bg-blue-400 transition-colors"></span>
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full group-hover:bg-blue-300 transition-colors"></span>
               <span>{link.label}</span>
             </button>
           </li>
@@ -125,6 +101,64 @@ const FooterLinkSection = React.memo(({ section }) => {
 });
 
 FooterLinkSection.displayName = "FooterLinkSection";
+
+// Coming Soon Modal Component
+const ComingSoonModal = React.memo(({ isOpen, onClose, title }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-md flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg px-6 py-6 flex items-start justify-between">
+          <div>
+            <h2 className="text-white text-2xl font-bold">Coming Soon</h2>
+            <p className="text-blue-100 text-sm mt-1">JAIRAM</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 bg-blue-500 hover:bg-blue-400 rounded-full flex items-center justify-center text-white transition-colors ml-4 mt-1 shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="px-6 py-8 text-center">
+          <div className="mb-6 flex justify-center">
+            <AlertCircle className="w-16 h-16 text-blue-600 opacity-80" />
+          </div>
+          <p className="text-gray-800 font-semibold text-lg mb-2">
+            {title}
+          </p>
+          <p className="text-gray-600 text-sm leading-relaxed">
+            This feature is currently under development. We're working hard to bring this to you soon. Thank you for your patience!
+          </p>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ComingSoonModal.displayName = "ComingSoonModal";
 
 const NewsletterSection = React.memo(() => {
   const [email, setEmail] = useState("");
@@ -168,28 +202,28 @@ const NewsletterSection = React.memo(() => {
   );
 
   return (
-    <div className="bg-linear-to-br from-blue-900/20 to-blue-900/20 p-6 rounded-lg border border-blue-800/30">
+   <div className="bg-gradient-to-br from-blue-800/40 to-blue-900/40 p-6 rounded-xl border border-blue-700/50 backdrop-blur-sm w-full">
       <div className="flex items-center gap-2 mb-3">
-        <Send className="w-5 h-5 text-blue-400" />
-        <h4 className="font-semibold text-white">Newsletter Subscription</h4>
+        <Send className="w-5 h-5 text-blue-300" />
+        <h4 className="font-bold text-base text-white">Newsletter</h4>
       </div>
-      <p className="text-gray-300 text-sm mb-4">
+      <p className="text-gray-200 text-xs mb-4 leading-relaxed">
         Stay updated with the latest research articles and medical insights
       </p>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2">
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="flex flex-col gap-2">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-            className="flex-1 px-4 py-2.5 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            placeholder="your@email.com"
+            className="w-full px-3 py-2 bg-blue-900/50 border border-blue-600/50 rounded-lg text-white placeholder-blue-300/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-xs transition-all"
             disabled={status === "loading"}
           />
           <button
             type="submit"
             disabled={status === "loading"}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
           >
             {status === "loading" ? (
               <>
@@ -207,16 +241,16 @@ const NewsletterSection = React.memo(() => {
 
         {message && (
           <div
-            className={`flex items-start gap-2 text-sm p-3 rounded-lg ${
+            className={`flex items-start gap-2 text-xs p-2 rounded-lg ${
               status === "success"
-                ? "bg-green-900/30 text-green-300 border border-green-700/50"
-                : "bg-red-900/30 text-red-300 border border-red-700/50"
+                ? "bg-green-900/40 text-green-200 border border-green-600/50"
+                : "bg-red-900/40 text-red-200 border border-red-600/50"
             }`}
           >
             {status === "success" ? (
-              <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <CheckCircle className="w-4 h-4 shrink-0 mt-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0" />
             )}
             <span>{message}</span>
           </div>
@@ -229,70 +263,27 @@ const NewsletterSection = React.memo(() => {
 NewsletterSection.displayName = "NewsletterSection";
 
 const ContactInfo = React.memo(() => {
-  const contactItems = useMemo(
-    () => [
-      {
-        icon: Mail,
-        text: "editor@jairam.org",
-        href: "mailto:editor@jairam.org",
-        label: "Email us",
-      },
-      {
-        icon: Phone,
-        text: "+91-XXXXXXXXXX",
-        href: "tel:+91XXXXXXXXXX",
-        label: "Call us",
-      },
-      {
-        icon: MapPin,
-        text: "Lucknow, India",
-        href: "#",
-        label: "Our location",
-      },
-    ],
-    [],
-  );
-
   return (
-    <div className="lg:col-span-3">
-      <div className="flex items-start gap-5 mb-6">
-        <div className="max-w-35 md:max-w-45 lg:max-w-55">
-          <img
-            src={home}
-            alt="Journal cover"
-            className="w-full h-auto object-contain rounded-md shadow-lg"
-          />
-        </div>
-        <div className="text-start">
-          <h3 className="text-xl font-bold text-white mb-1">
-            Journal of Advanced & Integrated Research in Acute Medicine (JAIRAM)
-          </h3>
-          <p className="text-gray-300 text-sm leading-relaxed mb-6">
-            The Journal of Advanced & Integrated Research in Acute Medicine
-            (JAIRAM) is owned and published by Nexus Biomedical Research
-            Foundation Trust, a registered non-profit trust under the Indian
-            Trusts Act, 1882 (Reg. No. 202501041059811), Lucknow, Uttar Pradesh,
-            India. Editorial decisions are made independently by the Editorial
-            Board in accordance with internationally accepted ethical publishing
-            standards.JAIRAM is a peer-reviewed, open-access journal.
-          </p>
-        </div>
+    <div className="flex flex-row items-start gap-4 text-left">
+      <div className="shrink-0 w-24">
+        <img
+          src={home}
+          alt="Journal cover"
+          className="w-full h-auto object-contain rounded-lg shadow-lg"
+        />
       </div>
-
-      <div className="grid sm:grid-cols-2 gap-4 mb-6">
-        {contactItems.map((item, index) => (
-          <a
-            key={index}
-            href={item.href}
-            className="flex items-center gap-3 text-gray-300 hover:text-blue-400 transition-all duration-200 group p-3 rounded-lg hover:bg-gray-800/50"
-            aria-label={item.label}
-          >
-            <div className="bg-blue-800 p-2 rounded-lg group-hover:bg-blue-900/50 transition-colors">
-              <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            </div>
-            <span className="text-sm">{item.text}</span>
-          </a>
-        ))}
+      <div className="min-w-0">
+        <h3 className="text-base font-bold text-white mb-1 leading-snug">
+          Journal of Advanced & Integrated Research in Acute Medicine (JAIRAM)
+        </h3>
+        <p className="text-gray-300 text-xs leading-relaxed">
+          The Journal of Advanced & Integrated Research in Acute Medicine (JAIRAM) is owned and 
+          published by Nexus Biomedical Research Foundation Trust, a registered non-profit trust 
+          under the Indian Trusts Act, 1882 (Reg. No. 202501041059811), Lucknow, Uttar Pradesh, 
+          India. Editorial decisions are made independently by the Editorial Board in accordance 
+          with internationally accepted ethical publishing standards. JAIRAM is a peer-reviewed, 
+          open-access journal.
+        </p>
       </div>
     </div>
   );
@@ -448,15 +439,186 @@ const PrivacyPolicyModal = React.memo(({ onClose }) => {
 
 PrivacyPolicyModal.displayName = "PrivacyPolicyModal";
 
+// Accessibility Modal Component
+const AccessibilityModal = React.memo(({ onClose }) => {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="bg-blue-700 rounded-t-lg px-6 py-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-white text-xl font-bold">Accessibility</h2>
+            <p className="text-blue-100 text-sm mt-0.5">JAIRAM — Website Accessibility Statement</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center text-white transition-colors ml-4 mt-0.5 shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 text-gray-700 text-sm leading-relaxed space-y-4 text-left">
+          <div>
+            <p className="text-gray-800 leading-relaxed">
+              We are committed to ensuring that our journal website is accessible to all users, including individuals with disabilities. We strive to follow recognized accessibility standards and continuously improve the usability of our platform.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-gray-800 leading-relaxed">
+              If you experience any difficulty accessing content or navigating the website, please contact us so we can assist you and improve your experience.
+            </p>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md font-medium transition-colors text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+AccessibilityModal.displayName = "AccessibilityModal";
+
+// Copyright Form Modal Component
+const CopyrightFormModal = React.memo(({ onClose }) => {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="bg-blue-700 rounded-t-lg px-6 py-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-white text-xl font-bold">Copyright Transfer & Author Certification Form</h2>
+            <p className="text-blue-100 text-sm mt-0.5">JAIRAM — Journal of Advanced & Integrated Research in Acute Medicine</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center text-white transition-colors ml-4 mt-0.5 shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 text-gray-700 text-sm leading-relaxed space-y-4 text-left">
+          <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+            <p className="font-semibold text-gray-900 text-center text-base">
+              Author Certification and Copyright Transfer Agreement
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Author Certification:</p>
+            <p>
+              I/we certify that I/we have participated sufficiently in the intellectual content, conception and design of this work or the analysis and interpretation of the data (when applicable), as well as the writing of the manuscript, to take public responsibility for it and have agreed to have my/our name listed as a contributor. I/we believe the manuscript represents valid work. Each author confirms they meet the criteria for authorship as established by the JAIRAM.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Originality Statement:</p>
+            <p>
+              Neither this manuscript nor one with substantially similar content under my/our authorship has been published or is being considered for publication elsewhere, except as described in the covering letter. I/we certify that all the data collected during the study is presented in this manuscript and no data from the study has been or will be published separately.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Data Availability:</p>
+            <p>
+              I/we attest that, if requested by the editors, I/we will provide the data/information or will cooperate fully in obtaining and providing the data/information on which the manuscript is based, for examination by the editors or their assignees.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Conflict of Interest Disclosure:</p>
+            <p>
+              Financial interests, direct or indirect, that exist or may be perceived to exist for individual contributors in connection with the content of this paper have been disclosed in the cover letter. Sources of outside support of the project are named in the cover letter.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Copyright Transfer:</p>
+            <p>
+              I/we hereby transfer(s), assign(s), or otherwise convey(s) all copyright ownership, including any and all rights incidental thereto, exclusively to the Journal, in the event that such work is published by the Journal. The Journal shall own the work, including the right to grant permission to republish the article in whole or in part, with or without fee; the right to produce reprints or reprints and translate into languages other than English for sale or free distribution; and the right to republish the work in a collection of articles in any other mechanical or electronic format.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Acknowledgments:</p>
+            <p>
+              All persons who have made substantial contributions to the work reported in the manuscript, but who are not contributors, are named in the Acknowledgment and have given me/us their written permission to be named. If I/we do not include an Acknowledgment that means I/we have not received substantial contributions from non-contributors and no contributor has been omitted.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">Corresponding Author Authorization:</p>
+            <p>
+              I/we give the rights to the corresponding author to make necessary changes as per the request of the journal, to do the rest of the correspondence on our behalf and he/she will act as the guarantor for the manuscript on our behalf.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-semibold text-gray-900">License Agreement:</p>
+            <p>
+              The article will be published under the terms of the latest Creative Commons Attribution 4.0 International License (CC BY 4.0), unless the journal notifies the author otherwise in writing. Under this license, it is permissible to download and share the work provided it is properly cited. The work cannot be changed in any way or used commercially without permission from the journal. Authors mandated to distribute their work under the CC BY license can request the appropriate form from the Editorial Office.
+            </p>
+          </div>
+
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+            <p className="text-sm text-gray-800">
+              <strong>Note:</strong> This form must be completed and signed by all authors and submitted with the manuscript. The corresponding author is responsible for ensuring that all co-authors have read and agreed to the terms stated above.
+            </p>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md font-medium transition-colors text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+CopyrightFormModal.displayName = "CopyrightFormModal";
+
 const BottomBar = React.memo(() => {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showAccessibilityModal, setShowAccessibilityModal] = useState(false);
 
   const bottomLinks = useMemo(
     () => [
       { label: "Privacy Policy", path: "/privacy-policy" },
-      { label: "Terms of Use", path: "/terms" },
       { label: "Accessibility", path: "/accessibility" },
-      { label: "Sitemap", path: "/sitemap" },
     ],
     [],
   );
@@ -464,6 +626,10 @@ const BottomBar = React.memo(() => {
   const handleClick = useCallback((path) => {
     if (path === "/privacy-policy") {
       setShowPrivacyModal(true);
+      return;
+    }
+    if (path === "/accessibility") {
+      setShowAccessibilityModal(true);
       return;
     }
     console.log("Navigate to:", path);
@@ -475,25 +641,45 @@ const BottomBar = React.memo(() => {
       {showPrivacyModal && (
         <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />
       )}
+      {showAccessibilityModal && (
+        <AccessibilityModal onClose={() => setShowAccessibilityModal(false)} />
+      )}
       <div className="bg-blue-950/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-left">
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-400 flex flex-wrap items-center justify-center md:justify-start gap-1">
                 &copy; {new Date().getFullYear()} Journal of Advanced & Integrated
                 Research in Acute Medicine (JAIRAM).Published by Nexus Biomedical
-                Research Foundation Trust,Lucknow,India. Articles are published
+                Research Foundation Trust,Lucknow,India.
+              </p>
+              <p className="text-xs text-gray-400 flex flex-wrap items-center justify-center md:justify-start gap-1 mt-1">
+                Articles are published
                 under the Creative Commons Attribution 4.0 International
                 License(CC BY 4.0)
+                <a
+                  href="https://creativecommons.org/licenses/by/4.0/deed.en"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center hover:opacity-80 transition-opacity duration-200"
+                  aria-label="Creative Commons Attribution 4.0 License"
+                  title="Licensed under Creative Commons Attribution 4.0"
+                >
+                  <img
+                    src="/assets/by.png"
+                    alt="CC BY 4.0 License"
+                    className="h-5 w-auto"
+                  />
+                </a>
               </p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-6">
+            <div className="flex flex-nowrap justify-center gap-6">
               {bottomLinks.map((link, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleClick(link.path)}
-                  className="text-sm text-gray-400 hover:text-blue-400 transition-colors duration-200"
+                  className="text-xs text-gray-400 hover:text-blue-400 transition-colors duration-200 whitespace-nowrap"
                 >
                   {link.label}
                 </button>
@@ -510,37 +696,61 @@ BottomBar.displayName = "BottomBar";
 
 const Footer = () => {
   const navigate = useNavigate();
+  const [showCopyrightModal, setShowCopyrightModal] = useState(false);
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+  const [comingSoonTitle, setComingSoonTitle] = useState("");
+
+  const handleComingSoon = (title) => {
+    setComingSoonTitle(title);
+    setShowComingSoonModal(true);
+  };
+
   return (
-    <footer
-      className="bg-linear-to-b from-blue-900 to-gray-700 text-white"
-      role="contentinfo"
-    >
-      {/* Main Footer Content */}
-      <div className="max-w-10xl mx-auto px-5 sm:px-6 lg:px-10 py-15">
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-5 lg:gap-10 mb-12">
-          {/* About & Contact Section - Takes 2 columns */}
-          <ContactInfo />
+    <>
+      {/* Copyright Form Modal */}
+      {showCopyrightModal && (
+        <CopyrightFormModal onClose={() => setShowCopyrightModal(false)} />
+      )}
 
-  
-          {/* Footer Links Sections - Each takes 1 column */}
-          {FOOTER_SECTIONS.map((section, index) => (
-            <FooterLinkSection key={index} section={section} />
-          ))}
-        </div>
+      {/* Coming Soon Modal */}
+      <ComingSoonModal 
+        isOpen={showComingSoonModal} 
+        onClose={() => setShowComingSoonModal(false)} 
+        title={comingSoonTitle}
+      />
+      
+      <footer
+        className="bg-gradient-to-b from-blue-900 via-blue-800 to-blue-900 text-white mt-auto"
+        role="contentinfo"
+      >
+        {/* Main Footer Content */}
+       {/* Main Footer Content */}
+<div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
+  {/* Top: ContactInfo spanning wider */}
+  <div className="mb-6 max-w-2xl">
+    <ContactInfo />
+  </div>
 
-        {/* Social Links */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-8 border-t border-gray-800">
-          <SocialLinks />
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            {/* Newsletter Section */}
-            <NewsletterSection />
-          </div>
-        </div>
-      </div>
+  {/* Bottom: Links + Newsletter */}
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+    {FOOTER_SECTIONS.map((section, index) => (
+      <FooterLinkSection
+        key={index}
+        section={section}
+        onCopyrightClick={() => setShowCopyrightModal(true)}
+        onComingSoon={handleComingSoon}
+      />
+    ))}
+    <div>
+      <NewsletterSection />
+    </div>
+  </div>
+</div>
 
-      {/* Bottom Bar */}
-      <BottomBar />
-    </footer>
+        {/* Bottom Bar */}
+        <BottomBar />
+      </footer>
+    </>
   );
 };
 
