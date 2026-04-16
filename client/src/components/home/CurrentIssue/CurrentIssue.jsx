@@ -1,8 +1,5 @@
 import React from "react";
-import { Calendar, Download, Eye } from "lucide-react";
-import Card from "../../common/Card/Card";
-import Button from "../../common/Button/Button";
-import Badge from "../../common/Badge/Badge";
+
 const home =
   process.env.NODE_ENV === "production"
     ? "/assets/home.jpeg"
@@ -11,40 +8,88 @@ const home =
 const CurrentIssue = () => {
   return (
     <div>
-      <h2 className="text-2xl text-start font-serif text-stone-800 mb-4 pb-3 border-b border-stone-300">
-        Current Issue
-      </h2>
+      {/* ── HERO BANNER ── */}
+      <div
+        className="relative rounded-xl overflow-hidden text-white mb-8"
+        style={{
+          background:
+            "linear-gradient(135deg, #1a3a6b 0%, #1e5fa5 60%, #2a7fd4 100%)",
+          padding: "4rem 3rem",
+        }}
+      >
+        {/* Decorative Circles */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            top: -40,
+            right: -40,
+            width: 260,
+            height: 260,
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
+            bottom: -80,
+            right: 80,
+            width: 360,
+            height: 360,
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        />
 
-      <div className="flex flex-row items-start gap-8">
-        {/* Cover Image */}
-        <div className="shrink-0 border border-stone-200 shadow-md rounded-sm overflow-hidden">
-          <img
-            src={home}
-            alt="Current Issue Cover"
-            className="w-40 h-auto block"
-          />
-        </div>
+        {/* ── MAIN GRID ── */}
+        <div className="max-w-6xl mx-auto grid grid-cols-2 gap-16 items-center">
+          {/* LEFT: TEXT */}
+          <div>
+            <h2 className="text-2xl font-semibold mb-4 text-left">
+              Advancing Knowledge in Acute & Integrated Medicine
+            </h2>
 
-        {/* Issue Details */}
-        <div className="flex flex-col justify-start pt-1">
-          <h3 className="text-lg font-semibold text-blue-700 mb-4 leading-snug">
-            Jan–Jun 2026 &nbsp;|&nbsp; Volume 1 &nbsp;|&nbsp; Issue 1
-          </h3>
+            <p className="text-white/80 mb-6 leading-relaxed text-base text-left">
+              JAIRAM is an international, peer-reviewed, open-access journal
+              focused on advancing high-quality research in acute and integrated
+              medicine, fostering innovation, collaboration, and improved
+              patient outcomes globally.
+            </p>
 
-          <div className="space-y-2 text-sm text-stone-700">
-            <div className="flex items-start gap-2">
-              <span className="font-semibold text-stone-900 min-w-fit">Editor-in-Chief:</span>
-              <span>Dr. Rajiv Ratan Singh Yadav</span>
+            {/*} <p className="text-blue-200 font-medium text-left">
+              ISSN (Applied For) | Open Access Peer-Reviewed Journal
+            </p>*/}
+          </div>
+
+          {/* RIGHT: ISSUE CARD */}
+          <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-6">
+              {/* IMAGE */}
+              <img
+                src={home}
+                alt="cover"
+                className="w-40 rounded-lg shadow-lg"
+              />
+
+              {/* DETAILS */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">
+                  Jan–Jun 2026 | Volume 1 | Issue 1
+                </h3>
+
+                <p className="text-sm text-white/90 mb-2">
+                  <span className="font-semibold">Editor-in-Chief:</span> Dr.
+                  Rajiv Ratan Singh Yadav
+                </p>
+
+                <p className="text-sm text-white/90 text-left">
+                  <span className="font-semibold">Frequency:</span> 2 issues
+                </p>
+              </div>
             </div>
-            <div className="flex items-start gap-2">
-              <span className="font-semibold text-stone-900 min-w-fit">Frequency:</span>
-              <span>2 issues</span>
-            </div>
-           
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 export default CurrentIssue;

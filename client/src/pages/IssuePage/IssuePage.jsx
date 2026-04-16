@@ -10,7 +10,7 @@ import {
   Grid,
   List,
 } from "lucide-react";
-
+import { toast } from "react-hot-toast";
 const Card = ({ children, className = "", hover = false, padding = "md" }) => {
   const paddings = {
     none: "",
@@ -123,9 +123,7 @@ const IssuesPage = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
 
-  const allIssues = [
-   
-  ];
+  const allIssues = [];
 
   const years = [...new Set(allIssues.map((issue) => issue.year))].sort(
     (a, b) => b - a,
@@ -211,7 +209,7 @@ const IssuesPage = () => {
             </div>
           </div>
         </Card>
-     {/* Issues Display */}
+        {/* Issues Display */}
         {viewMode === "grid" ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredIssues.map((issue) => (
@@ -335,7 +333,7 @@ const IssuesPage = () => {
 
         {/* Archive Section */}
         <div className="mt-12">
-         {/* <Card>
+          {/* <Card>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Browse by Year
             </h2>
@@ -359,7 +357,6 @@ const IssuesPage = () => {
 
         {/* Quick Links */}
         <div className="mt-8 grid md:grid-cols-3 gap-6">
-         
           <Card hover className="text-center">
             <Download className="w-12 h-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -385,7 +382,11 @@ const IssuesPage = () => {
             <p className="text-gray-600 text-sm mb-4">
               Get notified about new issues
             </p>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast("🚀 Subscription feature coming soon!")}
+            >
               Subscribe Now
             </Button>
           </Card>
