@@ -111,12 +111,15 @@ const formatFileSize = (size = 0) => {
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 
 const Topbar = ({ user, onLogout, onProfileClick, onRoleChangeClick, onAdminToolSelect }) => {
+  const navigate = useNavigate();
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
 
   return (
   <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", position: "sticky", top: 0, zIndex: 50 }}>
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div 
+       onClick={() => navigate("/")}
+       style={{ display: "flex", alignItems: "center", gap: 12,cursor: "pointer", transition: "opacity 0.15s" }}>
         <img src="/assets/Logo.jpg" alt="JAIRAM" style={{ height: 36 }} />
         <div>
           <div style={{ fontFamily: "Georgia,serif", fontWeight: 700, color: "#0f3460", fontSize: "0.9rem" }}>JAIRAM</div>
@@ -1096,9 +1099,9 @@ const UserDashboard = () => {
                     <ProfileCard user={user} />
                     <div style={{ background: "linear-gradient(135deg,#0f3460,#1a4a7a)", borderRadius: 12, padding: "28px 32px", color: "#fff" }}>
                       <div style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: 8 }}>Welcome to JAIRAM Manuscript Portal</div>
-                      <div style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.72)", lineHeight: 1.65, maxWidth: 520 }}>You haven't submitted any manuscripts yet. When you submit, your dashboard will display your submissions and their review status here.</div>
+                      <div style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.72)", lineHeight: 1.65, maxWidth: 520, textAlign: "center", margin: "0 auto" }}>You haven't submitted any manuscripts yet. When you submit, your dashboard will display your submissions and their review status here.</div>
                       <button onClick={() => navigate("/submit")} style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: 8, background: "#fff", color: "#0f3460", fontWeight: 700, fontSize: "0.85rem", border: "none", cursor: "pointer" }}>
-                        <Plus style={{ width: 15, height: 15 }} />+ New Manuscript Submission
+                        <Plus style={{ width: 15, height: 15 }} />New Manuscript Submission
                       </button>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
