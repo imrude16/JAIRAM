@@ -38,6 +38,7 @@ import EthicsPage from "./pages/EthicsPage/EthicsPage";
 import Author from "./pages/AuthorGuidelines/Author";
 import PeerReviewSystem from "./pages/PeerReviewSystem/PeerReviewSystem";
 import ArticleProcessingCharge from "./pages/ArticleProcessingCharge/ArticleProcessingCharge";
+import AheadOfPrintPage from "./pages/AheadOfPrintPage/AheadOfPrintPage";
 
 // Layout wrapper component
 const Layout = ({ children, minimal = false }) => {
@@ -127,6 +128,18 @@ function App() {
             <Layout>
               <PageTransition>
                 <IssuesPage />
+              </PageTransition>
+            </Layout>
+          }
+        />
+
+        {/* Ahead of Print Route */}
+        <Route
+          path="/ahead-of-print"
+          element={
+            <Layout>
+              <PageTransition>
+                <AheadOfPrintPage />
               </PageTransition>
             </Layout>
           }

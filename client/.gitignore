@@ -90,3 +90,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+
+.codium/
+.codex/
+.sandbox/
+.sandbox-bin/
+.sandbox-secrets/
+.tmp/
+cache/
+sessions/

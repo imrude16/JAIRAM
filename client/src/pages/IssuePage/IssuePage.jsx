@@ -124,20 +124,7 @@ const IssuesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const allIssues = [
-    {
-      id: 1,
-      volume: "Volume 14",
-      issue: "Issue 3",
-      year: 2026,
-      month: "January",
-      cover:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=400&fit=crop",
-      articles: 11,
-      published: "September 18, 2026",
-      pages: "200-319",
-      status: "published",
-      doi: "10.1234/journal.2023.14.3",
-    },
+   
   ];
 
   const years = [...new Set(allIssues.map((issue) => issue.year))].sort(
@@ -198,22 +185,6 @@ const IssuesPage = () => {
 
             {/* Year Filter */}
             <div className="flex gap-2">
-              <div className="relative">
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="all">All Years</option>
-                  {years.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-              </div>
-
               {/* View Toggle */}
               <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                 <button
@@ -240,18 +211,7 @@ const IssuesPage = () => {
             </div>
           </div>
         </Card>
-
-        {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing{" "}
-            <span className="font-semibold">{filteredIssues.length}</span> issue
-            {filteredIssues.length !== 1 ? "s" : ""}
-            {selectedYear !== "all" && ` from ${selectedYear}`}
-          </p>
-        </div>
-
-        {/* Issues Display */}
+     {/* Issues Display */}
         {viewMode === "grid" ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredIssues.map((issue) => (
@@ -375,7 +335,7 @@ const IssuesPage = () => {
 
         {/* Archive Section */}
         <div className="mt-12">
-          <Card>
+         {/* <Card>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Browse by Year
             </h2>
@@ -394,7 +354,7 @@ const IssuesPage = () => {
                 </button>
               ))}
             </div>
-          </Card>
+          </Card>*/}
         </div>
 
         {/* Quick Links */}

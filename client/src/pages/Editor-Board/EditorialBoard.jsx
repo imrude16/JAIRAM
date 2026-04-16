@@ -328,6 +328,17 @@ const EditorialBoard = () => {
 
   const scientificAdvisoryNational = [
     {
+      name: "Dr. Biswajeet Thakur ",
+      degree: "Ph.D",
+      designation: "Scientist F",
+      department: "Micropalaeontology",
+      institution:
+        "Birla Sahni Institute of Palaeosciences, Lucknow,India",
+      email: "biswajeet_thakur@bsip.res.in",
+      expertise:
+        "Micropalaeontology, biostratigraphy, palynology, diatoms, paleoenvironment, Quaternary geology",
+    },
+     {
       name: "Dr. Harish Kumar Sagar",
       degree: "MBBS, MD (Pathology)",
       designation: "Scientist D (Medical)",
@@ -546,13 +557,13 @@ const EditorialBoard = () => {
     {
       role: "Web & Data Security Administration",
       members: [
-        {
-          name: "Vatsala Shukla",
+       {
+          name: "Deovrat Singh",
           degree:
             "B.Tech (Computer Science with Specialization in Artificial Intelligence & Machine Learning)",
         },
         {
-          name: "Deovrat Singh",
+          name: "Vatsala Shukla",
           degree:
             "B.Tech (Computer Science with Specialization in Artificial Intelligence & Machine Learning)",
         },

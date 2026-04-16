@@ -11,42 +11,40 @@ const home =
 const CurrentIssue = () => {
   return (
     <div>
-      <h2 className="text-3xl text-start font-serif text-stone-800 mb-6 pb-3 border-b-2 border-stone-300">
+      <h2 className="text-2xl text-start font-serif text-stone-800 mb-4 pb-3 border-b border-stone-300">
         Current Issue
       </h2>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-1">
+      <div className="flex flex-row items-start gap-8">
+        {/* Cover Image */}
+        <div className="shrink-0 border border-stone-200 shadow-md rounded-sm overflow-hidden">
           <img
             src={home}
             alt="Current Issue Cover"
-            className="w-47 h-60 shadow-lg"
+            className="w-40 h-auto block"
           />
         </div>
 
-        <div className="md:col-span-2">
-          <h3 className="text-2xl font-serif text-blue-600 mb-4">
-            Jan-Jun 2026 - Volume 1 - Issue 1
+        {/* Issue Details */}
+        <div className="flex flex-col justify-start pt-1">
+          <h3 className="text-lg font-semibold text-blue-700 mb-4 leading-snug">
+            Jan–Jun 2026 &nbsp;|&nbsp; Volume 1 &nbsp;|&nbsp; Issue 1
           </h3>
 
-          <div className="space-y-2 text-stone-700 mb-6">
-            <p>
-              <strong>Editor-in-Chief:</strong> Dr. Rajiv Ratan Singh Yadav
-            </p>
-            {/* <p>
-              <strong>ISSN:</strong> N/A
-            </p>
-            <p>
-              <strong>Online ISSN:</strong> N/A
-            </p> */}
-            <p>
-              <strong>Frequency:</strong> 2 issues
-            </p>
+          <div className="space-y-2 text-sm text-stone-700">
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-stone-900 min-w-fit">Editor-in-Chief:</span>
+              <span>Dr. Rajiv Ratan Singh Yadav</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-semibold text-stone-900 min-w-fit">Frequency:</span>
+              <span>2 issues</span>
+            </div>
+           
           </div>
         </div>
       </div>
     </div>
   );
 };
-
 export default CurrentIssue;
