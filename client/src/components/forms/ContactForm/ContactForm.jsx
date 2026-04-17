@@ -153,20 +153,33 @@ const ContactInfoItem = ({ icon: Icon, title, lines, delay }) => (
 // Social Media Component
 const SocialMediaLinks = () => {
   const socials = [
-    { icon: Twitter, color: "hover:bg-sky-500", label: "Twitter" },
-    { icon: Linkedin, color: "hover:bg-blue-700", label: "LinkedIn" },
+    {
+      icon: Twitter,
+      color: "hover:bg-sky-500",
+      label: "Twitter",
+      link: "https://x.com/JairamJournal",
+    },
+    {
+      icon: Linkedin,
+      color: "hover:bg-blue-700",
+      label: "LinkedIn",
+      link: "https://www.linkedin.com/in/jairam-journal-5a8174404/",
+    },
   ];
 
   return (
     <div className="flex space-x-3 justify-center">
       {socials.map((social, idx) => (
-        <button
+        <a
           key={idx}
+          href={social.link}
+          target="_blank"
+          rel="noopener noreferrer"
           className={`w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 transition-all duration-300 transform hover:scale-110 hover:text-white ${social.color} hover:shadow-lg`}
           aria-label={social.label}
         >
           <social.icon className="w-5 h-5" />
-        </button>
+        </a>
       ))}
     </div>
   );
