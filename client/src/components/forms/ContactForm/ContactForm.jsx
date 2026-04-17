@@ -346,7 +346,7 @@ const ContactForm = () => {
                       <span className="text-gray-700 font-medium">
                         Monday - Friday
                       </span>
-                      <span className="text-blue-600 font-semibold w-[140px] text-right">
+                      <span className="text-blue-600 font-semibold w-35 text-right">
                         9:00 AM - 5:00 PM
                       </span>
                     </div>
@@ -354,7 +354,7 @@ const ContactForm = () => {
                       <span className="text-gray-700 font-medium">
                         Saturday - Sunday
                       </span>
-                      <span className="text-red-600 font-semibold w-[140px] text-right">
+                      <span className="text-red-600 font-semibold w-35 text-right">
                         Closed
                       </span>
                     </div>
