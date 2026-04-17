@@ -22,6 +22,7 @@ const sendEmail = async ({
     html,
     cc,
     bcc,
+    replyTo,
     attachments,
 }) => {
     try {
@@ -33,6 +34,7 @@ const sendEmail = async ({
             html,
             cc,
             bcc,
+            replyTo,
             attachments,
         };
 

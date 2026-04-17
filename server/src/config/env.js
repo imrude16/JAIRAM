@@ -28,6 +28,7 @@ export const EMAIL_PORT = process.env.EMAIL_PORT || 587;
 export const EMAIL_USER = process.env.EMAIL_USER;
 export const EMAIL_PASS = process.env.EMAIL_PASS;
 export const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+export const CONTACT_RECEIVER_EMAIL = process.env.CONTACT_RECEIVER_EMAIL || process.env.EMAIL_USER;
 
 // Frontend URL (for email links)
 export const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";

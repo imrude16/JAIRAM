@@ -16,6 +16,7 @@ import {
   Linkedin,
   Instagram,
 } from "lucide-react";
+import { sendContactMessage } from "../../../services/contactService";
 
 // Card Component
 const Card = ({ children, className = "", hover = false }) => (
@@ -183,6 +184,7 @@ const ContactForm = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const validateForm = () => {
     const newErrors = {};
@@ -216,25 +218,47 @@ const ContactForm = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    setLoading(true);
+    try {
+      setLoading(true);
+      setSubmitError("");
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      await sendContactMessage(formData);
 
-    console.log("Contact form submitted:", formData);
-
-    setLoading(false);
-    setShowSuccess(true);
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
+      setShowSuccess(true);
       setFormData({ name: "", email: "", subject: "", message: "" });
-      setShowSuccess(false);
-    }, 3000);
+      setErrors({});
+    } catch (err) {
+      const apiErrors = err.response?.data?.details?.errors;
+
+      if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+        const mappedErrors = {};
+
+        apiErrors.forEach((item) => {
+          const path = item?.path?.split(".")?.pop();
+          if (path && !mappedErrors[path]) {
+            mappedErrors[path] = item.message;
+          }
+        });
+
+        if (Object.keys(mappedErrors).length > 0) {
+          setErrors(mappedErrors);
+        }
+      }
+
+      setSubmitError(
+        err.response?.data?.message ||
+          "We could not send your message right now. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
+    if (submitError) {
+      setSubmitError("");
+    }
     if (errors[field]) {
       setErrors({ ...errors, [field]: "" });
     }
@@ -436,6 +460,15 @@ const ContactForm = () => {
                     your inquiry and will never share them with third parties.
                   </p>
                 </div>
+
+                {submitError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-sm text-red-700 flex items-start">
+                      <AlertCircle className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
+                      <span>{submitError}</span>
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   variant="primary"
