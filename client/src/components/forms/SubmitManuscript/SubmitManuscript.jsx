@@ -2303,53 +2303,14 @@ const SubmitManuscript = () => {
       setLoading(false);
       setShowSuccess(true);
 
-      // Show success modal for 3.5 seconds, then reset form
+      // Keep the success modal visible briefly, then leave /submit entirely.
+      // Do not reset the form back to step 1 here, otherwise the page behaves
+      // like a fresh submission flow and can create a new draft.
       setTimeout(() => {
         setShowSuccess(false);
-        setCurrentStep(0);
-        setFormData({
-          articleType: "",
-          title: "",
-          runningTitle: "",
-          abstract: "",
-          keywords: "",
-          totalWordCount: "",
-          bwFigures: "",
-          colorFigures: "",
-          tables: "",
-          pages: "",
-          trialRegistration: "",
-          trialRegistrationDetails: "",
-          iecNumber: "",
-          iecNumberDetails: "",
-          prosperoRegistration: "",
-          prosperoRegistrationDetails: "",
-        });
-        setFiles({
-          coverLetter: null,
-          blindManuscript: null,
-          images: [],
-          tables: [],
-          supplements: null,
-        });
-        setSubmissionDeclared(false);
-        setChecklistAnswers(Array(TOTAL_CHECKLIST).fill(null));
-        setChecklistSubmitAttempted(false);
-        setAuthors([]);
-        setSelfCorresponding(false);
-        setCorrespondingError(false);
-        setConflictHasConflict(null);
-        setConflictDetails("");
-        setCopyrightAgreed(false);
-        setPreviewConfirmed(false);
-        setReviewers([{ ...EMPTY_REVIEWER }]);
-        setDraftId(null);
-        setLastSaved(null);
-
         toast.success('Submission completed! Redirecting...', { duration: 5000 });
-
-        // Optional: Redirect to dashboard or submission list
-        // window.location.href = '/dashboard';
+        setSubmissionNumber(null);
+        navigate("/dashboard");
       }, 5000);
 
     } catch (error) {
