@@ -1534,14 +1534,20 @@ const MoveToReviewModal = ({ submission, onClose, onDone }) => {
     return () => { active = false; };
   }, [submission?._id]);
 
-  const totalSuggested = statusData?.totalSuggested ?? submission?.suggestedReviewers?.length ?? 0;
+  const totalSuggested = statusData?.totalSuggested ?? statusData?.total ?? submission?.suggestedReviewers?.length ?? 0;
   const acceptedCount = statusData?.accepted ?? 0;
   const requiredAcceptances = statusData?.requiredAcceptances ?? Math.ceil(Math.max(totalSuggested, 0) / 2);
   const hasAcceptedDatabaseReviewer = !!statusData?.hasAcceptedDatabaseReviewer;
-  const hasMinimumSuggestedReviewers = totalSuggested >= 2;
+  const hasMinimumSuggestedReviewers =
+    typeof statusData?.hasMinimumSuggestedReviewers === "boolean"
+      ? statusData.hasMinimumSuggestedReviewers
+      : totalSuggested >= 2;
   const majorityMet = !!statusData?.majorityMet;
   const reviewerConditionMet = majorityMet || hasAcceptedDatabaseReviewer;
-  const canMove = !!statusData?.canMove && hasMinimumSuggestedReviewers && reviewerConditionMet;
+  const canMove =
+    typeof statusData?.canMove === "boolean"
+      ? statusData.canMove
+      : hasMinimumSuggestedReviewers && reviewerConditionMet;
 
   const conditionRow = (ok, label, helper) => (
     <div

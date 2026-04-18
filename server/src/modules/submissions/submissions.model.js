@@ -1063,22 +1063,44 @@ submissionSchema.methods.checkReviewerMajority = function () {
     const accepted = this.suggestedReviewerResponses.accepted;
     const declined = this.suggestedReviewerResponses.declined;
     const pending = this.suggestedReviewerResponses.pending;
+    const requiredAcceptances = Math.ceil(Math.max(total, 0) / 2);
+    const acceptedReviewers = (this.suggestedReviewers || []).filter(
+        (reviewer) => reviewer.invitationStatus === "ACCEPTED"
+    );
+    const hasAcceptedDatabaseReviewer = acceptedReviewers.some(
+        (reviewer) => reviewer.source === "DATABASE_SEARCH"
+    );
+    const hasMinimumSuggestedReviewers = total >= 2;
 
     if (total === 0) {
         return {
+            canMove: false,
             majorityMet: false,
             message: "No reviewers suggested",
+            accepted,
+            declined,
+            pending,
+            total,
+            totalSuggested: total,
+            requiredAcceptances,
+            hasAcceptedDatabaseReviewer,
+            hasMinimumSuggestedReviewers,
         };
     }
 
-    const requiredAcceptances = Math.ceil(total / 2);
-
     if (accepted >= requiredAcceptances) {
         return {
+            canMove: hasMinimumSuggestedReviewers,
             majorityMet: true,
             message: `Majority achieved: ${accepted}/${total} reviewers accepted`,
             accepted,
+            declined,
+            pending,
             total,
+            totalSuggested: total,
+            requiredAcceptances,
+            hasAcceptedDatabaseReviewer,
+            hasMinimumSuggestedReviewers,
         };
     }
 
@@ -1086,18 +1108,35 @@ submissionSchema.methods.checkReviewerMajority = function () {
 
     if (maxPossibleAcceptances < requiredAcceptances) {
         return {
+            canMove: false,
             majorityMet: false,
             cannotReachMajority: true,
             message: `Cannot reach majority: Only ${maxPossibleAcceptances}/${total} can accept, need ${requiredAcceptances}`,
+            accepted,
+            declined,
+            pending,
+            total,
+            totalSuggested: total,
+            requiredAcceptances,
+            hasAcceptedDatabaseReviewer,
+            hasMinimumSuggestedReviewers,
         };
     }
 
     return {
+        canMove: hasMinimumSuggestedReviewers && hasAcceptedDatabaseReviewer,
         majorityMet: false,
-        message: `Waiting for more responses: ${accepted}/${total} accepted, need ${requiredAcceptances}`,
+        message: hasAcceptedDatabaseReviewer
+            ? `Eligible to move: ${accepted}/${total} accepted and at least one accepted reviewer is from DATABASE_SEARCH`
+            : `Waiting for more responses: ${accepted}/${total} accepted, need ${requiredAcceptances}`,
         accepted,
+        declined,
         total,
+        totalSuggested: total,
         pending,
+        requiredAcceptances,
+        hasAcceptedDatabaseReviewer,
+        hasMinimumSuggestedReviewers,
     };
 };
 
