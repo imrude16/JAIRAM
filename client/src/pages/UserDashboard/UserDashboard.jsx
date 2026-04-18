@@ -41,6 +41,7 @@ const STATUS_CFG = {
 };
 
 const CONSENT_CFG = {
+  NOT_REQUIRED: { label: "Not Required", color: "#475569", bg: "#e2e8f0" },
   APPROVED: { label: "All Approved", color: "#15803d", bg: "#dcfce7" },
   PENDING:  { label: "Pending",      color: "#b45309", bg: "#fef3c7" },
   REJECTED: { label: "Rejected",     color: "#dc2626", bg: "#fee2e2" },

@@ -4,7 +4,7 @@ import useAuthStore from "../store/authStore";
 
 const deriveConsentStatus = (submission) => {
     // No co-authors — consent not applicable
-    if (!submission.coAuthors || submission.coAuthors.length === 0) return "APPROVED";
+    if (!submission.coAuthors || submission.coAuthors.length === 0) return "NOT_REQUIRED";
     // DRAFT with co-authors but not yet submitted — consent emails not sent yet
     if (submission.status === "DRAFT") return "PENDING";
     switch (submission.consentDeadlineStatus) {
@@ -135,7 +135,7 @@ const useDashboard = () => {
                         })
                         .catch(err => {
                             console.warn(`Failed to fetch consent data for submission ${sub._id}:`, err);
-                            consentDataMap[sub._id?.toString()] = { aggregatedStatus: "APPROVED" };
+                            consentDataMap[sub._id?.toString()] = { aggregatedStatus: deriveConsentStatus(sub) };
                         })
                 );
                 await Promise.all(consentPromises);

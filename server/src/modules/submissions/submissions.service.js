@@ -4108,7 +4108,9 @@ const getCoAuthorConsentsForSubmission = async (submissionId, userId) => {
         const total = consents.length;
 
         // Determine aggregated status
-        let aggregatedStatus = "APPROVED"; // Default if no consents
+        // No consent records means co-author consent is not required / not started,
+        // not that "all co-authors approved".
+        let aggregatedStatus = "NOT_REQUIRED";
         if (total > 0) {
             if (counts.rejected > 0) {
                 aggregatedStatus = "REJECTED";
