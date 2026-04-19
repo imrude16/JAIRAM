@@ -1552,7 +1552,11 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 sub._reviewerRejectionReason = assignment?.rejectionReason || null;
                 sub._reviewerReviewSubmitted = !!(reviewerDoc?.reviewerFeedback || []).some((feedback) => {
                     const feedbackUserId = feedback.user?._id || feedback.user;
-                    return feedbackUserId?.toString() === userId.toString();
+                    const feedbackEmail = feedback.email?.toLowerCase?.() || null;
+                    return (
+                        feedbackUserId?.toString() === userId.toString() ||
+                        (currentEmail && feedbackEmail && currentEmail === feedbackEmail)
+                    );
                 });
                 sub._editorRemarksForReviewer = sub.currentCycleId?.editorRemarksForReviewers || null;
             }
@@ -2489,9 +2493,7 @@ const submitRevision = async (userId, payload) => {
                     throw new AppError("Reviewer document not found", STATUS_CODES.NOT_FOUND, "REVIEWER_DOC_NOT_FOUND");
                 }
                 reviewerDoc.reviewerFeedback.push({
-                    user: submission.suggestedReviewers.find(
-                        r => r.user && r.user.toString() === userId
-                    )?.user || null,
+                    user: userId,
                     email: user.email,
                     recommendation: payload.recommendation,
                     remarks: payload.remarks,
@@ -3472,32 +3474,33 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
 
         await submission.save();
 
-        // Send notification email to technical editor
-        try {
-            await sendEmail({
-                to: technicalEditor.email,
-                subject: `Technical Review Assignment - ${submission.submissionNumber}`,
-                html: `
-                    <h2>Technical Review Assignment</h2>
-                    <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
-                    <p>You have been assigned to review the technical aspects of a manuscript:</p>
-                    <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
-                    <p><strong>Title:</strong> ${submission.title}</p>
-                    <p><strong>Article Type:</strong> ${submission.articleType}</p>
-                    <hr>
-                    <p><strong>Editor's Remarks:</strong></p>
-                    <p>${remarks}</p>
-                    <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
-                    ${attachments && attachments.length > 0 ? `
-                        <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
-                    ` : ''}
-                    <p>Please log in to the platform to review the manuscript and submit your decision.</p>
-                `,
+        // Send notification email without blocking the API response.
+        void sendEmail({
+            to: technicalEditor.email,
+            subject: `Technical Review Assignment - ${submission.submissionNumber}`,
+            html: `
+                <h2>Technical Review Assignment</h2>
+                <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
+                <p>You have been assigned to review the technical aspects of a manuscript:</p>
+                <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
+                <p><strong>Title:</strong> ${submission.title}</p>
+                <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                <hr>
+                <p><strong>Editor's Remarks:</strong></p>
+                <p>${remarks}</p>
+                <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
+                ${attachments && attachments.length > 0 ? `
+                    <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
+                ` : ''}
+                <p>Please log in to the platform to review the manuscript and submit your decision.</p>
+            `,
+        })
+            .then(() => {
+                console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
+            })
+            .catch((emailError) => {
+                console.error("❌ Failed to send technical editor notification:", emailError);
             });
-            console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
-        } catch (emailError) {
-            console.error("❌ Failed to send technical editor notification:", emailError);
-        }
 
         console.log("✅ [SERVICE] assignTechnicalEditor completed successfully");
 
@@ -3789,34 +3792,35 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
 
         await submission.save();
 
-        // Send notification emails to all reviewers
+        // Send notification emails to all reviewers without blocking the API response.
         for (const reviewer of reviewers) {
-            try {
-                await sendEmail({
-                    to: reviewer.email,
-                    subject: `Manuscript Review Request - ${submission.submissionNumber}`,
-                    html: `
-                        <h2>Manuscript Review Request</h2>
-                        <p>Dear ${reviewer.firstName} ${reviewer.lastName},</p>
-                        <p>You have been invited to review a manuscript:</p>
-                        <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
-                        <p><strong>Title:</strong> ${submission.title}</p>
-                        <p><strong>Article Type:</strong> ${submission.articleType}</p>
-                        <p><strong>Due Date:</strong> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
-                        <hr>
-                        <p><strong>Editor's Remarks:</strong></p>
-                        <p>${remarks}</p>
-                        <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
-                        ${attachments && attachments.length > 0 ? `
-                            <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
-                        ` : ''}
-                        <p>Please log in to the platform to review the manuscript and submit your feedback.</p>
-                    `,
+            void sendEmail({
+                to: reviewer.email,
+                subject: `Manuscript Review Request - ${submission.submissionNumber}`,
+                html: `
+                    <h2>Manuscript Review Request</h2>
+                    <p>Dear ${reviewer.firstName} ${reviewer.lastName},</p>
+                    <p>You have been invited to review a manuscript:</p>
+                    <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
+                    <p><strong>Title:</strong> ${submission.title}</p>
+                    <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                    <p><strong>Due Date:</strong> ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+                    <hr>
+                    <p><strong>Editor's Remarks:</strong></p>
+                    <p>${remarks}</p>
+                    <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
+                    ${attachments && attachments.length > 0 ? `
+                        <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
+                    ` : ''}
+                    <p>Please log in to the platform to review the manuscript and submit your feedback.</p>
+                `,
+            })
+                .then(() => {
+                    console.log(`📧 Reviewer notification sent to ${reviewer.email}`);
+                })
+                .catch((emailError) => {
+                    console.error("❌ Failed to send reviewer notification:", emailError);
                 });
-                console.log(`📧 Reviewer notification sent to ${reviewer.email}`);
-            } catch (emailError) {
-                console.error("❌ Failed to send reviewer notification:", emailError);
-            }
         }
 
         console.log("✅ [SERVICE] assignReviewers completed successfully");

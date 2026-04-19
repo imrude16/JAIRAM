@@ -2193,7 +2193,7 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
     }
     if (type === "provisionallyAccept") {
       try {
-        await api.put(`/submissions/${submission._id}/status`, {
+        await api.post(`/submissions/${submission._id}/status`, {
           status: "PROVISIONALLY_ACCEPTED",
           comments: "Provisionally accepted pending payment.",
         });

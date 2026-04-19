@@ -713,6 +713,11 @@ submissionSchema.pre("save", async function (next) {
                 "revisionStage",
                 "suggestedReviewers",
                 "suggestedReviewerResponses",
+                "coverLetter",
+                "blindManuscriptFile",
+                "figures",
+                "tables",
+                "supplementaryFiles",
             ];
 
             const allowedFields = isStatusChange
