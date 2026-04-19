@@ -139,27 +139,28 @@ const searchCoAuthors = async (query, excludeEmails = []) => {
   if (query.length < 2) return [];
 
   try {
-    const exclude = excludeEmails.join(',');
-    const response = await api.get('/submissions/search/authors', {
+    const exclude = excludeEmails.join(",");
+    const response = await api.get("/submissions/search/authors", {
       params: { q: query, exclude },
     });
 
     // Backend returns: { data: { authors: [...] } }
-    const authors = response.data?.data?.authors || response.data?.authors || [];
+    const authors =
+      response.data?.data?.authors || response.data?.authors || [];
 
     return authors.map((user) => ({
       id: user._id,
-      title: 'Dr.',
+      title: "Dr.",
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       phone: user.phoneCode + user.mobileNumber,
-      department: user.department || '',
-      country: user.country || '',
-      ORCID: user.orcid || '',
+      department: user.department || "",
+      country: user.country || "",
+      ORCID: user.orcid || "",
     }));
   } catch (error) {
-    console.error('Search authors error:', error);
+    console.error("Search authors error:", error);
     return [];
   }
 };
@@ -167,13 +168,13 @@ const searchCoAuthors = async (query, excludeEmails = []) => {
 // Normalize old article type values to new full-form values (for backward compatibility)
 const normalizeArticleType = (value) => {
   const articleTypeMap = {
-    'original': 'Original Article',
-    'case_report': 'Case Report',
-    'case_series': 'Case Series',
-    'meta': 'Meta-Analysis',
-    'review': 'Review Article / Systematic Review',
-    'editorial': 'Editorial',
-    'clinical': 'Clinical Trial',
+    original: "Original Article",
+    case_report: "Case Report",
+    case_series: "Case Series",
+    meta: "Meta-Analysis",
+    review: "Review Article / Systematic Review",
+    editorial: "Editorial",
+    clinical: "Clinical Trial",
   };
   return articleTypeMap[value] || value; // Return mapped value or original if not in map
 };
@@ -183,11 +184,7 @@ const onlyNumbers = (e) => {
   if (!/[0-9]/.test(e.key)) e.preventDefault();
 };
 
-const handleCloudinaryUpload = async (
-  file,
-  uploadType,
-  onProgress
-) => {
+const handleCloudinaryUpload = async (file, uploadType, onProgress) => {
   try {
     // STEP 1: Request signed upload parameters from backend
     const res = await api.post("/submissions/upload-url", {
@@ -207,32 +204,27 @@ const handleCloudinaryUpload = async (
     formData.append("public_id", data.publicId);
 
     // STEP 3: Upload to Cloudinary
-    const uploadResponse = await externalApi.post(
-      data.uploadUrl,
-      formData,
-      {
-        onUploadProgress: (progressEvent) => {
-          if (!progressEvent.total) return;
+    const uploadResponse = await externalApi.post(data.uploadUrl, formData, {
+      onUploadProgress: (progressEvent) => {
+        if (!progressEvent.total) return;
 
-          const percent = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
+        const percent = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total,
+        );
 
-          if (onProgress) onProgress(percent);
-        },
-      }
-    );
+        if (onProgress) onProgress(percent);
+      },
+    });
 
     const uploadResult = uploadResponse.data;
 
     // ✅ FIXED: Return with correct property names for backend
     return {
-      fileName: file.name,           // ✅ Changed from 'name'
-      fileUrl: uploadResult.secure_url,  // ✅ Changed from 'url'
-      fileSize: uploadResult.bytes,     // ✅ Changed from 'size'
-      mimeType: file.type,             // ✅ Changed from 'type'
+      fileName: file.name, // ✅ Changed from 'name'
+      fileUrl: uploadResult.secure_url, // ✅ Changed from 'url'
+      fileSize: uploadResult.bytes, // ✅ Changed from 'size'
+      mimeType: file.type, // ✅ Changed from 'type'
     };
-
   } catch (error) {
     console.error("Cloudinary upload failed:", error);
     throw error;
@@ -582,14 +574,18 @@ const DeclarationBlock = ({
                   }
 
                   // ✅ Map display value to backend-compatible storage value
-                  const storageValue = option === "Not Applicable" ? "N/A" : option;
+                  const storageValue =
+                    option === "Not Applicable" ? "N/A" : option;
                   return (
                     <div key={option} className="flex justify-center">
                       <input
                         type="radio"
                         name={`checklist-${flatIdx}`}
                         value={option}
-                        checked={checklistAnswers[flatIdx] === (option === "Not Applicable" ? "N/A" : option)}
+                        checked={
+                          checklistAnswers[flatIdx] ===
+                          (option === "Not Applicable" ? "N/A" : option)
+                        }
                         onChange={() => {
                           const u = [...checklistAnswers];
                           u[flatIdx] = storageValue;
@@ -685,7 +681,8 @@ const FileUploadBox = ({
                 {file.fileName}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {(file.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded successfully
+                {(file.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded
+                successfully
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end">
@@ -827,7 +824,8 @@ const MultiFileUploadBox = ({
                     {f.fileName}
                   </p>
                   <p className="text-xs text-gray-400">
-                    {(f.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded successfully
+                    {(f.fileSize / 1024 / 1024).toFixed(2)} MB · Uploaded
+                    successfully
                   </p>
                 </div>
                 <button
@@ -903,7 +901,7 @@ const SuccessModal = ({ isOpen, onClose, submissionNumber }) => {
             Submission ID
           </p>
           <p className="text-lg font-bold text-[#0f3460]">
-            {submissionNumber || 'Generating...'}
+            {submissionNumber || "Generating..."}
           </p>
         </div>
         <button
@@ -920,8 +918,7 @@ const SuccessModal = ({ isOpen, onClose, submissionNumber }) => {
 };
 
 const CopyrightModal = ({ isOpen, onClose, onAccepted }) => {
-  const [remarks, setRemarks] = React.useState("");
-  const [agreed, setAgreed] = React.useState(false);
+ const [agreed, setAgreed] = React.useState(false);
 
   React.useEffect(() => {
     if (isOpen) setAgreed(false);
@@ -964,19 +961,7 @@ const CopyrightModal = ({ isOpen, onClose, onAccepted }) => {
               </p>
             ))}
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2 text-left">
-              Remarks{" "}
-              <span className="font-normal text-gray-400">(Optional)</span>
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Enter any remarks here..."
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-[#c8d5e4] rounded-xl outline-none text-sm focus:border-[#0f3460] focus:ring-4 focus:ring-[#e8eef6] transition-all resize-none"
-            />
-          </div>
+
           <div
             className={`border rounded-xl px-6 py-5 transition-all ${agreed ? "bg-[#e0f2fe] border-[#0e7490]" : "bg-[#e8eef6]/50 border-[#b8cfe0]"}`}
           >
@@ -1155,16 +1140,16 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
         p.map((r, idx) =>
           idx === emptyIdx
             ? {
-              user: user._id || user.id,
-              title: user.title,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              email: user.email,
-              specialization: user.specialization,
-              institution: user.institution,
-              country: user.country,
-              source: "DATABASE_SEARCH",
-            }
+                user: user._id || user.id,
+                title: user.title,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                specialization: user.specialization,
+                institution: user.institution,
+                country: user.country,
+                source: "DATABASE_SEARCH",
+              }
             : r,
         ),
       );
@@ -1530,7 +1515,7 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
   const handleSelectCoAuthor = (user) => {
     setDraft((p) => ({
       ...p,
-      user: user.id,  // ✅ ADD THIS LINE - Store the ObjectId
+      user: user.id, // ✅ ADD THIS LINE - Store the ObjectId
       title: user.title || p.title,
       firstName: user.firstName || "",
       lastName: user.lastName || "",
@@ -1598,8 +1583,8 @@ const AuthorForm = ({ draft, setDraft, onAdd, onCancel, existingEmails }) => {
                     ...p,
                     [key]: numeric
                       ? e.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, maxLength || undefined)
+                          .replace(/\D/g, "")
+                          .slice(0, maxLength || undefined)
                       : e.target.value,
                   }))
                 }
@@ -1791,9 +1776,9 @@ const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
 
   const tags = value
     ? value
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
     : [];
 
   const addTag = (raw) => {
@@ -1835,10 +1820,11 @@ const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
   return (
     <div
       onClick={() => inputRef.current?.focus()}
-      className={`flex flex-wrap items-center gap-2 min-h-12 w-full px-3 py-2.5 border-2 rounded-xl cursor-text transition-all ${hasError
-        ? "border-red-300 bg-red-50"
-        : "border-[#c8d5e4] focus-within:border-[#0f3460] focus-within:ring-4 focus-within:ring-[#e8eef6]"
-        } bg-white`}
+      className={`flex flex-wrap items-center gap-2 min-h-12 w-full px-3 py-2.5 border-2 rounded-xl cursor-text transition-all ${
+        hasError
+          ? "border-red-300 bg-red-50"
+          : "border-[#c8d5e4] focus-within:border-[#0f3460] focus-within:ring-4 focus-within:ring-[#e8eef6]"
+      } bg-white`}
     >
       <Tag className="w-4 h-4 text-gray-400 shrink-0" />
       {tags.map((tag, idx) => (
@@ -1894,7 +1880,7 @@ const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
    MAIN COMPONENT
 ═══════════════════════════════ */
 const SubmitManuscript = () => {
-  const [currentStep, setCurrentStep] = React.useState(0);
+  const [currentStep, setCurrentStep] = React.useState(4);
   const [loading, setLoading] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [submissionNumber, setSubmissionNumber] = React.useState(null);
@@ -1976,7 +1962,10 @@ const SubmitManuscript = () => {
     "Case Series",
     "Editorial",
   ].includes(formData.articleType);
-  const showProspero = ["Meta-Analysis", "Review Article / Systematic Review"].includes(formData.articleType);
+  const showProspero = [
+    "Meta-Analysis",
+    "Review Article / Systematic Review",
+  ].includes(formData.articleType);
   const showTrial = formData.articleType === "Clinical Trial";
 
   const coAuthorCorresponding = authors.some((a) => a.isCorresponding);
@@ -1984,7 +1973,7 @@ const SubmitManuscript = () => {
 
   const handleField = (f, v) => {
     // Normalize articleType value to ensure it matches backend expectations
-    const normalizedValue = f === 'articleType' ? normalizeArticleType(v) : v;
+    const normalizedValue = f === "articleType" ? normalizeArticleType(v) : v;
     setFormData((p) => ({ ...p, [f]: normalizedValue }));
     if (errors[f]) setErrors((p) => ({ ...p, [f]: "" }));
   };
@@ -1993,7 +1982,12 @@ const SubmitManuscript = () => {
     if (!authorDraft.firstName.trim() && !authorDraft.lastName.trim()) return;
     setAuthors((p) => [
       ...p,
-      { ...authorDraft, id: Date.now(), isCorresponding: false, source: authorDraft.source || "MANUAL_ENTRY" },
+      {
+        ...authorDraft,
+        id: Date.now(),
+        isCorresponding: false,
+        source: authorDraft.source || "MANUAL_ENTRY",
+      },
     ]);
     setAuthorDraft({
       title: "Dr.",
@@ -2050,30 +2044,42 @@ const SubmitManuscript = () => {
       if (wc === 0) e.abstract = "Abstract is required";
       else if (wc > 250) e.abstract = "Abstract must not exceed 250 words";
       const keywordsList = formData.keywords
-        ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+        ? formData.keywords
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean)
         : [];
       if (keywordsList.length === 0) e.keywords = "Keywords are required";
-      else if (keywordsList.length < 3) e.keywords = "Please provide at least 3 keywords";
+      else if (keywordsList.length < 3)
+        e.keywords = "Please provide at least 3 keywords";
       if (!formData.totalWordCount) e.totalWordCount = "Word count is required";
       // if (!formData.bwFigures) e.bwFigures = "Required";
       // if (!formData.colorFigures) e.colorFigures = "Required";
       // if (!formData.tables) e.tables = "Required";
       if (!formData.pages) e.pages = "Required";
       if (
-        ["Original Article", "Case Report", "Case Series", "Editorial"].includes(
-          formData.articleType,
-        ) &&
+        [
+          "Original Article",
+          "Case Report",
+          "Case Series",
+          "Editorial",
+        ].includes(formData.articleType) &&
         formData.iecNumber === "Yes" &&
         !formData.iecNumberDetails.trim()
       )
         e.iecNumber = "Please select a response for IEC Number";
       if (
-        ["Meta-Analysis", "Review Article / Systematic Review"].includes(formData.articleType) &&
+        ["Meta-Analysis", "Review Article / Systematic Review"].includes(
+          formData.articleType,
+        ) &&
         !formData.prosperoRegistration
       )
         e.prosperoRegistration =
           "Please select a response for PROSPERO Registration";
-      if (formData.articleType === "Clinical Trial" && !formData.trialRegistration)
+      if (
+        formData.articleType === "Clinical Trial" &&
+        !formData.trialRegistration
+      )
         e.trialRegistration = "Please select a response for Trial Registration";
     } else if (step === 3) {
       if (!authors.length) e.authors = "At least one author is required";
@@ -2137,15 +2143,43 @@ const SubmitManuscript = () => {
       // ══════════════════════════════════════════════════════════
       // ✅ Map frontend checklist answers to backend question IDs
       const QUESTION_ID_MAP = [
-        "OA_001", "OA_002", "OA_003", "OA_004", "OA_005",  // Questions 1-5
-        "EA_001", "EA_002", "EA_003", "EA_004", "EA_005", "EA_006", "EA_007",  // Questions 6-12
-        "TR_001", "TR_002", "TR_003", "TR_004", "TR_005"   // Questions 13-17
+        "OA_001",
+        "OA_002",
+        "OA_003",
+        "OA_004",
+        "OA_005", // Questions 1-5
+        "EA_001",
+        "EA_002",
+        "EA_003",
+        "EA_004",
+        "EA_005",
+        "EA_006",
+        "EA_007", // Questions 6-12
+        "TR_001",
+        "TR_002",
+        "TR_003",
+        "TR_004",
+        "TR_005", // Questions 13-17
       ];
 
       const CATEGORY_ID_MAP = [
-        "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP", "ORIGINALITY_AND_AUTHORSHIP",
-        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE", "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
-        "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS", "TRANSPARENCY_AND_REPORTING_STANDARDS"
+        "ORIGINALITY_AND_AUTHORSHIP",
+        "ORIGINALITY_AND_AUTHORSHIP",
+        "ORIGINALITY_AND_AUTHORSHIP",
+        "ORIGINALITY_AND_AUTHORSHIP",
+        "ORIGINALITY_AND_AUTHORSHIP",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "ETHICAL_APPROVAL_AND_HUMAN_RESEARCH_COMPLIANCE",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS",
+        "TRANSPARENCY_AND_REPORTING_STANDARDS",
       ];
 
       const payload = {
@@ -2203,7 +2237,10 @@ const SubmitManuscript = () => {
           title: formData.title,
           runningTitle: formData.runningTitle,
           abstract: formData.abstract,
-          keywords: formData.keywords.split(',').map(k => k.trim()).filter(Boolean),
+          keywords: formData.keywords
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean),
 
           manuscriptDetails: {
             wordCount: parseInt(formData.totalWordCount) || 0,
@@ -2213,20 +2250,26 @@ const SubmitManuscript = () => {
             numberOfPages: parseInt(formData.pages) || 1,
           },
 
-          prosperoRegistration: formData.prosperoRegistration ? {
-            hasProspero: formData.prosperoRegistration === "Yes",
-            prosperoDetails: formData.prosperoRegistrationDetails || "",
-          } : undefined,
+          prosperoRegistration: formData.prosperoRegistration
+            ? {
+                hasProspero: formData.prosperoRegistration === "Yes",
+                prosperoDetails: formData.prosperoRegistrationDetails || "",
+              }
+            : undefined,
 
-          trialRegistration: formData.trialRegistration ? {
-            hasTrial: formData.trialRegistration === "Yes",
-            trialDetails: formData.trialRegistrationDetails || "",
-          } : undefined,
+          trialRegistration: formData.trialRegistration
+            ? {
+                hasTrial: formData.trialRegistration === "Yes",
+                trialDetails: formData.trialRegistrationDetails || "",
+              }
+            : undefined,
 
-          iecApproval: formData.iecNumber ? {
-            hasIEC: formData.iecNumber === "Yes",
-            iecDetails: formData.iecNumberDetails || "",
-          } : undefined,
+          iecApproval: formData.iecNumber
+            ? {
+                hasIEC: formData.iecNumber === "Yes",
+                iecDetails: formData.iecNumberDetails || "",
+              }
+            : undefined,
 
           isCorrespondingAuthor: selfCorresponding,
 
@@ -2263,7 +2306,10 @@ const SubmitManuscript = () => {
       }
 
       // Now submit the manuscript
-      const { data } = await api.post(`/submissions/${draftId}/submit`, payload);
+      const { data } = await api.post(
+        `/submissions/${draftId}/submit`,
+        payload,
+      );
 
       // Store real submission number from backend
       setSubmissionNumber(data?.data?.submission?.submissionNumber || null);
@@ -2276,28 +2322,38 @@ const SubmitManuscript = () => {
       // like a fresh submission flow and can create a new draft.
       setTimeout(() => {
         setShowSuccess(false);
-        toast.success('Submission completed! Redirecting...', { duration: 5000 });
+        toast.success("Submission completed! Redirecting...", {
+          duration: 5000,
+        });
         setSubmissionNumber(null);
         navigate("/dashboard");
       }, 5000);
-
     } catch (error) {
       setLoading(false);
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
 
       // Check for timeout error
-      if (error.code === 'ECONNABORTED' || error.message === 'timeout of 30000ms exceeded') {
-        toast.error('Request timed out. Your submission may have been processed. Please check your submissions page.', { duration: 8000 });
+      if (
+        error.code === "ECONNABORTED" ||
+        error.message === "timeout of 30000ms exceeded"
+      ) {
+        toast.error(
+          "Request timed out. Your submission may have been processed. Please check your submissions page.",
+          { duration: 8000 },
+        );
         return;
       }
 
       // Show specific error message
-      const errorMessage = error.response?.data?.message || error.message || 'Submission failed. Please try again.';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Submission failed. Please try again.";
       toast.error(errorMessage, { duration: 5000 });
 
       // If validation errors, show them to user
       if (error.response?.data?.details) {
-        console.error('Validation errors:', error.response.data.details);
+        console.error("Validation errors:", error.response.data.details);
       }
     }
   };
@@ -2309,7 +2365,7 @@ const SubmitManuscript = () => {
   const loadDraft = useCallback(async () => {
     try {
       setDraftLoading(true);
-      const { data } = await api.get('/submissions/draft');
+      const { data } = await api.get("/submissions/draft");
 
       if (data?.data?.draft) {
         const draft = data.data.draft;
@@ -2320,32 +2376,53 @@ const SubmitManuscript = () => {
           setFormData((prev) => ({
             ...prev,
             articleType: normalizeArticleType(draft.articleType),
-            title: draft.title || '',
-            runningTitle: draft.runningTitle || '',
-            abstract: draft.abstract || '',
-            keywords: draft.keywords?.join(', ') || '',
-            totalWordCount: draft.manuscriptDetails?.wordCount?.toString() || '',
-            bwFigures: draft.manuscriptDetails?.numberOfBlackAndWhiteFigures?.toString() || '',
-            colorFigures: draft.manuscriptDetails?.numberOfColorFigures?.toString() || '',
-            tables: draft.manuscriptDetails?.numberOfTables?.toString() || '',
-            pages: draft.manuscriptDetails?.numberOfPages?.toString() || '',
-            iecNumber: draft.iecApproval?.hasIEC === true ? "Yes"
-              : draft.iecApproval?.hasIEC === false ? "No"
-                : "",
+            title: draft.title || "",
+            runningTitle: draft.runningTitle || "",
+            abstract: draft.abstract || "",
+            keywords: draft.keywords?.join(", ") || "",
+            totalWordCount:
+              draft.manuscriptDetails?.wordCount?.toString() || "",
+            bwFigures:
+              draft.manuscriptDetails?.numberOfBlackAndWhiteFigures?.toString() ||
+              "",
+            colorFigures:
+              draft.manuscriptDetails?.numberOfColorFigures?.toString() || "",
+            tables: draft.manuscriptDetails?.numberOfTables?.toString() || "",
+            pages: draft.manuscriptDetails?.numberOfPages?.toString() || "",
+            iecNumber:
+              draft.iecApproval?.hasIEC === true
+                ? "Yes"
+                : draft.iecApproval?.hasIEC === false
+                  ? "No"
+                  : "",
             iecNumberDetails: draft.iecApproval?.iecDetails || "",
-            prosperoRegistration: draft.prosperoRegistration?.hasProspero === true ? "Yes"
-              : draft.prosperoRegistration?.hasProspero === false ? "No"
-                : "",
-            prosperoRegistrationDetails: draft.prosperoRegistration?.prosperoDetails || "",
-            trialRegistration: draft.trialRegistration?.hasTrial === true ? "Yes"
-              : draft.trialRegistration?.hasTrial === false ? "No"
-                : "",
-            trialRegistrationDetails: draft.trialRegistration?.trialDetails || "",
+            prosperoRegistration:
+              draft.prosperoRegistration?.hasProspero === true
+                ? "Yes"
+                : draft.prosperoRegistration?.hasProspero === false
+                  ? "No"
+                  : "",
+            prosperoRegistrationDetails:
+              draft.prosperoRegistration?.prosperoDetails || "",
+            trialRegistration:
+              draft.trialRegistration?.hasTrial === true
+                ? "Yes"
+                : draft.trialRegistration?.hasTrial === false
+                  ? "No"
+                  : "",
+            trialRegistrationDetails:
+              draft.trialRegistration?.trialDetails || "",
           }));
         }
 
         // Restore files
-        if (draft.coverLetter || draft.blindManuscriptFile || draft.figures?.length || draft.tables?.length || draft.supplementaryFiles?.length) {
+        if (
+          draft.coverLetter ||
+          draft.blindManuscriptFile ||
+          draft.figures?.length ||
+          draft.tables?.length ||
+          draft.supplementaryFiles?.length
+        ) {
           setFiles((prev) => ({
             ...prev,
             coverLetter: draft.coverLetter || null,
@@ -2360,16 +2437,16 @@ const SubmitManuscript = () => {
         if (draft.coAuthors?.length) {
           const restoredAuthors = draft.coAuthors.map((ca) => ({
             id: ca._id || Date.now() + Math.random(),
-            title: ca.title || 'Dr.',
-            firstName: ca.firstName || '',
-            lastName: ca.lastName || '',
-            email: ca.email || '',
-            phone: ca.phoneNumber || '',
-            department: ca.department || '',
-            country: ca.country || '',
-            ORCID: ca.orcid || '',
+            title: ca.title || "Dr.",
+            firstName: ca.firstName || "",
+            lastName: ca.lastName || "",
+            email: ca.email || "",
+            phone: ca.phoneNumber || "",
+            department: ca.department || "",
+            country: ca.country || "",
+            ORCID: ca.orcid || "",
             isCorresponding: ca.isCorresponding || false,
-            source: ca.source || 'MANUAL_ENTRY',
+            source: ca.source || "MANUAL_ENTRY",
             user: ca.user || null,
           }));
           setAuthors(restoredAuthors);
@@ -2382,137 +2459,182 @@ const SubmitManuscript = () => {
 
         // Restore suggested reviewers
         if (draft.suggestedReviewers?.length) {
-          const restoredReviewers = draft.suggestedReviewers.map(r => ({
+          const restoredReviewers = draft.suggestedReviewers.map((r) => ({
             id: r.user || null,
-            title: r.title || 'Dr.',
-            firstName: r.firstName || '',
-            lastName: r.lastName || '',
-            email: r.email || '',
-            specialization: r.specialization || '',
-            institution: r.institution || '',
-            country: r.country || '',
+            title: r.title || "Dr.",
+            firstName: r.firstName || "",
+            lastName: r.lastName || "",
+            email: r.email || "",
+            specialization: r.specialization || "",
+            institution: r.institution || "",
+            country: r.country || "",
           }));
           setReviewers(restoredReviewers);
         }
 
         // Restore conflict of interest
         if (draft.conflictOfInterest?.hasConflict !== undefined) {
-          setConflictHasConflict(draft.conflictOfInterest.hasConflict === true ? "Yes" : "No");
-          setConflictDetails(draft.conflictOfInterest.details || '');
+          setConflictHasConflict(
+            draft.conflictOfInterest.hasConflict === true ? "Yes" : "No",
+          );
+          setConflictDetails(draft.conflictOfInterest.details || "");
         }
 
         setLastSaved(new Date(draft.lastModifiedAt || draft.createdAt));
 
-        toast.success('Draft loaded successfully', { duration: 2000 });
+        toast.success("Draft loaded successfully", { duration: 2000 });
       }
     } catch (error) {
-      console.error('Load draft error:', error);
+      console.error("Load draft error:", error);
       // Don't show error toast - just silently fail if no draft exists
     } finally {
       setDraftLoading(false);
     }
   }, []);
 
-  const saveDraft = useCallback(async (showToast = false) => {
-    try {
-      if (showToast) setAutoSaving(true);
+  const saveDraft = useCallback(
+    async (showToast = false) => {
+      try {
+        if (showToast) setAutoSaving(true);
 
-      // Build payload
-      const payload = {
-        articleType: formData.articleType ? normalizeArticleType(formData.articleType) : undefined,
-        title: formData.title || undefined,
-        runningTitle: formData.runningTitle || undefined,
-        abstract: formData.abstract || undefined,
-        keywords: formData.keywords ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
+        // Build payload
+        const payload = {
+          articleType: formData.articleType
+            ? normalizeArticleType(formData.articleType)
+            : undefined,
+          title: formData.title || undefined,
+          runningTitle: formData.runningTitle || undefined,
+          abstract: formData.abstract || undefined,
+          keywords: formData.keywords
+            ? formData.keywords
+                .split(",")
+                .map((k) => k.trim())
+                .filter(Boolean)
+            : undefined,
 
-        manuscriptDetails: {
-          wordCount: formData.totalWordCount ? parseInt(formData.totalWordCount) : undefined,
-          numberOfBlackAndWhiteFigures: formData.bwFigures ? parseInt(formData.bwFigures) : undefined,
-          numberOfColorFigures: formData.colorFigures ? parseInt(formData.colorFigures) : undefined,
-          numberOfTables: formData.tables ? parseInt(formData.tables) : undefined,
-          numberOfPages: formData.pages ? parseInt(formData.pages) : undefined,
-        },
+          manuscriptDetails: {
+            wordCount: formData.totalWordCount
+              ? parseInt(formData.totalWordCount)
+              : undefined,
+            numberOfBlackAndWhiteFigures: formData.bwFigures
+              ? parseInt(formData.bwFigures)
+              : undefined,
+            numberOfColorFigures: formData.colorFigures
+              ? parseInt(formData.colorFigures)
+              : undefined,
+            numberOfTables: formData.tables
+              ? parseInt(formData.tables)
+              : undefined,
+            numberOfPages: formData.pages
+              ? parseInt(formData.pages)
+              : undefined,
+          },
 
-        iecApproval: formData.iecNumber ? {
-          hasIEC: formData.iecNumber === "Yes",
-          iecDetails: formData.iecNumberDetails || "",
-        } : undefined,
+          iecApproval: formData.iecNumber
+            ? {
+                hasIEC: formData.iecNumber === "Yes",
+                iecDetails: formData.iecNumberDetails || "",
+              }
+            : undefined,
 
-        prosperoRegistration: formData.prosperoRegistration ? {
-          hasProspero: formData.prosperoRegistration === "Yes",
-          prosperoDetails: formData.prosperoRegistrationDetails || "",
-        } : undefined,
+          prosperoRegistration: formData.prosperoRegistration
+            ? {
+                hasProspero: formData.prosperoRegistration === "Yes",
+                prosperoDetails: formData.prosperoRegistrationDetails || "",
+              }
+            : undefined,
 
-        trialRegistration: formData.trialRegistration ? {
-          hasTrial: formData.trialRegistration === "Yes",
-          trialDetails: formData.trialRegistrationDetails || "",
-        } : undefined,
+          trialRegistration: formData.trialRegistration
+            ? {
+                hasTrial: formData.trialRegistration === "Yes",
+                trialDetails: formData.trialRegistrationDetails || "",
+              }
+            : undefined,
 
-        coverLetter: files.coverLetter || undefined,
-        blindManuscriptFile: files.blindManuscript || undefined,
-        figures: files.images.length > 0 ? files.images : undefined,
-        tables: files.tables.length > 0 ? files.tables : undefined,
-        supplementaryFiles: files.supplements ? [files.supplements] : undefined,
+          coverLetter: files.coverLetter || undefined,
+          blindManuscriptFile: files.blindManuscript || undefined,
+          figures: files.images.length > 0 ? files.images : undefined,
+          tables: files.tables.length > 0 ? files.tables : undefined,
+          supplementaryFiles: files.supplements
+            ? [files.supplements]
+            : undefined,
 
-        isCorrespondingAuthor: selfCorresponding,
+          isCorrespondingAuthor: selfCorresponding,
 
-        coAuthors: authors.length > 0 ? authors.map((author, index) => ({
-          title: author.title,
-          firstName: author.firstName,
-          lastName: author.lastName,
-          email: author.email,
-          phoneNumber: author.phone,
-          department: author.department,
-          country: author.country,
-          orcid: author.ORCID || '',
-          order: index + 1,
-          isCorresponding: author.isCorresponding || false,
-          source: author.source || "MANUAL_ENTRY",
-          ...(author.source === "DATABASE_SEARCH" && author.user
-            ? { user: author.user }
-            : {}),
-        })) : undefined,
+          coAuthors:
+            authors.length > 0
+              ? authors.map((author, index) => ({
+                  title: author.title,
+                  firstName: author.firstName,
+                  lastName: author.lastName,
+                  email: author.email,
+                  phoneNumber: author.phone,
+                  department: author.department,
+                  country: author.country,
+                  orcid: author.ORCID || "",
+                  order: index + 1,
+                  isCorresponding: author.isCorresponding || false,
+                  source: author.source || "MANUAL_ENTRY",
+                  ...(author.source === "DATABASE_SEARCH" && author.user
+                    ? { user: author.user }
+                    : {}),
+                }))
+              : undefined,
 
-        suggestedReviewers: buildSuggestedReviewersPayload(),
+          suggestedReviewers: buildSuggestedReviewersPayload(),
 
-        conflictOfInterest: buildConflictOfInterestPayload(),
+          conflictOfInterest: buildConflictOfInterestPayload(),
+        };
 
-      };
+        // Remove undefined values
+        Object.keys(payload).forEach((key) => {
+          if (payload[key] === undefined) delete payload[key];
+          if (
+            typeof payload[key] === "object" &&
+            payload[key] !== null &&
+            !Array.isArray(payload[key])
+          ) {
+            Object.keys(payload[key]).forEach((nestedKey) => {
+              if (payload[key][nestedKey] === undefined)
+                delete payload[key][nestedKey];
+            });
+            if (Object.keys(payload[key]).length === 0) delete payload[key];
+          }
+        });
 
-      // Remove undefined values
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === undefined) delete payload[key];
-        if (typeof payload[key] === 'object' && payload[key] !== null && !Array.isArray(payload[key])) {
-          Object.keys(payload[key]).forEach(nestedKey => {
-            if (payload[key][nestedKey] === undefined) delete payload[key][nestedKey];
-          });
-          if (Object.keys(payload[key]).length === 0) delete payload[key];
+        // Only save if there's actual data
+        if (Object.keys(payload).length === 0) {
+          return;
         }
-      });
 
-      // Only save if there's actual data
-      if (Object.keys(payload).length === 0) {
-        return;
-      }
+        const { data } = await api.post("/submissions/draft", payload);
 
-      const { data } = await api.post('/submissions/draft', payload);
-
-      if (data?.data?.submission?._id) {
-        setDraftId(data.data.submission._id);
-        setLastSaved(new Date());
+        if (data?.data?.submission?._id) {
+          setDraftId(data.data.submission._id);
+          setLastSaved(new Date());
+          if (showToast) {
+            toast.success("Draft saved", { duration: 1500 });
+          }
+        }
+      } catch (error) {
+        console.error("Save draft error:", error);
         if (showToast) {
-          toast.success('Draft saved', { duration: 1500 });
+          toast.error("Failed to save draft", { duration: 2000 });
         }
+      } finally {
+        if (showToast) setAutoSaving(false);
       }
-    } catch (error) {
-      console.error('Save draft error:', error);
-      if (showToast) {
-        toast.error('Failed to save draft', { duration: 2000 });
-      }
-    } finally {
-      if (showToast) setAutoSaving(false);
-    }
-  }, [formData, files, authors, selfCorresponding, reviewers, conflictHasConflict, conflictDetails]);
+    },
+    [
+      formData,
+      files,
+      authors,
+      selfCorresponding,
+      reviewers,
+      conflictHasConflict,
+      conflictDetails,
+    ],
+  );
 
   useEffect(() => {
     if (draftLoading || currentStep !== 4) return;
@@ -2520,7 +2642,8 @@ const SubmitManuscript = () => {
     const hasReviewerInput = reviewers.some((r) => r.firstName || r.email);
     const hasConflictInput =
       conflictHasConflict !== null ||
-      (typeof conflictDetails === "string" && conflictDetails.trim().length > 0);
+      (typeof conflictDetails === "string" &&
+        conflictDetails.trim().length > 0);
 
     if (!hasReviewerInput && !hasConflictInput) return;
 
@@ -2577,7 +2700,17 @@ const SubmitManuscript = () => {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [formData, files, authors, selfCorresponding, reviewers, conflictHasConflict, conflictDetails, draftLoading, saveDraft]);
+  }, [
+    formData,
+    files,
+    authors,
+    selfCorresponding,
+    reviewers,
+    conflictHasConflict,
+    conflictDetails,
+    draftLoading,
+    saveDraft,
+  ]);
 
   const handlePreviewManuscript = () => {
     const corrAuthor = (() => {
@@ -2618,15 +2751,17 @@ const SubmitManuscript = () => {
   const buildSuggestedReviewersPayload = useCallback(
     () =>
       reviewers.filter((r) => r.firstName || r.email).length > 0
-        ? reviewers.filter((r) => r.firstName || r.email).map((r) => ({
-          title: r.title,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email,
-          specialization: r.specialization,
-          institution: r.institution,
-          country: r.country,
-        }))
+        ? reviewers
+            .filter((r) => r.firstName || r.email)
+            .map((r) => ({
+              title: r.title,
+              firstName: r.firstName,
+              lastName: r.lastName,
+              email: r.email,
+              specialization: r.specialization,
+              institution: r.institution,
+              country: r.country,
+            }))
         : undefined,
     [reviewers],
   );
@@ -2635,9 +2770,9 @@ const SubmitManuscript = () => {
     () =>
       conflictHasConflict
         ? {
-          hasConflict: conflictHasConflict === "Yes",
-          details: conflictHasConflict === "Yes" ? conflictDetails : "",
-        }
+            hasConflict: conflictHasConflict === "Yes",
+            details: conflictHasConflict === "Yes" ? conflictDetails : "",
+          }
         : undefined,
     [conflictHasConflict, conflictDetails],
   );
@@ -2647,12 +2782,18 @@ const SubmitManuscript = () => {
   // Show loading spinner while draft is loading
   if (draftLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{
-        background: "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)",
-      }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          background:
+            "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)",
+        }}
+      >
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-[#0f3460] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-sm font-semibold text-gray-600">Loading your draft...</p>
+          <p className="text-sm font-semibold text-gray-600">
+            Loading your draft...
+          </p>
         </div>
       </div>
     );
@@ -2663,7 +2804,7 @@ const SubmitManuscript = () => {
       <div className="max-w-5xl mx-auto px-6 py-6">
         {/* Header */}
         <div className="text-center mb-12">
-         {/*} <div className="inline-flex items-center gap-3 bg-white rounded-2xl px-7 py-3.5 shadow-sm border border-[#c8d5e4] mb-6">
+          {/*} <div className="inline-flex items-center gap-3 bg-white rounded-2xl px-7 py-3.5 shadow-sm border border-[#c8d5e4] mb-6">
             <FlaskConical className="w-5 h-5 text-[#0e7490]" />
             <span className="text-sm font-bold text-[#0f3460] uppercase tracking-widest">
               Journal of Advanced & Integrated Research in Acute Medicine
@@ -2857,12 +2998,13 @@ const SubmitManuscript = () => {
 
                       {/* Confirm checkbox */}
                       <div
-                        className={`border rounded-xl px-6 py-5 transition-all ${submissionDeclared
-                          ? "bg-[#e8eef6] border-[#0f3460]"
-                          : errors.submissionDeclared
-                            ? "bg-red-50 border-red-300"
-                            : "bg-[#f7f9fc] border-[#c8d5e4]"
-                          }`}
+                        className={`border rounded-xl px-6 py-5 transition-all ${
+                          submissionDeclared
+                            ? "bg-[#e8eef6] border-[#0f3460]"
+                            : errors.submissionDeclared
+                              ? "bg-red-50 border-red-300"
+                              : "bg-[#f7f9fc] border-[#c8d5e4]"
+                        }`}
                       >
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input
@@ -2964,14 +3106,19 @@ const SubmitManuscript = () => {
                           return;
                         }
                         try {
-                          toast.loading('Uploading...', { id: 'cover-upload' });
-                          const metadata = await handleCloudinaryUpload(f, 'coverLetter');
+                          toast.loading("Uploading...", { id: "cover-upload" });
+                          const metadata = await handleCloudinaryUpload(
+                            f,
+                            "coverLetter",
+                          );
                           setFiles((p) => ({ ...p, coverLetter: metadata }));
                           if (errors.coverLetter)
                             setErrors((p) => ({ ...p, coverLetter: "" }));
-                          toast.success('Uploaded!', { id: 'cover-upload' });
+                          toast.success("Uploaded!", { id: "cover-upload" });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: 'cover-upload' });
+                          toast.error("Upload failed: " + err.message, {
+                            id: "cover-upload",
+                          });
                         }
                       }}
                       onDelete={() =>
@@ -2992,14 +3139,26 @@ const SubmitManuscript = () => {
                           return;
                         }
                         try {
-                          toast.loading('Uploading...', { id: 'manuscript-upload' });
-                          const metadata = await handleCloudinaryUpload(f, 'blindManuscript');
-                          setFiles((p) => ({ ...p, blindManuscript: metadata }));
+                          toast.loading("Uploading...", {
+                            id: "manuscript-upload",
+                          });
+                          const metadata = await handleCloudinaryUpload(
+                            f,
+                            "blindManuscript",
+                          );
+                          setFiles((p) => ({
+                            ...p,
+                            blindManuscript: metadata,
+                          }));
                           if (errors.blindManuscript)
                             setErrors((p) => ({ ...p, blindManuscript: "" }));
-                          toast.success('Uploaded!', { id: 'manuscript-upload' });
+                          toast.success("Uploaded!", {
+                            id: "manuscript-upload",
+                          });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: 'manuscript-upload' });
+                          toast.error("Upload failed: " + err.message, {
+                            id: "manuscript-upload",
+                          });
                         }
                       }}
                       onDelete={() =>
@@ -3028,17 +3187,24 @@ const SubmitManuscript = () => {
                         const toAdd = valid.slice(0, 6 - files.images.length);
 
                         try {
-                          toast.loading(`Uploading ${toAdd.length} file(s)...`, { id: 'figures-upload' });
+                          toast.loading(
+                            `Uploading ${toAdd.length} file(s)...`,
+                            { id: "figures-upload" },
+                          );
                           const uploaded = await Promise.all(
-                            toAdd.map((f) => handleCloudinaryUpload(f, 'figure'))
+                            toAdd.map((f) =>
+                              handleCloudinaryUpload(f, "figure"),
+                            ),
                           );
                           setFiles((p) => ({
                             ...p,
                             images: [...p.images, ...uploaded],
                           }));
-                          toast.success('Uploaded!', { id: 'figures-upload' });
+                          toast.success("Uploaded!", { id: "figures-upload" });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: 'figures-upload' });
+                          toast.error("Upload failed: " + err.message, {
+                            id: "figures-upload",
+                          });
                         }
                       }}
                       onRemove={(i) =>
@@ -3053,16 +3219,25 @@ const SubmitManuscript = () => {
                           return;
                         }
                         try {
-                          toast.loading('Uploading...', { id: `figure-replace-${i}` });
-                          const metadata = await handleCloudinaryUpload(f, 'figure');
+                          toast.loading("Uploading...", {
+                            id: `figure-replace-${i}`,
+                          });
+                          const metadata = await handleCloudinaryUpload(
+                            f,
+                            "figure",
+                          );
                           setFiles((p) => {
                             const imgs = [...p.images];
                             imgs[i] = metadata;
                             return { ...p, images: imgs };
                           });
-                          toast.success('Replaced!', { id: `figure-replace-${i}` });
+                          toast.success("Replaced!", {
+                            id: `figure-replace-${i}`,
+                          });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: `figure-replace-${i}` });
+                          toast.error("Upload failed: " + err.message, {
+                            id: `figure-replace-${i}`,
+                          });
                         }
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
@@ -3090,17 +3265,24 @@ const SubmitManuscript = () => {
                         );
 
                         try {
-                          toast.loading(`Uploading ${toAdd.length} file(s)...`, { id: 'tables-upload' });
+                          toast.loading(
+                            `Uploading ${toAdd.length} file(s)...`,
+                            { id: "tables-upload" },
+                          );
                           const uploaded = await Promise.all(
-                            toAdd.map((f) => handleCloudinaryUpload(f, 'table'))
+                            toAdd.map((f) =>
+                              handleCloudinaryUpload(f, "table"),
+                            ),
                           );
                           setFiles((p) => ({
                             ...p,
                             tables: [...(p.tables || []), ...uploaded],
                           }));
-                          toast.success('Uploaded!', { id: 'tables-upload' });
+                          toast.success("Uploaded!", { id: "tables-upload" });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: 'tables-upload' });
+                          toast.error("Upload failed: " + err.message, {
+                            id: "tables-upload",
+                          });
                         }
                       }}
                       onRemove={(i) =>
@@ -3115,16 +3297,25 @@ const SubmitManuscript = () => {
                           return;
                         }
                         try {
-                          toast.loading('Uploading...', { id: `table-replace-${i}` });
-                          const metadata = await handleCloudinaryUpload(f, 'table');
+                          toast.loading("Uploading...", {
+                            id: `table-replace-${i}`,
+                          });
+                          const metadata = await handleCloudinaryUpload(
+                            f,
+                            "table",
+                          );
                           setFiles((p) => {
                             const tbls = [...p.tables];
                             tbls[i] = metadata;
                             return { ...p, tables: tbls };
                           });
-                          toast.success('Replaced!', { id: `table-replace-${i}` });
+                          toast.success("Replaced!", {
+                            id: `table-replace-${i}`,
+                          });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: `table-replace-${i}` });
+                          toast.error("Upload failed: " + err.message, {
+                            id: `table-replace-${i}`,
+                          });
                         }
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
@@ -3141,12 +3332,21 @@ const SubmitManuscript = () => {
                           return;
                         }
                         try {
-                          toast.loading('Uploading...', { id: 'supplement-upload' });
-                          const metadata = await handleCloudinaryUpload(f, 'supplementary');
+                          toast.loading("Uploading...", {
+                            id: "supplement-upload",
+                          });
+                          const metadata = await handleCloudinaryUpload(
+                            f,
+                            "supplementary",
+                          );
                           setFiles((p) => ({ ...p, supplements: metadata }));
-                          toast.success('Uploaded!', { id: 'supplement-upload' });
+                          toast.success("Uploaded!", {
+                            id: "supplement-upload",
+                          });
                         } catch (err) {
-                          toast.error('Upload failed: ' + err.message, { id: 'supplement-upload' });
+                          toast.error("Upload failed: " + err.message, {
+                            id: "supplement-upload",
+                          });
                         }
                       }}
                       onDelete={() =>
@@ -3239,11 +3439,36 @@ const SubmitManuscript = () => {
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
                       {[
-                        { field: "totalWordCount", label: "Word Count", errKey: "totalWordCount", required: true },
-                        { field: "bwFigures", label: "No. of Black and White Figures", errKey: "bwFigures", required: false },
-                        { field: "colorFigures", label: "No. of Color Figures", errKey: "colorFigures", required: false },
-                        { field: "tables", label: "No. of Tables", errKey: "tables", required: false },
-                        { field: "pages", label: "No. of Pages", errKey: "pages", required: true },
+                        {
+                          field: "totalWordCount",
+                          label: "Word Count",
+                          errKey: "totalWordCount",
+                          required: true,
+                        },
+                        {
+                          field: "bwFigures",
+                          label: "No. of Black and White Figures",
+                          errKey: "bwFigures",
+                          required: false,
+                        },
+                        {
+                          field: "colorFigures",
+                          label: "No. of Color Figures",
+                          errKey: "colorFigures",
+                          required: false,
+                        },
+                        {
+                          field: "tables",
+                          label: "No. of Tables",
+                          errKey: "tables",
+                          required: false,
+                        },
+                        {
+                          field: "pages",
+                          label: "No. of Pages",
+                          errKey: "pages",
+                          required: true,
+                        },
                       ].map(({ field, label, errKey, required }) => (
                         <div key={field} className="text-center">
                           <label
@@ -3257,7 +3482,9 @@ const SubmitManuscript = () => {
                             }}
                           >
                             {label}{" "}
-                            {required && <span className="text-red-500 ml-0.5">*</span>}
+                            {required && (
+                              <span className="text-red-500 ml-0.5">*</span>
+                            )}
                           </label>
                           <input
                             type="text"
@@ -3288,7 +3515,10 @@ const SubmitManuscript = () => {
                       <FieldLabel required>Keywords</FieldLabel>
                       {(() => {
                         const keywordsList = formData.keywords
-                          ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+                          ? formData.keywords
+                              .split(",")
+                              .map((k) => k.trim())
+                              .filter(Boolean)
                           : [];
                         const keywordCount = keywordsList.length;
                         const isSufficient = keywordCount >= 3;
@@ -3298,8 +3528,8 @@ const SubmitManuscript = () => {
                               isSufficient
                                 ? "bg-green-100 text-green-700 border border-green-300"
                                 : keywordCount === 0
-                                ? "bg-gray-100 text-gray-600 border border-gray-300"
-                                : "bg-amber-100 text-amber-700 border border-amber-300"
+                                  ? "bg-gray-100 text-gray-600 border border-gray-300"
+                                  : "bg-amber-100 text-amber-700 border border-amber-300"
                             }`}
                           >
                             {keywordCount}/3 required
@@ -3318,12 +3548,18 @@ const SubmitManuscript = () => {
                     />
                     {(() => {
                       const keywordsList = formData.keywords
-                        ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+                        ? formData.keywords
+                            .split(",")
+                            .map((k) => k.trim())
+                            .filter(Boolean)
                         : [];
-                      return keywordsList.length > 0 && keywordsList.length < 3 ? (
+                      return keywordsList.length > 0 &&
+                        keywordsList.length < 3 ? (
                         <p className="mt-2 text-sm text-amber-600 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                           <AlertCircle className="w-4 h-4 shrink-0" />
-                          Add at least {3 - keywordsList.length} more keyword{3 - keywordsList.length !== 1 ? 's' : ''} to meet the minimum requirement
+                          Add at least {3 - keywordsList.length} more keyword
+                          {3 - keywordsList.length !== 1 ? "s" : ""} to meet the
+                          minimum requirement
                         </p>
                       ) : null;
                     })()}
@@ -3661,11 +3897,11 @@ const SubmitManuscript = () => {
                       const displayName = selfCorresponding
                         ? "You (Submitting Author)"
                         : (() => {
-                          const ca = authors.find((a) => a.isCorresponding);
-                          return ca
-                            ? `${ca.title} ${ca.firstName} ${ca.lastName}`
-                            : "";
-                        })();
+                            const ca = authors.find((a) => a.isCorresponding);
+                            return ca
+                              ? `${ca.title} ${ca.firstName} ${ca.lastName}`
+                              : "";
+                          })();
                       return (
                         <div className="flex items-center gap-3 rounded-xl border border-[#a0d4e8] bg-[#e0f2fe] px-5 py-4">
                           <CheckCircle className="w-5 h-5 text-[#0e7490] shrink-0" />
@@ -3739,19 +3975,19 @@ const SubmitManuscript = () => {
                       </p>
                       {reviewers.filter((r) => r.firstName || r.email).length >
                         0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {reviewers
-                              .filter((r) => r.firstName || r.email)
-                              .map((r, i) => (
-                                <span
-                                  key={i}
-                                  className="text-xs bg-white border border-[#a0d4e8] text-[#0e7490] font-semibold px-3 py-1 rounded-full"
-                                >
-                                  {r.title} {r.firstName} {r.lastName}
-                                </span>
-                              ))}
-                          </div>
-                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {reviewers
+                            .filter((r) => r.firstName || r.email)
+                            .map((r, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-white border border-[#a0d4e8] text-[#0e7490] font-semibold px-3 py-1 rounded-full"
+                              >
+                                {r.title} {r.firstName} {r.lastName}
+                              </span>
+                            ))}
+                        </div>
+                      )}
                       {errors.reviewers && <ErrorMsg msg={errors.reviewers} />}
                     </div>
                     <button
@@ -3764,7 +4000,7 @@ const SubmitManuscript = () => {
                     >
                       <Users className="w-4 h-4" />{" "}
                       {reviewers.filter((r) => r.firstName || r.email).length >
-                        0
+                      0
                         ? "Edit Suggestions"
                         : "Add Reviewers"}
                     </button>
@@ -4026,15 +4262,20 @@ const SubmitManuscript = () => {
                     </div>
                     <div className="px-7 py-6 space-y-5">
                       <p className="text-sm text-gray-700 text-left">
-                        <span className="text-red-500 font-bold">*</span> 
+                        <span className="text-red-500 font-bold">*</span>
                         Please read and click here to review the{" "}
                         <button
                           type="button"
                           onClick={() => setShowCopyrightModal(true)}
-                          className="text-[#0f3460] underline font-semibold hover:text-[#1a4a7a] transition-colors"
+                          className="text-[#0f3460] underline font-semibold hover:text-[#1a4a7a] transition-colors cursor-pointer"
                         >
                           Copyright Form
                         </button>{" "}
+                        and agree to the{" "}
+                        <span className="font-semibold text-gray-800">
+                          terms and conditions
+                        </span>
+                        .
                       </p>
                       {errors.copyrightForm && (
                         <ErrorMsg msg={errors.copyrightForm} />
@@ -4049,7 +4290,8 @@ const SubmitManuscript = () => {
                         }}
                       >
                         I hereby confirm that I have read, understood, and
-                        agreed to the submission guidelines , policies and agree to the terms and conditions.
+                        agreed to the submission guidelines,policies and
+                        submission declaration of the journal.
                       </StyledCheckbox>
                       {errors.copyright && <ErrorMsg msg={errors.copyright} />}
                     </div>
@@ -4082,7 +4324,6 @@ const SubmitManuscript = () => {
                 onSubmit={handleSubmit}
                 loading={loading}
               />
-
             </form>
           </div>
         </div>
