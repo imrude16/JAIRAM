@@ -1880,7 +1880,7 @@ const KeywordsTagInput = ({ value, onChange, hasError, onClearError }) => {
    MAIN COMPONENT
 ═══════════════════════════════ */
 const SubmitManuscript = () => {
-  const [currentStep, setCurrentStep] = React.useState(4);
+  const [currentStep, setCurrentStep] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [submissionNumber, setSubmissionNumber] = React.useState(null);
