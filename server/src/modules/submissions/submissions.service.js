@@ -397,8 +397,13 @@ const searchAssignableUsersByRole = async (role, searchQuery = "", options = {})
 };
 
 // ================================================
-// SEARCH REVIEWERS (NEW)
+// SEARCH REVIEWERS
 // ================================================
+// NOTE:
+// This endpoint remains in use elsewhere in the product
+// for assigning actual platform reviewers. It is no longer
+// used by the author suggested-reviewer submission flow,
+// which is manual-entry only.
 
 const searchReviewers = async (searchQuery = "", excludeEmails = "", limit = 10) => {
     try {
@@ -2117,41 +2122,27 @@ const moveToReview = async (submissionId, userId, userRole) => {
             throw new AppError("Only editors can move submissions to peer review", STATUS_CODES.FORBIDDEN, "FORBIDDEN");
         }
 
-        const check = submission.canMoveToReview();
+        const consentResult = await checkCoAuthorConsentStatus(submissionId);
+        const check = submission.canMoveToReview(consentResult.consentStatus);
 
         if (!check.canMove) {
             throw new AppError(
                 check.reason,
                 STATUS_CODES.BAD_REQUEST,
-                "INSUFFICIENT_REVIEWERS",
-                { current: check.current, required: check.required }
+                "COAUTHOR_CONSENT_REQUIRED",
+                {
+                    total: check.total,
+                    approved: check.approved,
+                    pending: check.pending,
+                    rejected: check.rejected,
+                }
             );
-        }
-
-        // submission.assignedReviewers = check.approvedReviewers.map(r => ({
-        //     reviewer: r.user,
-        //     assignedDate: new Date(),
-        //     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        //     status: "PENDING",
-        //     isAnonymous: true
-        // }));
-        const { Reviewer } = await import("../reviewers/reviewer.model.js");
-        let reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
-        if (reviewerDoc) {
-            reviewerDoc.assignedReviewers = check.acceptedReviewers.map(r => ({
-                reviewer: r.user,
-                assignedDate: new Date(),
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                status: "PENDING",
-                isAnonymous: true,
-            }));
-            await reviewerDoc.save();
         }
 
         submission.updateStatus("UNDER_REVIEW");
 
         submission.internalNotes.push({
-            note: `Moved to peer review with ${check.acceptedReviewers.length} accepted reviewers`,
+            note: `Moved to peer review after all ${check.total} co-author consent(s) were approved`,
             addedBy: userId,
             isConfidential: true,
         });
@@ -2785,18 +2776,31 @@ const checkCoAuthorConsentStatus = async (submissionId) => {
     try {
         console.log("🔵 [SERVICE] checkCoAuthorConsentStatus started");
 
+        const submission = await findSubmissionById(submissionId);
+        if (!submission) {
+            throw new AppError("Submission not found", STATUS_CODES.NOT_FOUND, "SUBMISSION_NOT_FOUND");
+        }
+
         const { Consent } = await import("../consents/consent.model.js");
 
         const consents = await Consent.findBySubmission(submissionId);
 
         if (!consents || consents.length === 0) {
             return {
-                message: "No co-authors found for this submission",
+                message: "Co-author consent records are not available for this submission",
                 consentStatus: {
-                    allAccepted: true,
-                    canProceed: true,
-                    message: "No co-authors to approve",
-                    total: 0,
+                    allAccepted: false,
+                    canProceed: false,
+                    message: "Co-author consent records are not available for this submission",
+                    total: submission.coAuthors?.length ?? 0,
+                    approved: 0,
+                    pending: submission.coAuthors?.length ?? 0,
+                    rejected: 0,
+                    pendingList: (submission.coAuthors || []).map((coAuthor) => ({
+                        email: coAuthor.email,
+                        name: `${coAuthor.firstName || ""} ${coAuthor.lastName || ""}`.trim(),
+                    })),
+                    rejectedList: [],
                 },
             };
         }
@@ -2805,14 +2809,16 @@ const checkCoAuthorConsentStatus = async (submissionId) => {
         const rejected = consents.filter(c => c.status === "REJECTED");
         const approved = consents.filter(c => c.status === "APPROVED");
         const allAccepted = pending.length === 0 && rejected.length === 0;
+        const message = allAccepted
+            ? "All co-authors have accepted consent"
+            : `${pending.length} pending, ${rejected.length} rejected`;
 
         return {
-            message: allAccepted
-                ? "All co-authors have accepted consent"
-                : `${pending.length} pending, ${rejected.length} rejected`,
+            message,
             consentStatus: {
                 allAccepted,
                 canProceed: allAccepted,
+                message,
                 total: consents.length,
                 approved: approved.length,
                 pending: pending.length,
@@ -3845,42 +3851,6 @@ const saveDraft = async (userId, payload) => {
         if (!user) {
             throw new AppError("User not found", STATUS_CODES.NOT_FOUND, "USER_NOT_FOUND");
         }
-
-        // ═══════════════════════════════════════════════════════════
-        // CLEAN DATABASE_SEARCH DATA (Keep only minimal fields)
-        // ═══════════════════════════════════════════════════════════
-
-        // if (payload.coAuthors && payload.coAuthors.length > 0) {
-        //     payload.coAuthors = payload.coAuthors.map(coAuthor => {
-        //         if (coAuthor.source === "DATABASE_SEARCH") {
-        //             // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
-        //             return {
-        //                 user: coAuthor.user || null,
-        //                 order: coAuthor.order,
-        //                 isCorresponding: coAuthor.isCorresponding,
-        //                 source: "DATABASE_SEARCH",
-        //             };
-        //         }
-        //         // Keep all fields for MANUAL_ENTRY (needed for verification)
-        //         return coAuthor;
-        //     });
-        // }
-
-        // if (payload.suggestedReviewers && payload.suggestedReviewers.length > 0) {
-        //     payload.suggestedReviewers = payload.suggestedReviewers.map(reviewer => {
-        //         if (reviewer.source === "DATABASE_SEARCH") {
-        //             // Keep only essential fields for DATABASE_SEARCH (whether user exists or not)
-        //             return {
-        //                 user: reviewer.user || null,
-        //                 source: "DATABASE_SEARCH",
-        //                 invitationStatus: reviewer.invitationStatus || "PENDING",
-        //                 editorApproved: reviewer.editorApproved || false,
-        //             };
-        //         }
-        //         // Keep all fields for MANUAL_ENTRY (needed for verification)
-        //         return reviewer;
-        //     });
-        // }
 
         // Check if draft already exists
         const existingDraft = await Submission.findOne({

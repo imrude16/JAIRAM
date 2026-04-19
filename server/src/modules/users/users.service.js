@@ -252,6 +252,31 @@ const verifyOTP = async (email, otp) => {
                         }
                     }
                 }
+
+                const reviewerSubmissions = await Submission.find({
+                    suggestedReviewers: {
+                        $elemMatch: {
+                            email: user.email,
+                            user: null,
+                        },
+                    },
+                });
+
+                for (const submission of reviewerSubmissions) {
+                    let updated = false;
+
+                    for (const reviewer of submission.suggestedReviewers || []) {
+                        if (reviewer.email === user.email && !reviewer.user) {
+                            reviewer.user = user._id;
+                            updated = true;
+                        }
+                    }
+
+                    if (updated) {
+                        await submission.save({ validateBeforeSave: false });
+                        console.log(`✅ [REGISTRATION] Linked suggested reviewer for submission ${submission.submissionNumber || submission._id}`);
+                    }
+                }
             } catch (linkError) {
                 console.error("❌ [REGISTRATION] Failed to link consents:", linkError);
                 // Don't fail registration

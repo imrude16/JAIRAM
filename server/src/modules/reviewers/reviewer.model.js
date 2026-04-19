@@ -63,7 +63,7 @@ const reviewerSchema = new Schema(
         // ASSIGNED REVIEWERS
         // (Moved from Submission schema)
         //
-        // suggestedReviewers = Author proposed (immutable after SUBMIT)
+        // suggestedReviewers = Author proposed list stored on Submission
         // assignedReviewers  = Editor approved + assigned (mutable)
         // ══════════════════════════════════════════════════════════
 
@@ -119,7 +119,7 @@ const reviewerSchema = new Schema(
         // submitRevision() → revisionStage: "REVIEWER_TO_EDITOR"
         //
         // user: ObjectId from submission.suggestedReviewers[].user
-        //       null if MANUAL_ENTRY reviewer never registered
+        //       null until the suggested reviewer registers and is linked by email
         // email: always present as fallback identifier
         // ══════════════════════════════════════════════════════════
 

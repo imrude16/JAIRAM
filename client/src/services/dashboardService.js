@@ -219,12 +219,13 @@ export const assignReviewers = async (submissionId, reviewerIds, remarks, revise
   return response.data?.data ?? null;
 };
 
-// FETCH REVIEWER MAJORITY / MOVE-TO-REVIEW ELIGIBILITY STATUS
-// Endpoint : GET /api/submissions/:id/reviewer-majority-status
+// FETCH MOVE-TO-REVIEW ELIGIBILITY STATUS
+// Endpoint : GET /api/submissions/:id/coauthor-consent-status
+// Rule     : all co-author consents must be approved
 //
-export const fetchReviewerMajorityStatus = async (submissionId) => {
-  const response = await api.get(`/submissions/${submissionId}/reviewer-majority-status`);
-  return response.data?.data?.majorityStatus ?? null;
+export const fetchMoveToReviewConsentStatus = async (submissionId) => {
+  const response = await api.get(`/submissions/${submissionId}/coauthor-consent-status`);
+  return response.data?.data?.consentStatus ?? null;
 };
 
 // MOVE SUBMISSION TO REVIEW

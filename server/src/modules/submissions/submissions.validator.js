@@ -330,9 +330,8 @@ export const updateSubmissionSchema = {
                 specialization: Joi.string().trim().required(),
                 institution: Joi.string().trim().required(),
                 country: Joi.string().trim().required(),
-                source: Joi.string().valid("DATABASE_SEARCH", "MANUAL_ENTRY").default("MANUAL_ENTRY"),
             }))
-            .min(1)
+            .min(2)
             .max(5)
             .optional(),
     })
@@ -1226,12 +1225,6 @@ export const saveDraftSchema = {
                 specialization: Joi.string().optional().allow(""),
                 institution: Joi.string().optional().allow(""),
                 country: Joi.string().optional().allow(""),
-                source: Joi.string()
-                    .valid("DATABASE_SEARCH", "MANUAL_ENTRY")
-                    .optional()
-                    .messages({
-                        "any.only": "Reviewer source must be either DATABASE_SEARCH or MANUAL_ENTRY",
-                    }),
             }))
             .optional(),
 

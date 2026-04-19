@@ -135,34 +135,6 @@ const TOTAL_CHECKLIST = CHECKLIST_SECTIONS.reduce(
 /* ─────────────────────────────────────────────────────────
    API SERVICE LAYER — backend not yet connected
 ───────────────────────────────────────────────────────── */
-const searchReviewers = async (query, excludeEmails = []) => {
-  if (query.length < 2) return [];
-
-  try {
-    const exclude = excludeEmails.join(',');
-    const response = await api.get('/submissions/search/reviewers', {
-      params: { q: query, exclude },
-    });
-
-    // Backend returns: { data: { reviewers: [...] } }
-    const reviewers = response.data?.data?.reviewers || response.data?.reviewers || [];
-
-    return reviewers.map((user) => ({
-      id: user._id,
-      title: 'Dr.',
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      specialization: user.primarySpecialty,
-      institution: user.institution,
-      country: user.country,
-    }));
-  } catch (error) {
-    console.error('Search reviewers error:', error);
-    return [];
-  }
-};
-
 const searchCoAuthors = async (query, excludeEmails = []) => {
   if (query.length < 2) return [];
 
@@ -1234,7 +1206,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
                 Reviewer Suggestions
               </h3>
               <p className="text-xs text-white/80">
-                Minimum 1 required · Maximum 5 reviewers can be suggested
+                Minimum 2 required · Maximum 5 reviewers can be suggested
               </p>
             </div>
           </div>
@@ -1253,21 +1225,17 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
         </div>
 
         <div className="overflow-y-auto flex-1 px-8 py-7 space-y-6">
-          <div className="border-2 border-[#a0d4e8] bg-[#e0f2fe]/40 rounded-2xl p-5 space-y-3">
+          <div className="border-2 border-[#a0d4e8] bg-[#e0f2fe]/40 rounded-2xl p-5 space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <Search className="w-4 h-4 text-[#0e7490]" />
+              <Users className="w-4 h-4 text-[#0e7490]" />
               <h4 className="text-sm font-bold text-[#0e7490] uppercase tracking-wider">
-                Search Registered Users
+                Manual Reviewer Entry
               </h4>
             </div>
             <p className="text-xs text-gray-500">
-              Search by name, email, or specialization to auto-fill reviewer
-              details from our database.
+              Add suggested reviewers manually. At least 2 reviewer suggestions
+              are required before final manuscript submission.
             </p>
-            <ReviewerSearchBox
-              onSelect={handleSelectFromSearch}
-              existingEmails={existingEmails}
-            />
           </div>
 
           {reviewers.map((reviewer, i) => (
@@ -1283,7 +1251,7 @@ const ReviewerModal = ({ isOpen, onClose, reviewers, setReviewers }) => {
                   <span className="text-sm font-bold text-[#0e7490] uppercase tracking-wider">
                     Reviewer {i + 1}
                   </span>
-                  {i === 0 && (
+                  {i < 2 && (
                     <span className="text-xs bg-red-100 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-semibold ml-1">
                       Required
                     </span>
@@ -2110,9 +2078,9 @@ const SubmitManuscript = () => {
     } else if (step === 3) {
       if (!authors.length) e.authors = "At least one author is required";
     } else if (step === 4) {
-      const filledReviewer = reviewers.find((r) => r.firstName || r.email);
-      if (!filledReviewer)
-        e.reviewers = "At least one reviewer suggestion is required.";
+      const filledReviewers = reviewers.filter((r) => r.firstName || r.email);
+      if (filledReviewers.length < 2)
+        e.reviewers = "At least 2 reviewer suggestions are required.";
 
       if (!conflictHasConflict)
         e.conflict =
@@ -2423,7 +2391,6 @@ const SubmitManuscript = () => {
             specialization: r.specialization || '',
             institution: r.institution || '',
             country: r.country || '',
-            source: r.source || 'MANUAL_ENTRY',
           }));
           setReviewers(restoredReviewers);
         }
@@ -2659,10 +2626,6 @@ const SubmitManuscript = () => {
           specialization: r.specialization,
           institution: r.institution,
           country: r.country,
-          source: r.source || "MANUAL_ENTRY",
-          ...(r.source === "DATABASE_SEARCH" && (r.user || r.id)
-            ? { user: r.user || r.id }
-            : {}),
         }))
         : undefined,
     [reviewers],
@@ -3770,9 +3733,9 @@ const SubmitManuscript = () => {
                         </span>
                       </div>
                       <p className="text-xs text-[#1a2638] leading-relaxed">
-                        Suggest up to 5 qualified peer reviewers. At least 1
-                        suggestion is mandatory. Search by name or email to
-                        auto-fill details of registered users.
+                        Suggest up to 5 qualified peer reviewers. At least 2
+                        suggestions are mandatory and each reviewer must be
+                        entered manually.
                       </p>
                       {reviewers.filter((r) => r.firstName || r.email).length >
                         0 && (
@@ -4063,8 +4026,8 @@ const SubmitManuscript = () => {
                     </div>
                     <div className="px-7 py-6 space-y-5">
                       <p className="text-sm text-gray-700 text-left">
-                        <span className="text-red-500 font-bold">*</span> Please
-                        click here to review the{" "}
+                        <span className="text-red-500 font-bold">*</span> 
+                        Please read and click here to review the{" "}
                         <button
                           type="button"
                           onClick={() => setShowCopyrightModal(true)}
@@ -4072,7 +4035,6 @@ const SubmitManuscript = () => {
                         >
                           Copyright Form
                         </button>{" "}
-                        and agree to the terms and conditions.
                       </p>
                       {errors.copyrightForm && (
                         <ErrorMsg msg={errors.copyrightForm} />
@@ -4087,7 +4049,7 @@ const SubmitManuscript = () => {
                         }}
                       >
                         I hereby confirm that I have read, understood, and
-                        agreed to the submission guidelines, policies and
+                        agreed to the submission guidelines , policies and agree to the terms and conditions.
                       </StyledCheckbox>
                       {errors.copyright && <ErrorMsg msg={errors.copyright} />}
                     </div>

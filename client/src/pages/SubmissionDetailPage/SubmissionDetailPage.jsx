@@ -1209,7 +1209,6 @@ const SubmissionDetailPage = () => {
                 <ModalField label="Specialization" value={selectedSuggestedReviewer.specialization} />
                 <ModalField label="Institution" value={selectedSuggestedReviewer.institution} />
                 <ModalField label="Country" value={selectedSuggestedReviewer.country} />
-                <ModalField label="Source" value={selectedSuggestedReviewer.source} />
                 <div style={{ gridColumn: "1 / -1" }}>
                   <ModalField label="Invitation Sent At" value={formatDateTime(selectedSuggestedReviewer.invitationSentAt)} />
                 </div>

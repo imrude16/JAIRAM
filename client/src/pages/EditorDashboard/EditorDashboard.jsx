@@ -29,7 +29,7 @@ import {
   uploadDashboardFile,
   assignTechnicalEditor as assignTechnicalEditorRequest,
   assignReviewers as assignReviewersRequest,
-  fetchReviewerMajorityStatus as fetchReviewerMajorityStatusRequest,
+  fetchMoveToReviewConsentStatus as fetchMoveToReviewConsentStatusRequest,
   moveSubmissionToReview as moveSubmissionToReviewRequest,
   searchUsersForRoleChange,
   createRoleChangeRequest as createRoleChangeRequestRequest,
@@ -1519,7 +1519,7 @@ const MoveToReviewModal = ({ submission, onClose, onDone }) => {
       try {
         setLoading(true);
         setError("");
-        const result = await fetchReviewerMajorityStatusRequest(submission._id);
+        const result = await fetchMoveToReviewConsentStatusRequest(submission._id);
         if (!active) return;
         setStatusData(result);
       } catch (err) {
@@ -1534,20 +1534,12 @@ const MoveToReviewModal = ({ submission, onClose, onDone }) => {
     return () => { active = false; };
   }, [submission?._id]);
 
-  const totalSuggested = statusData?.totalSuggested ?? statusData?.total ?? submission?.suggestedReviewers?.length ?? 0;
-  const acceptedCount = statusData?.accepted ?? 0;
-  const requiredAcceptances = statusData?.requiredAcceptances ?? Math.ceil(Math.max(totalSuggested, 0) / 2);
-  const hasAcceptedDatabaseReviewer = !!statusData?.hasAcceptedDatabaseReviewer;
-  const hasMinimumSuggestedReviewers =
-    typeof statusData?.hasMinimumSuggestedReviewers === "boolean"
-      ? statusData.hasMinimumSuggestedReviewers
-      : totalSuggested >= 2;
-  const majorityMet = !!statusData?.majorityMet;
-  const reviewerConditionMet = majorityMet || hasAcceptedDatabaseReviewer;
-  const canMove =
-    typeof statusData?.canMove === "boolean"
-      ? statusData.canMove
-      : hasMinimumSuggestedReviewers && reviewerConditionMet;
+  const totalCoAuthors = statusData?.total ?? submission?.coAuthors?.length ?? 0;
+  const approvedCount = statusData?.approved ?? 0;
+  const pendingCount = statusData?.pending ?? 0;
+  const rejectedCount = statusData?.rejected ?? 0;
+  const allConsentsApproved = !!statusData?.allAccepted;
+  const canMove = !!statusData?.canProceed;
 
   const conditionRow = (ok, label, helper) => (
     <div
@@ -1600,15 +1592,9 @@ const MoveToReviewModal = ({ submission, onClose, onDone }) => {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {conditionRow(
-            hasMinimumSuggestedReviewers,
-            "At least two Suggested Reviewers required",
-            `${totalSuggested} suggested reviewer${totalSuggested === 1 ? "" : "s"} currently available`
-          )}
-
-          {conditionRow(
-            reviewerConditionMet,
-            "Suggested Reviewer invitation accepted",
-            `Majority accepted: ${acceptedCount}/${totalSuggested} (need ${requiredAcceptances}) OR one accepted DATABASE_SEARCH reviewer`
+            allConsentsApproved,
+            "All co-author consents approved",
+            `${approvedCount}/${totalCoAuthors} approved, ${pendingCount} pending, ${rejectedCount} rejected`
           )}
 
           <div
@@ -1624,7 +1610,7 @@ const MoveToReviewModal = ({ submission, onClose, onDone }) => {
           >
             {canMove
               ? "All required backend conditions are satisfied. You can now move this submission to Under Review."
-              : "One or more required conditions are not met yet. The Move To Review button stays disabled until all required conditions pass."}
+              : (statusData?.message || "One or more required conditions are not met yet. The Move To Review button stays disabled until all required conditions pass.")}
           </div>
         </div>
       )}

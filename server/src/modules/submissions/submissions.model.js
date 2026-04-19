@@ -496,15 +496,6 @@ const submissionSchema = new Schema(
                     index: true,
                 },
 
-                source: {
-                    type: String,
-                    enum: {
-                        values: ["DATABASE_SEARCH", "MANUAL_ENTRY"],
-                        message: "{VALUE} is not a valid source",
-                    },
-                    required: true,
-                },
-
                 invitationStatus: {
                     type: String,
                     enum: {
@@ -909,37 +900,28 @@ submissionSchema.methods.updateStatus = function (newStatus) {
     return this;
 };
 
-// Check if can move to review (majority accepted, or at least one accepted DB reviewer)
-submissionSchema.methods.canMoveToReview = function () {
-    const totalSuggested = this.suggestedReviewers.length;
-    const acceptedReviewers = this.suggestedReviewers.filter(
-        (r) => r.invitationStatus === "ACCEPTED"
-    );
-    const hasAcceptedDatabaseReviewer = acceptedReviewers.some(
-        (r) => r.source === "DATABASE_SEARCH"
-    );
+// Check if can move to review (all co-author consents approved)
+submissionSchema.methods.canMoveToReview = function (consentStatus = null) {
+    const consentCheck = consentStatus || this.checkCoAuthorConsent();
 
-    if (totalSuggested < 2) {
+    if (!consentCheck?.canProceed) {
         return {
             canMove: false,
-            reason: "At least 2 suggested reviewers are required",
-            current: totalSuggested,
-            required: 2
+            reason: consentCheck?.message || "All co-author consents must be approved before moving to review",
+            total: consentCheck?.total ?? this.coAuthors?.length ?? 0,
+            approved: consentCheck?.approved ?? 0,
+            pending: consentCheck?.pending ?? 0,
+            rejected: consentCheck?.rejected ?? 0,
         };
     }
 
-    const requiredAcceptances = Math.ceil(totalSuggested / 2);
-
-    if (acceptedReviewers.length < requiredAcceptances && !hasAcceptedDatabaseReviewer) {
-        return {
-            canMove: false,
-            reason: `Reviewer invitation majority not met. Required ${requiredAcceptances}/${totalSuggested} accepted invitations, or at least one accepted database-search reviewer`,
-            current: acceptedReviewers.length,
-            required: requiredAcceptances
-        };
-    }
-
-    return { canMove: true, acceptedReviewers };
+    return {
+        canMove: true,
+        total: consentCheck?.total ?? this.coAuthors?.length ?? 0,
+        approved: consentCheck?.approved ?? (this.coAuthors?.length ?? 0),
+        pending: consentCheck?.pending ?? 0,
+        rejected: consentCheck?.rejected ?? 0,
+    };
 };
 
 // Permission checks for viewing/editing based on role and relationship to submission
@@ -1064,12 +1046,6 @@ submissionSchema.methods.checkReviewerMajority = function () {
     const declined = this.suggestedReviewerResponses.declined;
     const pending = this.suggestedReviewerResponses.pending;
     const requiredAcceptances = Math.ceil(Math.max(total, 0) / 2);
-    const acceptedReviewers = (this.suggestedReviewers || []).filter(
-        (reviewer) => reviewer.invitationStatus === "ACCEPTED"
-    );
-    const hasAcceptedDatabaseReviewer = acceptedReviewers.some(
-        (reviewer) => reviewer.source === "DATABASE_SEARCH"
-    );
     const hasMinimumSuggestedReviewers = total >= 2;
 
     if (total === 0) {
@@ -1083,7 +1059,6 @@ submissionSchema.methods.checkReviewerMajority = function () {
             total,
             totalSuggested: total,
             requiredAcceptances,
-            hasAcceptedDatabaseReviewer,
             hasMinimumSuggestedReviewers,
         };
     }
@@ -1099,7 +1074,6 @@ submissionSchema.methods.checkReviewerMajority = function () {
             total,
             totalSuggested: total,
             requiredAcceptances,
-            hasAcceptedDatabaseReviewer,
             hasMinimumSuggestedReviewers,
         };
     }
@@ -1118,24 +1092,20 @@ submissionSchema.methods.checkReviewerMajority = function () {
             total,
             totalSuggested: total,
             requiredAcceptances,
-            hasAcceptedDatabaseReviewer,
             hasMinimumSuggestedReviewers,
         };
     }
 
     return {
-        canMove: hasMinimumSuggestedReviewers && hasAcceptedDatabaseReviewer,
+        canMove: false,
         majorityMet: false,
-        message: hasAcceptedDatabaseReviewer
-            ? `Eligible to move: ${accepted}/${total} accepted and at least one accepted reviewer is from DATABASE_SEARCH`
-            : `Waiting for more responses: ${accepted}/${total} accepted, need ${requiredAcceptances}`,
+        message: `Waiting for more responses: ${accepted}/${total} accepted, need ${requiredAcceptances}`,
         accepted,
         declined,
         total,
         totalSuggested: total,
         pending,
         requiredAcceptances,
-        hasAcceptedDatabaseReviewer,
         hasMinimumSuggestedReviewers,
     };
 };

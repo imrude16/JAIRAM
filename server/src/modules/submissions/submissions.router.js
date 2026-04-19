@@ -395,7 +395,7 @@ router.patch(
  * - COPE compliance accepted
  * - At least 1 corresponding author designated
  * - Cover letter and blind manuscript uploaded
- * - Minimum 1 reviewer suggested (max 5)
+ * - Minimum 2 suggested reviewers required (max 5)
  * 
  * Returns: Submitted manuscript with submission number (JAIRAM-YYYY-NNNN)
  * 
@@ -623,7 +623,7 @@ router.post(
 );
 
 /**
- * MOVE TO PEER REVIEW (Requires Minimum 2 Approved Reviewers)
+ * MOVE TO PEER REVIEW (Co-author consent approved)
  * 
  * POST /api/submissions/:id/move-to-review
  * Headers: Authorization: Bearer <token>
@@ -631,28 +631,21 @@ router.post(
  * Auth: Required + EDITOR or ADMIN role
  * 
  * Validation:
- * - Minimum 2 reviewers must have:
- *   1. Accepted invitation (invitationStatus = "ACCEPTED")
- *   2. Been approved by editor (editorApproved = true)
+ * - All co-author consents must be approved
  * 
  * Returns:
- * - Success (200): Updated submission with assignedReviewers array
- * - Error (400): If < 2 reviewers meet both conditions
- *   Example: "Minimum 2 approved reviewers required. Current: 1, Required: 2"
+ * - Success (200): Updated submission
+ * - Error (400): If consent conditions are not met
  * 
  * Process:
- * 1. Checks submission.canMoveToReview()
- * 2. Moves approved reviewers to assignedReviewers array
- * 3. Updates status to UNDER_REVIEW
- * 4. Adds internal note with reviewer count
+ * 1. Checks co-author consent approval status
+ * 2. Updates status to UNDER_REVIEW
+ * 3. Adds internal note for audit trail
  * 
  * Use Case:
- * 1. Author suggests 3-5 reviewers
- * 2. System sends invitation emails
- * 3. Reviewers accept/decline invitations
- * 4. Editor reviews accepted reviewers' credentials
- * 5. Editor approves 2+ reviewers (sets editorApproved = true)
- * 6. Editor calls this endpoint to move to review
+ * 1. Author submits manuscript with co-authors
+ * 2. All co-authors respond to consent request
+ * 3. Once all consents are approved, editor calls this endpoint to move to review
  */
 router.post(
     "/:id/move-to-review",
@@ -667,10 +660,10 @@ router.post(
  *
  * PATCH /api/submissions/:id/suggested-reviewers/:reviewerIndex/editor-approval
  * Headers: Authorization: Bearer <token>
- * Body: { editorApproved: true | false }
+ * Body: { editorApproved: true }
  *
  * Auth: Required + EDITOR or ADMIN role
- * Purpose: Toggles suggestedReviewers[reviewerIndex].editorApproved for UI display/audit only.
+ * Purpose: Sets suggestedReviewers[reviewerIndex].editorApproved to true for UI display/audit only.
  * Note: This does not control SUBMITTED -> UNDER_REVIEW.
  */
 router.patch(
