@@ -315,8 +315,14 @@ export const updateSubmissionSchema = {
         // File uploads
         coverLetter: fileSchema.optional(),
         blindManuscriptFile: fileSchema.optional(),
-        figures: Joi.array().items(fileSchema).optional(),
-        tables: Joi.array().items(fileSchema).optional(),
+        figures: Joi.array().items(fileSchema).max(3).optional()
+            .messages({
+                "array.max": "Maximum 3 figure uploads allowed",
+            }),
+        tables: Joi.array().items(fileSchema).max(6).optional()
+            .messages({
+                "array.max": "Maximum 6 table uploads allowed",
+            }),
         supplementaryFiles: Joi.array().items(fileSchema).optional(),
 
         // Suggested Reviewers
@@ -441,8 +447,14 @@ export const resubmitAuthorRevisionSchema = {
         blindManuscriptFile: fileSchema.required().messages({
             "any.required": "Blind manuscript file is required",
         }),
-        figures: Joi.array().items(fileSchema).optional(),
-        tables: Joi.array().items(fileSchema).optional(),
+        figures: Joi.array().items(fileSchema).max(3).optional()
+            .messages({
+                "array.max": "Maximum 3 figure uploads allowed",
+            }),
+        tables: Joi.array().items(fileSchema).max(6).optional()
+            .messages({
+                "array.max": "Maximum 6 table uploads allowed",
+            }),
         supplementaryFiles: Joi.array().items(fileSchema).optional(),
     }),
 };

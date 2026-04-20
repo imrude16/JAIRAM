@@ -582,6 +582,8 @@ const RevisionUploadField = ({
 );
 
 const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose, onSubmit }) => {
+  const MAX_REVISION_FIGURES = 3;
+  const MAX_REVISION_TABLES = 6;
   const [coverLetter, setCoverLetter] = useState([]);
   const [blindManuscriptFile, setBlindManuscriptFile] = useState([]);
   const [figures, setFigures] = useState([]);
@@ -592,14 +594,32 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
   const editorBlock = submission?._editorRemarksForAuthor || null;
   const canSubmit = coverLetter.length > 0 && blindManuscriptFile.length > 0 && !uploadingKey && !detailLoading && !submitting;
 
-  const uploadFiles = async (fileList, setter, multiple = false) => {
+  const uploadFiles = async (fileList, setter, multiple = false, maxFiles = Infinity, label = "files") => {
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
+
+    const existingCount = multiple ? setter === setFigures
+      ? figures.length
+      : setter === setTables
+        ? tables.length
+        : setter === setSupplementaryFiles
+          ? supplementaryFiles.length
+          : 0
+      : 0;
+
+    if (multiple && existingCount >= maxFiles) {
+      alert(`Maximum ${maxFiles} ${label} allowed.`);
+      return;
+    }
+
+    const filesToUpload = multiple
+      ? selected.slice(0, Math.max(maxFiles - existingCount, 0))
+      : selected.slice(0, 1);
 
     setUploadingKey("active");
     try {
       const uploaded = [];
-      for (const file of selected) {
+      for (const file of filesToUpload) {
         const uploadedFile = await uploadDashboardFile(file, "supplementary");
         uploaded.push(uploadedFile);
       }
@@ -668,61 +688,87 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
                 </div>
               </div>
 
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 18 }}>
                 <div>
                   <div style={{ fontWeight: 800, color: "#0f3460", fontSize: "0.92rem" }}>Upload Revised Files</div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 4 }}>Replace the live manuscript files for this submission. Your previous files stay preserved in earlier cycle versions.</div>
+                  <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 4, lineHeight: 1.6 }}>
+                    Replace the live manuscript files for this submission. Your previous files stay preserved in earlier cycle versions.
+                    Required files are kept separate below so the revised package is easier to review.
+                  </div>
                 </div>
 
-                <RevisionUploadField
-                  label="Cover Letter"
-                  helperText="Required"
-                  files={coverLetter}
-                  onPick={(e) => uploadFiles(e.target.files, setCoverLetter, false)}
-                  onRemove={(index) => setCoverLetter((prev) => prev.filter((_, i) => i !== index))}
-                  uploading={uploadingKey === "active"}
-                  required
-                />
+                <div style={{ border: "1px solid #cbd5e1", borderRadius: 12, background: "#ffffff", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#0f3460", textTransform: "uppercase", letterSpacing: "0.06em" }}>Required Files</div>
+                    <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: 4 }}>These two files are mandatory for revised resubmission.</div>
+                  </div>
 
-                <RevisionUploadField
-                  label="Blind Manuscript"
-                  helperText="Required"
-                  files={blindManuscriptFile}
-                  onPick={(e) => uploadFiles(e.target.files, setBlindManuscriptFile, false)}
-                  onRemove={(index) => setBlindManuscriptFile((prev) => prev.filter((_, i) => i !== index))}
-                  uploading={uploadingKey === "active"}
-                  required
-                />
+                  <RevisionUploadField
+                    label="Cover Letter"
+                    helperText="Required"
+                    files={coverLetter}
+                    onPick={(e) => uploadFiles(e.target.files, setCoverLetter, false)}
+                    onRemove={(index) => setCoverLetter((prev) => prev.filter((_, i) => i !== index))}
+                    uploading={uploadingKey === "active"}
+                    required
+                  />
 
-                <RevisionUploadField
-                  label="Figures"
-                  helperText="Optional, multiple allowed"
-                  files={figures}
-                  multiple
-                  onPick={(e) => uploadFiles(e.target.files, setFigures, true)}
-                  onRemove={(index) => setFigures((prev) => prev.filter((_, i) => i !== index))}
-                  uploading={uploadingKey === "active"}
-                />
+                  <RevisionUploadField
+                    label="Blind Manuscript"
+                    helperText="Required"
+                    files={blindManuscriptFile}
+                    onPick={(e) => uploadFiles(e.target.files, setBlindManuscriptFile, false)}
+                    onRemove={(index) => setBlindManuscriptFile((prev) => prev.filter((_, i) => i !== index))}
+                    uploading={uploadingKey === "active"}
+                    required
+                  />
+                </div>
 
-                <RevisionUploadField
-                  label="Tables"
-                  helperText="Optional, multiple allowed"
-                  files={tables}
-                  multiple
-                  onPick={(e) => uploadFiles(e.target.files, setTables, true)}
-                  onRemove={(index) => setTables((prev) => prev.filter((_, i) => i !== index))}
-                  uploading={uploadingKey === "active"}
-                />
+                <div style={{ border: "1px solid #dbeafe", borderRadius: 12, background: "#f8fbff", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#0e7490", textTransform: "uppercase", letterSpacing: "0.06em" }}>Optional Supporting Files</div>
+                    <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: 4 }}>Upload only the supporting files that changed in this revision round.</div>
+                  </div>
 
-                <RevisionUploadField
-                  label="Supplementary Files"
-                  helperText="Optional, multiple allowed"
-                  files={supplementaryFiles}
-                  multiple
-                  onPick={(e) => uploadFiles(e.target.files, setSupplementaryFiles, true)}
-                  onRemove={(index) => setSupplementaryFiles((prev) => prev.filter((_, i) => i !== index))}
-                  uploading={uploadingKey === "active"}
-                />
+                  <RevisionUploadField
+                    label="Figures"
+                    helperText={`Optional, multiple allowed, max ${MAX_REVISION_FIGURES}`}
+                    files={figures}
+                    multiple
+                    onPick={(e) => uploadFiles(e.target.files, setFigures, true, MAX_REVISION_FIGURES, "figures")}
+                    onRemove={(index) => setFigures((prev) => prev.filter((_, i) => i !== index))}
+                    uploading={uploadingKey === "active"}
+                  />
+
+                  {figures.length >= MAX_REVISION_FIGURES && (
+                    <div style={{ border: "1px solid #fde68a", background: "#fffbeb", color: "#92400e", borderRadius: 10, padding: "12px 14px" }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>Pay to unlock more figure uploads</div>
+                      <div style={{ fontSize: "0.72rem", marginTop: 4, lineHeight: 1.55 }}>
+                        The current revision limit is {MAX_REVISION_FIGURES} figures. Extra figure uploads will be unlocked later through payment flow.
+                      </div>
+                    </div>
+                  )}
+
+                  <RevisionUploadField
+                    label="Tables"
+                    helperText={`Optional, multiple allowed, max ${MAX_REVISION_TABLES}`}
+                    files={tables}
+                    multiple
+                    onPick={(e) => uploadFiles(e.target.files, setTables, true, MAX_REVISION_TABLES, "tables")}
+                    onRemove={(index) => setTables((prev) => prev.filter((_, i) => i !== index))}
+                    uploading={uploadingKey === "active"}
+                  />
+
+                  <RevisionUploadField
+                    label="Supplementary Files"
+                    helperText="Optional, multiple allowed"
+                    files={supplementaryFiles}
+                    multiple
+                    onPick={(e) => uploadFiles(e.target.files, setSupplementaryFiles, true)}
+                    onRemove={(index) => setSupplementaryFiles((prev) => prev.filter((_, i) => i !== index))}
+                    uploading={uploadingKey === "active"}
+                  />
+                </div>
               </div>
             </>
           )}

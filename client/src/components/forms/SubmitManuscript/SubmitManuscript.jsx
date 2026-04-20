@@ -2725,7 +2725,7 @@ const SubmitManuscript = () => {
         ? arr.map((f, i) => `    ${i + 1}. ${f.name}`).join("\n")
         : "    None";
     const text =
-      `JAIRAM JOURNAL — SUBMISSION PREVIEW\n${"═".repeat(52)}\n\nArticle Type : ${formData.articleType || "—"}\nTitle        : ${formData.title || "—"}\nRunning Title: ${formData.runningTitle || "—"}\nKeywords     : ${formData.keywords || "—"}\nWord Count   : ${formData.totalWordCount || "—"}\n\nABSTRACT\n${formData.abstract || "—"}\n(${wordCount}/250 words)\n\nAUTHORS (${authors.length})\n${authors.map((a, i) => `  ${i + 1}. ${a.title} ${a.firstName} ${a.lastName}${a.isCorresponding ? " [CORRESPONDING]" : ""}\n     ${a.email || "no email"} | ${a.department || "no dept"} | ${a.country || "no country"}`).join("\n")}\n\nCORRESPONDING AUTHOR: ${corrAuthor}\n\nUPLOADED FILES\n  Cover Letter   : ${files.coverLetter?.name || "Not uploaded"}\n  Manuscript     : ${files.blindManuscript?.name || "Not uploaded"}\n  Figures (${files.images.length}/6):\n${fileList(files.images)}\n  Tables (${files.tables.length}/8):\n${fileList(files.tables)}\n  Supplementary  : ${files.supplements?.name || "Not uploaded"}\n\nCONFLICT OF INTEREST: ${conflictHasConflict || "—"}\n${conflictHasConflict === "Yes" ? `Details: ${conflictDetails || "Not provided"}` : ""}`.trim();
+      `JAIRAM JOURNAL — SUBMISSION PREVIEW\n${"═".repeat(52)}\n\nArticle Type : ${formData.articleType || "—"}\nTitle        : ${formData.title || "—"}\nRunning Title: ${formData.runningTitle || "—"}\nKeywords     : ${formData.keywords || "—"}\nWord Count   : ${formData.totalWordCount || "—"}\n\nABSTRACT\n${formData.abstract || "—"}\n(${wordCount}/250 words)\n\nAUTHORS (${authors.length})\n${authors.map((a, i) => `  ${i + 1}. ${a.title} ${a.firstName} ${a.lastName}${a.isCorresponding ? " [CORRESPONDING]" : ""}\n     ${a.email || "no email"} | ${a.department || "no dept"} | ${a.country || "no country"}`).join("\n")}\n\nCORRESPONDING AUTHOR: ${corrAuthor}\n\nUPLOADED FILES\n  Cover Letter   : ${files.coverLetter?.name || "Not uploaded"}\n  Manuscript     : ${files.blindManuscript?.name || "Not uploaded"}\n  Figures (${files.images.length}/3):\n${fileList(files.images)}\n  Tables (${files.tables.length}/6):\n${fileList(files.tables)}\n  Supplementary  : ${files.supplements?.name || "Not uploaded"}\n\nCONFLICT OF INTEREST: ${conflictHasConflict || "—"}\n${conflictHasConflict === "Yes" ? `Details: ${conflictDetails || "Not provided"}` : ""}`.trim();
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
@@ -3172,7 +3172,7 @@ const SubmitManuscript = () => {
                     <MultiFileUploadBox
                       label="Figures"
                       files={files.images}
-                      max={6}
+                      max={3}
                       required={false}
                       onAdd={async (sel) => {
                         const valid = sel.filter((f) =>
@@ -3180,11 +3180,11 @@ const SubmitManuscript = () => {
                         );
                         if (valid.length !== sel.length)
                           alert("Only Word and image files allowed.");
-                        if (files.images.length >= 6) {
-                          alert("Maximum 6 figures allowed.");
+                        if (files.images.length >= 3) {
+                          alert("Maximum 3 figures allowed.");
                           return;
                         }
-                        const toAdd = valid.slice(0, 6 - files.images.length);
+                        const toAdd = valid.slice(0, 3 - files.images.length);
 
                         try {
                           toast.loading(
@@ -3242,12 +3242,24 @@ const SubmitManuscript = () => {
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
                       description="Accepted: .doc, .docx, .jpg, .jpeg, .png (Optional)"
-                      hint="Word or image files · Optional"
+                      hint="Word or image files · Optional · Max 3 files"
                     />
+                    {files.images.length >= 3 && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+                          <AlertCircle className="w-4 h-4" />
+                          Figure upload limit reached at 3
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                          Need to upload more than 3 figures? Pay to unlock more figure uploads.
+                          This is a placeholder UI for now; payment flow will be connected later.
+                        </p>
+                      </div>
+                    )}
                     <MultiFileUploadBox
                       label="Tables"
                       files={files.tables}
-                      max={8}
+                      max={6}
                       required={false}
                       onAdd={async (sel) => {
                         const valid = sel.filter((f) =>
@@ -3255,13 +3267,13 @@ const SubmitManuscript = () => {
                         );
                         if (valid.length !== sel.length)
                           alert("Only Word and image files allowed.");
-                        if ((files.tables?.length || 0) >= 8) {
-                          alert("Maximum 8 tables allowed.");
+                        if ((files.tables?.length || 0) >= 6) {
+                          alert("Maximum 6 tables allowed.");
                           return;
                         }
                         const toAdd = valid.slice(
                           0,
-                          8 - (files.tables?.length || 0),
+                          6 - (files.tables?.length || 0),
                         );
 
                         try {
@@ -3320,7 +3332,7 @@ const SubmitManuscript = () => {
                       }}
                       accept=".doc,.docx,.jpg,.jpeg,.png"
                       description="Accepted: .doc, .docx, .jpg, .jpeg, .png (Optional)"
-                      hint="Word or image files · Optional"
+                      hint="Word or image files · Optional · Max 6 files"
                     />
                     <FileUploadBox
                       label="Supplementary Files"
@@ -4079,14 +4091,14 @@ const SubmitManuscript = () => {
                         {
                           label: "Figures",
                           value: files.images.length
-                            ? `${files.images.length} file${files.images.length !== 1 ? "s" : ""} uploaded`
+                            ? `${files.images.length} of 3 file${files.images.length !== 1 ? "s" : ""} uploaded`
                             : null,
                           required: false,
                         },
                         {
                           label: "Tables",
                           value: files.tables.length
-                            ? `${files.tables.length} file${files.tables.length !== 1 ? "s" : ""} uploaded`
+                            ? `${files.tables.length} of 6 file${files.tables.length !== 1 ? "s" : ""} uploaded`
                             : null,
                           required: false,
                         },
