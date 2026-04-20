@@ -106,7 +106,7 @@ const SECTIONS = [
     icon: Flag,
     color: "green",
     members: [
-      { name: "Dr. Biswajeet Thakur", degree: "Ph.D", designation: "Scientist F", department: "Micropalaeontology", institution: "Birla Sahni Institute of Palaeosciences, Lucknow, India", email: "biswajeet_thakur@bsip.res.in", expertise: "Micropalaeontology, biostratigraphy, palynology, diatoms, paleoenvironment, Quaternary geology" },
+      { name: "Dr. Biswajeet Thakur", degree: "Ph.D", designation: "Scientist F", department: "Micropalaeontology", institution: "Birbal Sahni Institute of Palaeosciences, Lucknow, India", email: "biswajeet_thakur@bsip.res.in", expertise: "Micropalaeontology, biostratigraphy, palynology, diatoms, paleoenvironment, Quaternary geology" },
       { name: "Dr. Harish Kumar Sagar", degree: "MBBS, MD (Pathology)", designation: "Scientist D (Medical)", department: "In-charge, Dept. Of Pathology, ICMR", institution: "National JALMA Institute for Leprosy and other Mycobacterial Diseases, Agra, India", email: "harish.sagar@icmr.gov.in", expertise: "Pathology, Infectious Diseases, Translational Research, Research Methodology, Biomedical Diagnostics" },
       { name: "Mr. Rohit Kumar Singh", degree: "PhD", designation: "Scientist C", department: "Public Health", institution: "Kalyan Singh Super Speciality Cancer Institute, Lucknow, India", email: "rohitksingh@kgmcindia.edu", expertise: "Epidemiology, Biostatistics, Health Systems Research, Public Health Analytics, Cancer Epidemiology" },
     ],
