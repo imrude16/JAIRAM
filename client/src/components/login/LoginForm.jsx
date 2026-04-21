@@ -12,7 +12,7 @@ import useAuthStore from "../../store/authStore";
 
 const inputStyle = (disabled) => ({
   width: "100%",
-  padding: "10px 14px",
+  padding: "9px 14px",
   fontSize: "0.875rem",
   border: "1.5px solid #e2e8f0",
   borderRadius: "10px",
@@ -25,12 +25,12 @@ const inputStyle = (disabled) => ({
 
 const passwordInputStyle = (disabled) => ({
   ...inputStyle(disabled),
-  padding: "10px 42px 10px 14px",
+  padding: "9px 42px 9px 14px",
 });
 
 const primaryButtonStyle = (disabled) => ({
   width: "100%",
-  padding: "11px 20px",
+  padding: "10px 20px",
   borderRadius: "10px",
   border: "none",
   cursor: disabled ? "not-allowed" : "pointer",
@@ -141,11 +141,7 @@ const LoginForm = () => {
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
-    if (!resetEmail.trim()) {
-      toast.error("Email is required.");
-      return;
-    }
-
+    if (!resetEmail.trim()) { toast.error("Email is required."); return; }
     setForgotLoading(true);
     try {
       const result = await forgotPassword(resetEmail.trim());
@@ -160,24 +156,14 @@ const LoginForm = () => {
 
   const handleResetSubmit = async (e) => {
     e.preventDefault();
-
     if (!resetEmail.trim() || !otp.trim() || !newPassword.trim() || !confirmNewPassword.trim()) {
-      toast.error("All fields are required.");
-      return;
+      toast.error("All fields are required."); return;
     }
-
-    if (newPassword !== confirmNewPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
+    if (newPassword !== confirmNewPassword) { toast.error("Passwords do not match."); return; }
     setResetLoading(true);
     try {
       const { token, user, message } = await resetPassword({
-        email: resetEmail.trim(),
-        otp: otp.trim(),
-        newPassword,
-        confirmNewPassword,
+        email: resetEmail.trim(), otp: otp.trim(), newPassword, confirmNewPassword,
       });
       login(token, user);
       toast.success(message || "Password reset successful.");
@@ -190,162 +176,148 @@ const LoginForm = () => {
   };
 
   const cardTitle =
-    mode === "login"
-      ? "Log In"
-      : mode === "forgot"
-        ? "Forgot Password"
-        : "Reset Password";
+    mode === "login" ? "Log In" :
+    mode === "forgot" ? "Forgot Password" : "Reset Password";
 
   const cardSubtitle =
-    mode === "login"
-      ? "Sign in to your JAIRAM account"
-      : mode === "forgot"
-        ? "Enter your email to receive a reset OTP"
-        : "Enter the OTP and choose a new password";
+    mode === "login" ? "Sign in to your JAIRAM account" :
+    mode === "forgot" ? "Enter your email to receive a reset OTP" :
+    "Enter the OTP and choose a new password";
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        display: "flex",
-        zIndex: 40,
-      }}
-    >
-      <div
-        style={{
-          width: "42%",
-          background: "linear-gradient(160deg, #1e3a5f 0%, #2d6a4f 100%)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "48px 40px",
-          color: "white",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ width: "40px", height: "2px", background: "rgba(255,255,255,0.35)", borderRadius: "2px", marginBottom: "28px" }} />
+    <div style={{ position: "fixed", inset: 0, display: "flex", overflow: "hidden" }}>
 
-          <h1 style={{ fontFamily: "Georgia, serif", fontSize: "1.55rem", fontWeight: 600, textAlign: "center", lineHeight: 1.45, margin: "0 0 14px" }}>
+      {/* ── Left panel ── */}
+      <div style={{
+        width: "40%",
+        minWidth: 300,
+        background: "linear-gradient(160deg, #1e3a5f 0%, #2d6a4f 100%)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "32px 32px 24px",
+        color: "white",
+        flexShrink: 0,
+        overflow: "hidden",
+      }}>
+        {/* Top content */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minHeight: 0 }}>
+          <div style={{ width: "40px", height: "2px", background: "rgba(255,255,255,0.35)", borderRadius: "2px", marginBottom: "20px", flexShrink: 0 }} />
+
+          <h1 style={{
+            fontFamily: "Georgia, serif", fontSize: "1.25rem", fontWeight: 600,
+            textAlign: "center", lineHeight: 1.45, margin: "0 0 8px", flexShrink: 0,
+          }}>
             Journal of Advanced &amp; Integrated Research in Acute Medicine
           </h1>
 
-          <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.85rem", textAlign: "center", margin: "0 0 36px", lineHeight: 1.6 }}>
+          <p style={{
+            color: "rgba(255,255,255,0.6)", fontSize: "0.8rem",
+            textAlign: "center", margin: "0 0 20px", lineHeight: 1.5, flexShrink: 0,
+          }}>
             Secure manuscript submission &amp; peer-review system
           </p>
 
-          <div style={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.15)", marginBottom: "36px" }}>
-            <img src="/assets/home.jpeg" alt="Journal cover" style={{ width: "260px", display: "block" }} />
+          {/* Image — constrained so it never pushes links off screen */}
+          <div style={{
+            borderRadius: "10px", overflow: "hidden",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            marginBottom: "20px", flexShrink: 1,
+            maxHeight: "calc(100vh - 320px)",
+            display: "flex", alignItems: "center",
+          }}>
+            <img
+              src="/assets/home.jpeg"
+              alt="Journal cover"
+              style={{ width: "220px", maxWidth: "100%", display: "block", objectFit: "cover" }}
+            />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "center" }}>
+          {/* Links */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", flexShrink: 0 }}>
             {[
               { label: "Visit journal's website", href: "/" },
               { label: "Current issue", href: "/" },
               { label: "About the journal", href: "/about" },
             ].map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                style={{
-                  color: "rgba(255,255,255,0.72)",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
+              <a key={link.label} href={link.href} style={{
+                color: "rgba(255,255,255,0.72)", fontSize: "0.85rem", fontWeight: 500,
+                textDecoration: "none", display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
                 {link.label}
               </a>
             ))}
           </div>
         </div>
 
-        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", textAlign: "center", margin: "40px 0 0 0" }}>
+        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem", textAlign: "center", margin: "16px 0 0", flexShrink: 0 }}>
           © 2026 JAIRAM Journal Portal
         </p>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          background: "#f1f5f9",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 24px",
-          overflowY: "auto",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "400px" }}>
-          <div style={{ textAlign: "center", marginBottom: "28px" }}>
-            <div style={{ width: "36px", height: "3px", borderRadius: "2px", background: "linear-gradient(90deg,#1e40af,#3b82f6)", margin: "0 auto 16px" }} />
-            <h2 style={{ fontSize: "1.65rem", fontWeight: 700, color: "#1e293b", letterSpacing: "-0.02em", margin: "0 0 6px" }}>
+      {/* ── Right panel ── */}
+      <div style={{
+        flex: 1,
+        background: "#f1f5f9",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        overflow: "auto",
+      }}>
+        <div style={{ width: "100%", maxWidth: "380px" }}>
+
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "22px" }}>
+            <div style={{ width: "36px", height: "3px", borderRadius: "2px", background: "linear-gradient(90deg,#1e40af,#3b82f6)", margin: "0 auto 14px" }} />
+            <h2 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#1e293b", letterSpacing: "-0.02em", margin: "0 0 4px" }}>
               {cardTitle}
             </h2>
-            <p style={{ color: "#64748b", fontSize: "0.875rem", margin: 0 }}>
-              {cardSubtitle}
-            </p>
+            <p style={{ color: "#64748b", fontSize: "0.85rem", margin: 0 }}>{cardSubtitle}</p>
           </div>
 
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: "16px",
-              padding: "32px",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.04), 0 10px 40px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
-            }}
-          >
+          {/* Card */}
+          <div style={{
+            background: "#fff", borderRadius: "16px", padding: "28px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.04), 0 10px 40px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
+          }}>
+
+            {/* ── Login ── */}
             {mode === "login" && (
-              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "5px" }}>
                     <label style={fieldLabelStyle}>Email Address</label>
                   </div>
                   <input
-                    type="email"
-                    placeholder="author@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                    style={inputStyle(loading)}
+                    type="email" placeholder="author@example.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    required disabled={loading} style={inputStyle(loading)}
                     onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                     onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                   />
                 </div>
-
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "5px" }}>
                     <label style={fieldLabelStyle}>Password</label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                    >
+                    <button type="button" onClick={handleForgotPassword}
+                      style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                       Forgot Password?
                     </button>
                   </div>
                   <div style={{ position: "relative" }}>
                     <input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      style={passwordInputStyle(loading)}
+                      type={showPassword ? "text" : "password"} placeholder="Enter your password"
+                      value={password} onChange={(e) => setPassword(e.target.value)}
+                      required disabled={loading} style={passwordInputStyle(loading)}
                       onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                       onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                     />
                     <PasswordToggle shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
                   </div>
                 </div>
-
                 <button type="submit" disabled={loading} style={primaryButtonStyle(loading)}>
                   {loading ? (
                     <>
@@ -367,115 +339,82 @@ const LoginForm = () => {
               </form>
             )}
 
+            {/* ── Forgot password ── */}
             {mode === "forgot" && (
-              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "5px" }}>
                     <label style={fieldLabelStyle}>Email Address</label>
                   </div>
                   <input
-                    type="email"
-                    placeholder="author@example.com"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    required
-                    disabled={forgotLoading}
-                    style={inputStyle(forgotLoading)}
+                    type="email" placeholder="author@example.com"
+                    value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
+                    required disabled={forgotLoading} style={inputStyle(forgotLoading)}
                     onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                     onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                   />
                 </div>
-
                 <button type="submit" disabled={forgotLoading} style={primaryButtonStyle(forgotLoading)}>
                   {forgotLoading ? "Sending OTP..." : "Send OTP"}
                 </button>
-
                 <button type="button" onClick={() => setMode("login")} style={subtleButtonStyle}>
                   Back to Login
                 </button>
               </form>
             )}
 
+            {/* ── Reset password ── */}
             {mode === "reset" && (
-              <form onSubmit={handleResetSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <form onSubmit={handleResetSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <label style={fieldLabelStyle}>Email Address</label>
-                  </div>
+                  <div style={{ marginBottom: "5px" }}><label style={fieldLabelStyle}>Email Address</label></div>
                   <input
-                    type="email"
-                    placeholder="author@example.com"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    required
-                    disabled={resetLoading}
-                    style={inputStyle(resetLoading)}
+                    type="email" placeholder="author@example.com"
+                    value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
+                    required disabled={resetLoading} style={inputStyle(resetLoading)}
                     onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                     onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                   />
                 </div>
-
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <label style={fieldLabelStyle}>OTP</label>
-                  </div>
+                  <div style={{ marginBottom: "5px" }}><label style={fieldLabelStyle}>OTP</label></div>
                   <input
-                    type="text"
-                    placeholder="Enter OTP"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    required
-                    disabled={resetLoading}
-                    style={inputStyle(resetLoading)}
+                    type="text" placeholder="Enter OTP"
+                    value={otp} onChange={(e) => setOtp(e.target.value)}
+                    required disabled={resetLoading} style={inputStyle(resetLoading)}
                     onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                     onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                   />
                 </div>
-
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <label style={fieldLabelStyle}>New Password</label>
-                  </div>
+                  <div style={{ marginBottom: "5px" }}><label style={fieldLabelStyle}>New Password</label></div>
                   <div style={{ position: "relative" }}>
                     <input
-                      type={showNewPassword ? "text" : "password"}
-                      placeholder="Enter new password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      disabled={resetLoading}
-                      style={passwordInputStyle(resetLoading)}
+                      type={showNewPassword ? "text" : "password"} placeholder="Enter new password"
+                      value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                      required disabled={resetLoading} style={passwordInputStyle(resetLoading)}
                       onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                       onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                     />
                     <PasswordToggle shown={showNewPassword} onToggle={() => setShowNewPassword(!showNewPassword)} />
                   </div>
                 </div>
-
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <label style={fieldLabelStyle}>Confirm New Password</label>
-                  </div>
+                  <div style={{ marginBottom: "5px" }}><label style={fieldLabelStyle}>Confirm New Password</label></div>
                   <div style={{ position: "relative" }}>
                     <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm new password"
-                      value={confirmNewPassword}
-                      onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      required
-                      disabled={resetLoading}
-                      style={passwordInputStyle(resetLoading)}
+                      type={showConfirmPassword ? "text" : "password"} placeholder="Confirm new password"
+                      value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      required disabled={resetLoading} style={passwordInputStyle(resetLoading)}
                       onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
                       onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
                     />
                     <PasswordToggle shown={showConfirmPassword} onToggle={() => setShowConfirmPassword(!showConfirmPassword)} />
                   </div>
                 </div>
-
                 <button type="submit" disabled={resetLoading} style={primaryButtonStyle(resetLoading)}>
                   {resetLoading ? "Resetting Password..." : "Reset Password"}
                 </button>
-
                 <button type="button" onClick={() => setMode("forgot")} style={subtleButtonStyle}>
                   Back
                 </button>
@@ -483,14 +422,11 @@ const LoginForm = () => {
             )}
 
             {mode === "login" && (
-              <div style={{ marginTop: "20px", paddingTop: "18px", borderTop: "1px solid #f1f5f9", textAlign: "center" }}>
+              <div style={{ marginTop: "18px", paddingTop: "16px", borderTop: "1px solid #f1f5f9", textAlign: "center" }}>
                 <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>
                   New Author?{" "}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/auth/register")}
-                    style={{ color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px", fontSize: "inherit" }}
-                  >
+                  <button type="button" onClick={() => navigate("/auth/register")}
+                    style={{ color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px", fontSize: "inherit" }}>
                     Create an account
                   </button>
                 </p>
