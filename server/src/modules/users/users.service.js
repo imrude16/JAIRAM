@@ -3,7 +3,7 @@ import { STATUS_CODES } from "../../common/constants/statusCodes.js";
 import { User } from "./users.model.js";
 import { generateToken } from "../../common/utils/jwtToken.js";
 import { sendEmail } from "../../infrastructure/email/email.service.js";
-import { otpTemplate, passwordResetTemplate } from "../../infrastructure/email/email.template.js";
+import { otpTemplate, passwordResetTemplate, welcomeTemplate } from "../../infrastructure/email/email.template.js";
 
 // ================================================
 // PRIVATE HELPER FUNCTIONS
@@ -289,6 +289,14 @@ const verifyOTP = async (email, otp) => {
         }
 
         const token = createAuthToken(user);
+
+        void sendEmail({
+            to: user.email,
+            subject: "Welcome to JAIRAM",
+            html: welcomeTemplate(user.firstName),
+        }).catch((emailError) => {
+            console.error("❌ [SERVICE] Failed to send welcome email:", emailError);
+        });
 
         console.log("✅ [SERVICE] OTP verification completed successfully"); // debugger
 

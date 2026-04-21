@@ -337,7 +337,6 @@ const submissionSchema = new Schema(
                     "EDITOR_TO_REVIEWER",       // Editor → Reviewer
                     "REVIEWER_TO_EDITOR",       // Reviewer → Editor
                     "EDITOR_TO_AUTHOR",         // Editor → Author (revision request)
-                    "AUTHOR_REVISION",          // Author resubmitting after revision request
                 ],
                 message: "{VALUE} is not a valid revision stage",
             },
@@ -720,9 +719,24 @@ submissionSchema.pre("save", async function (next) {
                 "supplementaryFiles",
             ];
 
-            const allowedFields = isStatusChange
-                ? submissionTransitionFields
-                : postSubmissionAllowedFields;
+            const authorRevisionResubmitFields = [
+                "coverLetter",
+                "blindManuscriptFile",
+                "figures",
+                "tables",
+                "supplementaryFiles",
+            ];
+
+            const isAuthorRevisionResubmit =
+                this.revisionStage === "EDITOR_AUTHOR" &&
+                this.isModified("status") &&
+                this.status === "SUBMITTED";
+
+            const allowedFields = isAuthorRevisionResubmit
+                ? [...new Set([...submissionTransitionFields, ...authorRevisionResubmitFields])]
+                : isStatusChange
+                    ? submissionTransitionFields
+                    : postSubmissionAllowedFields;
 
             const illegalModification = modifiedFields.find(field =>
                 !allowedFields.some(allowed => field.startsWith(allowed))

@@ -3,6 +3,10 @@ import { STATUS_CODES } from "../../common/constants/statusCodes.js";
 import { User } from "../users/users.model.js";
 import { RoleChangeRequest } from "./roleChangeRequest.model.js";
 import { sendEmail } from "../../infrastructure/email/email.service.js";
+import {
+    accountStatusUpdateTemplate,
+    roleUpdatedTemplate,
+} from "../../infrastructure/email/email.template.js";
 
 /**
  * ════════════════════════════════════════════════════════════════
@@ -39,15 +43,11 @@ const sendRoleChangeNotificationEmail = async (user, newRole, adminName) => {
         await sendEmail({
             to: user.email,
             subject: `JAIRAM - Role Updated to ${newRole}`,
-            html: `
-                <h2>Your Role Has Been Updated</h2>
-                <p>Dear ${user.firstName} ${user.lastName},</p>
-                <p>Your role on the JAIRAM platform has been updated.</p>
-                <p><strong>New Role:</strong> ${newRole}</p>
-                <p><strong>Updated by:</strong> ${adminName}</p>
-                <p>You can now access features associated with this role.</p>
-                <p>If you have any questions, please contact our support team.</p>
-            `,
+            html: roleUpdatedTemplate({
+                name: `${user.firstName} ${user.lastName}`,
+                newRole,
+                adminName,
+            }),
         });
         console.log(`🔵 [ADMIN-HELPER] Role change notification sent to ${user.email}`);
     } catch (emailError) {
@@ -562,14 +562,11 @@ const updateUserStatus = async (adminId, userId, newStatus, reason) => {
             await sendEmail({
                 to: user.email,
                 subject: `JAIRAM - Account Status Updated`,
-                html: `
-                    <h2>Account Status Update</h2>
-                    <p>Dear ${user.firstName} ${user.lastName},</p>
-                    <p>Your account status has been updated.</p>
-                    <p><strong>New Status:</strong> ${newStatus}</p>
-                    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
-                    <p>If you have any questions, please contact support.</p>
-                `,
+                html: accountStatusUpdateTemplate({
+                    name: `${user.firstName} ${user.lastName}`,
+                    newStatus,
+                    reason,
+                }),
             });
         } catch (emailError) {
             console.error("❌ Failed to send status change notification:", emailError);

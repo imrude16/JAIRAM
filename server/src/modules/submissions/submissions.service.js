@@ -3,6 +3,14 @@ import { STATUS_CODES } from "../../common/constants/statusCodes.js";
 import { Submission } from "./submissions.model.js";
 import { User } from "../users/users.model.js";
 import { sendEmail } from "../../infrastructure/email/email.service.js";
+import {
+    suggestedReviewerInvitationTemplate,
+    submissionConfirmationTemplate,
+    editorNewSubmissionAlertTemplate,
+    submissionApprovedByEditorTemplate,
+    technicalReviewAssignmentTemplate,
+    manuscriptReviewRequestTemplate,
+} from "../../infrastructure/email/email.template.js";
 import { CURRENT_CHECKLIST } from "../../common/constants/checklistQuestions.v1.0.0.js";
 import { SubmissionCycle } from "../submissionCycles/submissionCycle.model.js";
 import manuscriptVersionService from "../manuscriptVersions/manuscriptVersion.service.js";
@@ -555,22 +563,16 @@ const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
 
         const invitationUrl = `${process.env.FRONTEND_URL}/reviewer-invitation?token=${token}`;
 
-        const emailHtml = `
-            <h2>Manuscript Review Invitation</h2>
-            <p>Dear ${name},</p>
-            <p>You have been suggested as a reviewer for the manuscript:</p>
-            <p><strong>${submission.title}</strong></p>
-            <p>Submission Number: ${submission.submissionNumber}</p>
-            <p>Article Type: ${submission.articleType}</p>
-            <p>Please respond to this invitation by clicking the link below:</p>
-            <p><a href="${invitationUrl}" style="background:#28a745;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Respond to Invitation</a></p>
-            <p>This link will expire in 7 days.</p>
-        `;
-
         await sendEmail({
             to: email,
             subject: `Review Invitation - ${submission.submissionNumber}`,
-            html: emailHtml,
+            html: suggestedReviewerInvitationTemplate({
+                name,
+                submissionTitle: submission.title,
+                submissionNumber: submission.submissionNumber,
+                articleType: submission.articleType,
+                invitationUrl,
+            }),
         });
 
         console.log(`🔵 [HELPER] Invitation email sent to ${email}`);
@@ -1222,19 +1224,13 @@ const submitManuscript = async (submissionId, userId, payload) => {
                     await sendEmail({
                         to: author.email,
                         subject: `Submission Confirmation - ${submission.submissionNumber}`,
-                        html: `
-                            <h2>Manuscript Submission Confirmation</h2>
-                            <p>Dear ${author.firstName} ${author.lastName},</p>
-                            <p>Your manuscript has been successfully submitted:</p>
-                            <p><strong>Submission Number:</strong> ${submission.submissionNumber}</p>
-                            <p><strong>Title:</strong> ${submission.title}</p>
-                            <p><strong>Article Type:</strong> ${submission.articleType}</p>
-                            ${submission.coAuthors && submission.coAuthors.length > 0 ? `
-                            <p><strong>Co-Authors:</strong> ${submission.coAuthors.length}</p>
-                            <p>Consent emails have been sent to all co-authors. They have 7 days to respond.</p>
-                            ` : ''}
-                            <p>We will review your submission and contact you soon.</p>
-                        `,
+                        html: submissionConfirmationTemplate({
+                            authorName: `${author.firstName} ${author.lastName}`,
+                            submissionNumber: submission.submissionNumber,
+                            title: submission.title,
+                            articleType: submission.articleType,
+                            coAuthorCount: submission.coAuthors?.length || 0,
+                        }),
                     });
                     console.log("✅ [EMAIL] Confirmation email sent to author");
                 } catch (emailError) {
@@ -1244,6 +1240,41 @@ const submitManuscript = async (submissionId, userId, payload) => {
         }
 
         console.log("✅ [SERVICE] submitManuscript completed successfully");
+
+        if (author) {
+            setImmediate(async () => {
+                try {
+                    const editors = await User.find({
+                        role: "EDITOR",
+                        status: "ACTIVE",
+                        isEmailVerified: true,
+                    }).select("firstName lastName email");
+
+                    for (const editor of editors) {
+                        try {
+                            await sendEmail({
+                                to: editor.email,
+                                subject: `New Submission Received - ${submission.submissionNumber}`,
+                                html: editorNewSubmissionAlertTemplate({
+                                    editorName: `${editor.firstName} ${editor.lastName}`,
+                                    submissionNumber: submission.submissionNumber,
+                                    title: submission.title,
+                                    articleType: submission.articleType,
+                                    authorName: `${author.firstName} ${author.lastName}`,
+                                    authorEmail: author.email,
+                                    coAuthorCount: submission.coAuthors?.length || 0,
+                                    submittedAt: submission.createdAt || new Date(),
+                                }),
+                            });
+                        } catch (emailError) {
+                            console.error(`❌ [EMAIL] Failed to send new submission alert to ${editor.email}:`, emailError);
+                        }
+                    }
+                } catch (editorFetchError) {
+                    console.error("❌ [EMAIL] Failed to queue editor submission alerts:", editorFetchError);
+                }
+            });
+        }
 
         return {
             message: "Manuscript submitted successfully",
@@ -1296,6 +1327,7 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
         submission.figures = payload.figures || [];
         submission.tables = payload.tables || [];
         submission.supplementaryFiles = payload.supplementaryFiles || [];
+        submission.isRevision = true;
 
         submission.updateStatus("SUBMITTED");
 
@@ -1530,6 +1562,8 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
         // ── REVIEWER role: enrich with assignment status + editor remarks ──
         if (userRole === "REVIEWER") {
             const submissionIds = submissions.map(s => s._id);
+            const currentUser = await User.findById(userId).select("email").lean();
+            const currentEmail = currentUser?.email?.toLowerCase() || null;
 
             const reviewerDocs = await Reviewer.find({
                 submissionId: { $in: submissionIds },
@@ -3309,7 +3343,16 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                 await sendEmail({
                     to: author.email,
                     subject: `✅ Submission Approved by Editor - ${submission.submissionNumber}`,
-                    html: `
+                    html: submissionApprovedByEditorTemplate({
+                        authorName: `${author.firstName} ${author.lastName}`,
+                        submissionNumber: submission.submissionNumber,
+                        title: submission.title,
+                        editorName: `${editor.firstName} ${editor.lastName}`,
+                        resolvedCount,
+                        issueDetails,
+                        resolutionNote,
+                    }),
+                    /*
                         <h2>Submission Manually Approved by Editor</h2>
                         <p>Dear ${author.firstName} ${author.lastName},</p>
                         <p>Your manuscript has been <strong>manually approved</strong> by the Editor and can now proceed with the review process.</p>
@@ -3333,7 +3376,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
                         
                         <p>✅ Your submission status has been changed from <strong>DRAFT</strong> to <strong>SUBMITTED</strong>.</p>
                         <p>The review process will now continue normally.</p>
-                    `,
+                    */
                 });
                 console.log(`📧 [SERVICE] Approval notification sent to ${author.email}`);
             } catch (emailError) {
@@ -3478,7 +3521,16 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
         void sendEmail({
             to: technicalEditor.email,
             subject: `Technical Review Assignment - ${submission.submissionNumber}`,
-            html: `
+            html: technicalReviewAssignmentTemplate({
+                name: `${technicalEditor.firstName} ${technicalEditor.lastName}`,
+                submissionNumber: submission.submissionNumber,
+                title: submission.title,
+                articleType: submission.articleType,
+                remarks,
+                revisedManuscriptName: revisedManuscript?.fileName || "Provided",
+                attachmentCount: attachments?.length || 0,
+            }),
+            /*
                 <h2>Technical Review Assignment</h2>
                 <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
                 <p>You have been assigned to review the technical aspects of a manuscript:</p>
@@ -3493,7 +3545,7 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
                     <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
                 ` : ''}
                 <p>Please log in to the platform to review the manuscript and submit your decision.</p>
-            `,
+            */
         })
             .then(() => {
                 console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
@@ -3797,7 +3849,17 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
             void sendEmail({
                 to: reviewer.email,
                 subject: `Manuscript Review Request - ${submission.submissionNumber}`,
-                html: `
+                html: manuscriptReviewRequestTemplate({
+                    name: `${reviewer.firstName} ${reviewer.lastName}`,
+                    submissionNumber: submission.submissionNumber,
+                    title: submission.title,
+                    articleType: submission.articleType,
+                    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                    remarks,
+                    revisedManuscriptName: revisedManuscript?.fileName || "Provided",
+                    attachmentCount: attachments?.length || 0,
+                }),
+                /*
                     <h2>Manuscript Review Request</h2>
                     <p>Dear ${reviewer.firstName} ${reviewer.lastName},</p>
                     <p>You have been invited to review a manuscript:</p>
@@ -3813,7 +3875,7 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
                         <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
                     ` : ''}
                     <p>Please log in to the platform to review the manuscript and submit your feedback.</p>
-                `,
+                */
             })
                 .then(() => {
                     console.log(`📧 Reviewer notification sent to ${reviewer.email}`);
