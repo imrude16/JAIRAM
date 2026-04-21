@@ -874,10 +874,7 @@ const NODES = [
           </ExternalLink>
           . Plagiarism is defined as the act of presenting another's work,
           ideas, or words as one's own without proper attribution. The journal
-          strictly prohibits self-plagiarism as well.
-          <ExternalLink href="https://www.ithenticate.com/">
-            iThenticate
-          </ExternalLink>{" "}
+          strictly prohibits self-plagiarism 
           software is provided to editors and reviewers.
         </Para>
         <BulletList
