@@ -358,16 +358,26 @@ const SearchDropdown = ({ placeholder, items, selected, onSelect, multi = false 
     `${it.firstName} ${it.lastName} ${it.email}`.toLowerCase().includes(q.toLowerCase())
   );
 
+  const normalizeId = (id) => String(id);
+  const selectedValues = multi
+    ? (Array.isArray(selected) ? selected : []).map(normalizeId)
+    : selected == null
+      ? null
+      : normalizeId(selected);
+
   const isSelected = (id) =>
-    multi ? selected.includes(id) : selected === id;
+    multi ? selectedValues.includes(normalizeId(id)) : selectedValues === normalizeId(id);
 
   const toggle = (id) => {
+    const normalizedId = normalizeId(id);
     if (multi) {
       onSelect(
-        isSelected(id) ? selected.filter(s => s !== id) : [...selected, id]
+        isSelected(normalizedId)
+          ? selectedValues.filter((s) => s !== normalizedId)
+          : [...selectedValues, normalizedId]
       );
     } else {
-      onSelect(isSelected(id) ? null : id);
+      onSelect(isSelected(normalizedId) ? null : normalizedId);
     }
   };
 
@@ -804,7 +814,7 @@ const RoleChangeRequestModal = ({
 
 const AssignTechEditorModal = ({ submission, onClose, onDone }) => {
   const [techEditors, setTechEditors] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState([]);
   const [remarks, setRemarks] = useState("");
   const [revisedManuscript, setRevisedManuscript] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -861,7 +871,7 @@ const AssignTechEditorModal = ({ submission, onClose, onDone }) => {
   };
 
   const handleSubmit = async () => {
-    if (!selected || remarks.trim().length < 10 || !revisedManuscript) return;
+    if (selected.length === 0 || remarks.trim().length < 10 || !revisedManuscript) return;
     setLoading(true);
     try {
       await assignTechnicalEditorRequest(
@@ -871,13 +881,15 @@ const AssignTechEditorModal = ({ submission, onClose, onDone }) => {
         revisedManuscript,
         attachments
       );
-      onDone("Technical Editor assigned successfully.");
+      onDone("Technical Editor(s) assigned successfully.");
     } catch (err) {
       alert(err.response?.data?.message || "Failed to assign Technical Editor.");
     } finally {
       setLoading(false);
     }
   };
+
+  const canSubmit = selected.length > 0 && remarks.trim().length >= 10 && !!revisedManuscript;
 
   return (
     <ModalShell
@@ -896,7 +908,7 @@ const AssignTechEditorModal = ({ submission, onClose, onDone }) => {
             items={techEditors}
             selected={selected}
             onSelect={setSelected}
-            multi={false}
+            multi={true}
           />
 
           <div>
@@ -952,12 +964,12 @@ const AssignTechEditorModal = ({ submission, onClose, onDone }) => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!selected || remarks.trim().length < 10 || !revisedManuscript || loading || uploadingRevised || uploadingAttachments}
+              disabled={!canSubmit || loading || uploadingRevised || uploadingAttachments}
               style={{
                 padding: "9px 20px", borderRadius: 8, border: "none",
-                background: (!selected || remarks.trim().length < 10 || !revisedManuscript || loading || uploadingRevised || uploadingAttachments) ? "#cbd5e1" : "linear-gradient(135deg,#0f3460,#1a4a7a)",
+                background: (!canSubmit || loading || uploadingRevised || uploadingAttachments) ? "#cbd5e1" : "linear-gradient(135deg,#0f3460,#1a4a7a)",
                 color: "#fff", fontWeight: 600, fontSize: "0.8rem",
-                cursor: (!selected || remarks.trim().length < 10 || !revisedManuscript || loading || uploadingRevised || uploadingAttachments) ? "not-allowed" : "pointer",
+                cursor: (!canSubmit || loading || uploadingRevised || uploadingAttachments) ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", gap: 6,
               }}
             >
@@ -1433,7 +1445,6 @@ const RequestRevisionModal = ({ submission, onClose, onDone }) => {
       setLoading(false);
     }
   };
-
   return (
     <ModalShell
       title="Request Revision"
@@ -1659,8 +1670,14 @@ const PaymentModal = ({ submission, onClose, onDone }) => {
   const [newStatus, setNewStatus] = useState(!submission.paymentStatus);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const isLocked = submission.status === "ACCEPTED" || submission.status === "REJECTED";
 
   const handleSubmit = async () => {
+    if (isLocked) {
+      onClose();
+      return;
+    }
+
     setLoading(true);
     try {
       await api.put(`/submissions/${submission._id}/payment-status`, {
@@ -1692,19 +1709,35 @@ const PaymentModal = ({ submission, onClose, onDone }) => {
             <button
               key={String(opt.val)}
               onClick={() => setNewStatus(opt.val)}
+              disabled={isLocked}
               style={{
-                flex: 1, padding: "10px 0", borderRadius: 8, cursor: "pointer",
+                flex: 1, padding: "10px 0", borderRadius: 8, cursor: isLocked ? "not-allowed" : "pointer",
                 fontWeight: 700, fontSize: "0.8rem",
                 border: `2px solid ${newStatus === opt.val ? opt.border : "#e2e8f0"}`,
                 background: newStatus === opt.val ? opt.bg : "#f9fafb",
                 color: newStatus === opt.val ? opt.color : "#94a3b8",
                 transition: "all 0.15s",
+                opacity: isLocked ? 0.55 : 1,
               }}
             >
               {opt.label}
             </button>
           ))}
         </div>
+
+        {isLocked && (
+          <div style={{
+            fontSize: "0.75rem",
+            color: "#64748b",
+            textAlign: "center",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            padding: "10px 12px",
+          }}>
+            Payment status is locked because this manuscript is already {submission.status.toLowerCase().replace("_", " ")}.
+          </div>
+        )}
 
         {/* Current status indicator */}
         <div style={{ fontSize: "0.75rem", color: "#64748b", textAlign: "center" }}>
@@ -1743,12 +1776,12 @@ const PaymentModal = ({ submission, onClose, onDone }) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || isLocked}
             style={{
               padding: "9px 20px", borderRadius: 8, border: "none",
-              background: loading ? "#cbd5e1" : "linear-gradient(135deg,#0f3460,#1a4a7a)",
-              color: "#fff", fontWeight: 600, fontSize: "0.8rem",
-              cursor: loading ? "not-allowed" : "pointer",
+              background: (loading || isLocked) ? "#cbd5e1" : "linear-gradient(135deg,#0f3460,#1a4a7a)",
+              color: isLocked ? "#64748b" : "#fff", fontWeight: 600, fontSize: "0.8rem",
+              cursor: (loading || isLocked) ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: 6,
             }}
           >
@@ -1928,19 +1961,21 @@ const EditorTable = ({ subs, onAction }) => {
                   {/* Payment — clickable to edit */}
                   <td style={TD()}>
                     <button
-                      onClick={() => onAction("payment", sub)}
-                      title="Click to update payment status"
+                      onClick={() => !["ACCEPTED", "REJECTED"].includes(sub.status) && onAction("payment", sub)}
+                      title={["ACCEPTED", "REJECTED"].includes(sub.status) ? "Payment status is locked after final decision" : "Click to update payment status"}
+                      disabled={["ACCEPTED", "REJECTED"].includes(sub.status)}
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 4,
-                        fontWeight: 600, borderRadius: 20, cursor: "pointer",
+                        fontWeight: 600, borderRadius: 20, cursor: ["ACCEPTED", "REJECTED"].includes(sub.status) ? "not-allowed" : "pointer",
                         color: sub.paymentStatus ? "#15803d" : "#6b7280",
                         background: sub.paymentStatus ? "#dcfce7" : "#f3f4f6",
                         fontSize: "0.7rem", padding: "3px 9px",
                         border: `1px solid ${sub.paymentStatus ? "#bbf7d0" : "#e5e7eb"}`,
                         transition: "all 0.12s",
+                        opacity: ["ACCEPTED", "REJECTED"].includes(sub.status) ? 0.55 : 1,
                       }}
-                      onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
-                      onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                      onMouseEnter={e => !["ACCEPTED", "REJECTED"].includes(sub.status) && (e.currentTarget.style.opacity = "0.75")}
+                      onMouseLeave={e => !["ACCEPTED", "REJECTED"].includes(sub.status) && (e.currentTarget.style.opacity = "1")}
                     >
                       <CreditCard style={{ width: 10, height: 10 }} />
                       {sub.paymentStatus ? "Paid" : "Pending"}
@@ -1970,7 +2005,11 @@ const EditorTable = ({ subs, onAction }) => {
                       <EBtn
                         icon={UserPlus} label="Tech Ed" color="#7c3aed"
                         onClick={() => onAction("techEditor", sub)}
-                        disabled={!!sub._techEditor || sub.status === "ACCEPTED" || sub.status === "REJECTED"}
+                        disabled={
+                          (sub._assignedTechEditor?.assignedTechnicalEditors?.length ?? 0) >= 1 ||
+                          sub.status === "ACCEPTED" ||
+                          sub.status === "REJECTED"
+                        }
                       />
 
                       {/* Reviewers — disabled if already assigned (≥2) OR submission is Accepted/Rejected */}
@@ -1984,7 +2023,10 @@ const EditorTable = ({ subs, onAction }) => {
                       <EBtn
                         icon={CreditCard} label="Provisionally Accept" color="#7c3aed"
                         onClick={() => onAction("provisionallyAccept", sub)}
-                        disabled={sub.status !== "UNDER_REVIEW" || !!sub.paymentStatus}
+                        disabled={
+                          sub.status !== "UNDER_REVIEW" ||
+                          !!sub.paymentStatus
+                        }
                       />
 
                       <EBtn
@@ -2058,11 +2100,14 @@ export default function EditorDashboard({ user, showRoleChangeModal, onCloseRole
 
     const teDoc = sub._assignedTechEditor;
     if (teDoc?.assignedTechnicalEditors?.length > 0) {
-      const te = teDoc.assignedTechnicalEditors[0];
-      if (te.technicalEditor) {
-        techEditor = `${te.technicalEditor.firstName || ""} ${te.technicalEditor.lastName || ""}`.trim();
-        techEditorAssignedAt = te.assignedDate ?? null;
-      }
+      const technicalEditors = teDoc.assignedTechnicalEditors
+        .map((assignment) => assignment?.technicalEditor)
+        .filter(Boolean)
+        .map((technicalEditor) => `${technicalEditor.firstName || ""} ${technicalEditor.lastName || ""}`.trim())
+        .filter(Boolean);
+
+      techEditor = technicalEditors.length > 0 ? technicalEditors.join(", ") : null;
+      techEditorAssignedAt = teDoc.assignedTechnicalEditors[0]?.assignedDate ?? null;
     }
 
     let reviewers = [];

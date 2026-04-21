@@ -324,6 +324,29 @@ const EmptyTable = ({ message }) => (
   </div>
 );
 
+const Toast = ({ message, type = "success" }) => (
+  <div style={{
+    position: "fixed",
+    bottom: 28,
+    right: 28,
+    zIndex: 500,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${type === "success" ? "#bbf7d0" : "#fecaca"}`,
+    background: type === "success" ? "#f0fdf4" : "#fef2f2",
+    color: type === "success" ? "#166534" : "#b91c1c",
+    boxShadow: "0 14px 30px rgba(15,23,42,0.14)",
+    minWidth: 260,
+    maxWidth: 360,
+  }}>
+    {type === "success" ? <CheckCircle style={{ width: 16, height: 16, flexShrink: 0 }} /> : <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />}
+    <div style={{ fontSize: "0.8rem", fontWeight: 600, lineHeight: 1.45 }}>{message}</div>
+  </div>
+);
+
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
 const Stats = ({ subs }) => (
@@ -957,6 +980,7 @@ const UserDashboard = () => {
   const [revisionDetail, setRevisionDetail] = useState(null);
   const [revisionDetailLoading, setRevisionDetailLoading] = useState(false);
   const [revisionSubmitting, setRevisionSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const { authorSubmissions, coAuthorSubmissions, fullProfile, loading, error, refetch } = useDashboard();
 
@@ -965,14 +989,22 @@ const UserDashboard = () => {
   const handleLogout = () => { logout(); navigate("/auth/login" , { replace: true }); };
   const role = user.role || "USER";
 
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
   const handleAcceptConsent = async (submissionId) => {
     setConsentLoading(p => ({ ...p, [submissionId]: true }));
     try {
       await acceptConsentFromDashboard(submissionId);
+      showToast("Consent accepted successfully.");
+      refetch();
+      return;
       alert("✓ Consent accepted successfully!");
       refetch();
     } catch (err) {
-      alert("Error: " + (err.response?.data?.message || err.message));
+      showToast(err.response?.data?.message || err.message || "Failed to accept consent.", "error");
     } finally {
       setConsentLoading(p => ({ ...p, [submissionId]: false }));
     }
@@ -983,10 +1015,13 @@ const UserDashboard = () => {
     setConsentLoading(p => ({ ...p, [submissionId]: true }));
     try {
       await rejectConsentFromDashboard(submissionId, remark);
+      showToast("Consent rejected successfully.");
+      refetch();
+      return;
       alert("✗ Consent rejected successfully!");
       refetch();
     } catch (err) {
-      alert("Error: " + (err.response?.data?.message || err.message));
+      showToast(err.response?.data?.message || err.message || "Failed to reject consent.", "error");
     } finally {
       setConsentLoading(p => ({ ...p, [submissionId]: false }));
     }
@@ -1245,6 +1280,8 @@ const UserDashboard = () => {
           onSubmit={handleSubmitRevision}
         />
       )}
+
+      {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
 };

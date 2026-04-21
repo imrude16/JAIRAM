@@ -870,7 +870,18 @@ export const assignTechnicalEditorSchema = {
     }),
 
     body: Joi.object({
-        technicalEditorId: objectIdField("Technical Editor ID").required(),
+        technicalEditorIds: Joi.array()
+            .items(objectIdField("Technical Editor ID"))
+            .min(1)
+            .max(5)
+            .unique()
+            .required()
+            .messages({
+                "array.min": "Please select at least one technical editor",
+                "array.max": "You can assign at most 5 technical editors at a time",
+                "array.unique": "Duplicate technical editor IDs found",
+                "any.required": "Please select at least one technical editor",
+            }),
 
         remarks: Joi.string()
             .trim()

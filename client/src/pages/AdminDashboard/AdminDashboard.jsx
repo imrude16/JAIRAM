@@ -133,11 +133,14 @@ const extractAssignment = (sub) => {
 
   const teDoc = sub._assignedTechEditor;
   if (teDoc?.assignedTechnicalEditors?.length > 0) {
-    const te = teDoc.assignedTechnicalEditors[0];
-    if (te.technicalEditor) {
-      techEditor = `${te.technicalEditor.firstName || ""} ${te.technicalEditor.lastName || ""}`.trim();
-      techEditorAssignedAt = te.assignedDate ?? null;
-    }
+    const technicalEditors = teDoc.assignedTechnicalEditors
+      .map((assignment) => assignment?.technicalEditor)
+      .filter(Boolean)
+      .map((technicalEditor) => `${technicalEditor.firstName || ""} ${technicalEditor.lastName || ""}`.trim())
+      .filter(Boolean);
+
+    techEditor = technicalEditors.length > 0 ? technicalEditors.join(", ") : null;
+    techEditorAssignedAt = teDoc.assignedTechnicalEditors[0]?.assignedDate ?? null;
   }
 
   let reviewers = [];
@@ -633,6 +636,7 @@ const AdminTable = ({ subs, onAction }) => {
                         label="Assign Editor"
                         color="#7c3aed"
                         onClick={() => onAction("assignEditor", sub)}
+                        disabled={sub.status === "ACCEPTED" || sub.status === "REJECTED"}
                       />
                     </div>
                   </td>

@@ -195,13 +195,13 @@ export const uploadDashboardFile = async (file, uploadType = "supplementary", on
 
 // ASSIGN TECHNICAL EDITOR TO SUBMISSION
 // Endpoint : POST /api/submissions/:id/assign-technical-editor
-// Body     : { technicalEditorId: string, remarks: string }
+// Body     : { technicalEditorIds: string[], remarks: string }
 // Requires : remarks min 10 chars
 //
-export const assignTechnicalEditor = async (submissionId, technicalEditorId, remarks, revisedManuscript, attachments = []) => {
+export const assignTechnicalEditor = async (submissionId, technicalEditorIds, remarks, revisedManuscript, attachments = []) => {
   const response = await api.post(
     `/submissions/${submissionId}/assign-technical-editor`,
-    { technicalEditorId, remarks, revisedManuscript, attachments }
+    { technicalEditorIds, remarks, revisedManuscript, attachments }
   );
   return response.data?.data ?? null;
 };

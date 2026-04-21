@@ -429,12 +429,12 @@ const editorApproveConsentOverride = async (req, res) => {
 
 const assignTechnicalEditor = async (req, res) => {
     const { id } = req.params;
-    const { technicalEditorId, remarks, revisedManuscript, attachments } = req.body;
+    const { technicalEditorIds, remarks, revisedManuscript, attachments } = req.body;
 
     const result = await submissionService.assignTechnicalEditor(
         id,
         req.user.id,
-        technicalEditorId,
+        technicalEditorIds,
         remarks,
         revisedManuscript,
         attachments

@@ -194,6 +194,57 @@ const renderEmailLayout = ({
     </html>
 `;
 
+const authorDecisionTemplate = ({
+    authorName,
+    submissionId,
+    title,
+    articleType,
+    decision,
+    decisionStage,
+    remarks,
+    decidedAt,
+}) => {
+    const isAccepted = decision === "ACCEPT";
+    const decisionLabel = isAccepted ? "Accepted" : "Rejected";
+
+    return renderEmailLayout({
+        preheader: `Your manuscript ${submissionId || ""} has been ${decisionLabel.toLowerCase()} by the editor.`,
+        eyebrow: "Editorial Decision Update",
+        heading: `Manuscript ${decisionLabel}`,
+        badge: renderBadge(decisionLabel, isAccepted ? "success" : "danger"),
+        intro: `Dear ${escapeHtml(authorName || "Author")}, an editorial decision has been recorded for your manuscript submission. Please find the summary below.`,
+        sections: [
+            renderPanel({
+                title: "Submission Summary",
+                tone: isAccepted ? "success" : "danger",
+                content: `
+                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                        ${renderRows([
+                            { label: "Submission ID", value: escapeHtml(submissionId || "N/A") },
+                            { label: "Title", value: escapeHtml(title || "N/A") },
+                            { label: "Article Type", value: escapeHtml(articleType || "N/A") },
+                            { label: "Decision", value: renderBadge(decisionLabel, isAccepted ? "success" : "danger") },
+                            { label: "Decision Stage", value: escapeHtml(decisionStage || "N/A") },
+                            { label: "Decided At", value: escapeHtml(formatDisplayDate(decidedAt)) },
+                        ])}
+                    </table>
+                `,
+            }),
+            remarks
+                ? renderPanel({
+                    title: isAccepted ? "Editor's Note" : "Reason / Remarks",
+                    tone: isAccepted ? "info" : "warning",
+                    content: `<p style="margin: 0; color: #344054; font-size: 14px; line-height: 1.75;">${escapeHtml(remarks)}</p>`,
+                })
+                : "",
+        ].filter(Boolean),
+        outro: isAccepted
+            ? "Thank you for submitting your work to JAIRAM. Our team will communicate the next steps if any further action is required."
+            : "Thank you for giving JAIRAM the opportunity to review your manuscript. We appreciate your effort and interest in the journal.",
+        footnote: "This is an automated editorial update from the JAIRAM Manuscript Portal.",
+    });
+};
+
 /**
  * OTP VERIFICATION EMAIL TEMPLATE
  *
@@ -935,6 +986,7 @@ export {
     modernOtpTemplate as otpTemplate,
     welcomeTemplate,
     modernPasswordResetTemplate as passwordResetTemplate,
+    authorDecisionTemplate,
     coAuthorConsentTemplate,
     coAuthorRejectionNoticeTemplate,
     suggestedReviewerInvitationTemplate,

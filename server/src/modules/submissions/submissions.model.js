@@ -725,10 +725,12 @@ submissionSchema.pre("save", async function (next) {
                 "figures",
                 "tables",
                 "supplementaryFiles",
+                "isRevision",
+                "revisionStage",
             ];
 
             const isAuthorRevisionResubmit =
-                this.revisionStage === "EDITOR_AUTHOR" &&
+                this.$locals?.isAuthorRevisionResubmit === true &&
                 this.isModified("status") &&
                 this.status === "SUBMITTED";
 
@@ -774,7 +776,7 @@ submissionSchema.pre("save", async function (next) {
         }
 
         // Validate isRevision requires originalSubmissionId
-        if (this.isRevision && !this.originalSubmissionId) {
+        if (this.isNew && this.isRevision && !this.originalSubmissionId) {
             throw new Error("originalSubmissionId is required for revisions");
         }
 
@@ -991,38 +993,67 @@ submissionSchema.methods.getEditorDecisionCount = async function () {
 
 // Check if Technical Editor has decided
 submissionSchema.methods.hasTechnicalEditorDecided = async function () {
-    const SubmissionCycle = mongoose.model("SubmissionCycle");
+    const TechnicalEditor = mongoose.model("TechnicalEditor");
 
-    const cycle = await SubmissionCycle.findOne({
+    const techEditorDoc = await TechnicalEditor.findOne({
         submissionId: this._id,
-        "technicalEditorReview.recommendation": { $exists: true }
-    });
+        "technicalEditorReview.0": { $exists: true },
+    }).sort({ updatedAt: -1 });
+    const rawReviews = techEditorDoc?.technicalEditorReview;
+    const reviews = Array.isArray(rawReviews)
+        ? rawReviews
+        : rawReviews
+            ? [rawReviews]
+            : [];
+    const latestReview = reviews.length
+        ? reviews.reduce((latest, current) => {
+            const latestTime = new Date(latest?.reviewedAt || 0).getTime();
+            const currentTime = new Date(current?.reviewedAt || 0).getTime();
+            return currentTime > latestTime ? current : latest;
+        })
+        : null;
 
     return {
-        hasDecided: !!cycle,
-        recommendation: cycle?.technicalEditorReview?.recommendation,
-        cycleNumber: cycle?.cycleNumber,
+        hasDecided: !!latestReview,
+        recommendation: latestReview?.recommendation,
+        cycleNumber: null,
     };
 };
 
 // Get complete decision history
 submissionSchema.methods.getDecisionHistory = async function () {
     const SubmissionCycle = mongoose.model("SubmissionCycle");
+    const TechnicalEditor = mongoose.model("TechnicalEditor");
 
     const cycles = await SubmissionCycle.find({ submissionId: this._id })
         .sort({ cycleNumber: 1 })
-        .populate("technicalEditorReview.reviewedBy", "firstName lastName")
+        .lean();
+
+    const technicalEditorDocs = await TechnicalEditor.find({ submissionId: this._id })
+        .populate("technicalEditorReview.user", "firstName lastName email")
+        .lean();
+
+    const techReviewsByCycleId = new Map(
+        technicalEditorDocs.map((doc) => {
+            const rawReviews = doc.technicalEditorReview;
+            const reviews = Array.isArray(rawReviews)
+                ? rawReviews
+                : rawReviews
+                    ? [rawReviews]
+                    : [];
+            return [doc.cycleId?.toString(), reviews];
+        })
+    );
 
     return cycles.map(cycle => ({
         cycleNumber: cycle.cycleNumber,
         editorDecision: cycle.editorDecision,
-        technicalEditorReview: cycle.technicalEditorReview,
+        technicalEditorReview: techReviewsByCycleId.get(cycle._id?.toString()) || [],
         status: cycle.status,
         // NOTE: reviewerFeedback now lives in Reviewer collection
         // Use Reviewer.findBySubmission(submissionId) to get reviewer feedback
     }));
 };
-
 // Check co-author consent status
 submissionSchema.methods.checkCoAuthorConsent = function () {
     if (!this.coAuthors || this.coAuthors.length === 0) {

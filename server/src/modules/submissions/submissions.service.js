@@ -10,6 +10,7 @@ import {
     submissionApprovedByEditorTemplate,
     technicalReviewAssignmentTemplate,
     manuscriptReviewRequestTemplate,
+    authorDecisionTemplate,
 } from "../../infrastructure/email/email.template.js";
 import { CURRENT_CHECKLIST } from "../../common/constants/checklistQuestions.v1.0.0.js";
 import { SubmissionCycle } from "../submissionCycles/submissionCycle.model.js";
@@ -174,6 +175,42 @@ const findTechnicalEditorAssignment = (techEditorDoc, technicalEditorId) => {
         const assignedId = assignment.technicalEditor?._id || assignment.technicalEditor;
         return assignedId?.toString() === technicalEditorId.toString();
     }) || null;
+};
+
+const getTechnicalEditorReviewForAssignment = (techEditorDoc, assignment) => {
+    const rawReviewEntries = techEditorDoc?.technicalEditorReview;
+    const reviewEntries = Array.isArray(rawReviewEntries)
+        ? rawReviewEntries
+        : rawReviewEntries
+            ? [rawReviewEntries]
+            : [];
+    const assignmentTechnicalEditorId = getIdString(
+        assignment?.technicalEditor?._id || assignment?.technicalEditor
+    );
+    const assignmentEmail = assignment?.technicalEditor?.email?.toLowerCase?.() || null;
+
+    const directMatches = reviewEntries.filter((review) => {
+        const reviewUserId = getIdString(review?.user?._id || review?.user);
+        const reviewEmail = review?.email?.toLowerCase?.() || null;
+
+        if (assignmentTechnicalEditorId && reviewUserId && assignmentTechnicalEditorId === reviewUserId) {
+            return true;
+        }
+
+        if (assignmentEmail && reviewEmail && assignmentEmail === reviewEmail) {
+            return true;
+        }
+
+        return false;
+    });
+
+    if (!directMatches.length) return null;
+
+    return directMatches.reduce((latest, current) => {
+        const latestTime = new Date(latest?.reviewedAt || 0).getTime();
+        const currentTime = new Date(current?.reviewedAt || 0).getTime();
+        return currentTime > latestTime ? current : latest;
+    });
 };
 
 const findReviewerAssignment = (reviewerDoc, reviewerId) => {
@@ -712,19 +749,29 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
 
             submissionObj._assignedTechnicalEditors =
                 technicalEditorDoc?.assignedTechnicalEditors?.map((assignment) => ({
+                    reviewEntry: getTechnicalEditorReviewForAssignment(technicalEditorDoc, assignment),
                     technicalEditor: assignment.technicalEditor || null,
                     status: assignment.status || "PENDING",
                     assignedDate: assignment.assignedDate || null,
                     respondedAt: assignment.respondedAt || null,
                     rejectionReason: assignment.rejectionReason || null,
-                    reviewFiles:
-                        assignment.status === "ACCEPT" && technicalEditorDoc?.technicalEditorReview?.revisedManuscript
-                            ? {
-                                revisedManuscript: technicalEditorDoc.technicalEditorReview.revisedManuscript,
-                                reviewedAt: technicalEditorDoc.technicalEditorReview.reviewedAt || null,
-                            }
-                            : null,
+                    reviewFiles: null,
                 })) || [];
+
+            submissionObj._assignedTechnicalEditors = submissionObj._assignedTechnicalEditors.map((assignment) => ({
+                technicalEditor: assignment.technicalEditor,
+                status: assignment.status,
+                assignedDate: assignment.assignedDate,
+                respondedAt: assignment.respondedAt,
+                rejectionReason: assignment.rejectionReason,
+                reviewFiles:
+                    assignment.status === "ACCEPT" && assignment.reviewEntry?.revisedManuscript
+                        ? {
+                            revisedManuscript: assignment.reviewEntry.revisedManuscript,
+                            reviewedAt: assignment.reviewEntry.reviewedAt || null,
+                        }
+                        : null,
+            }));
 
             submissionObj._assignedReviewers =
                 reviewerDoc?.assignedReviewers?.map((assignment) => {
@@ -986,6 +1033,32 @@ const updateSubmission = async (submissionId, userId, updates) => {
         });
 
         await submission.save();
+
+        Submission.findById(submission._id)
+            .populate("author", "firstName lastName email")
+            .lean()
+            .then((populatedSubmission) => {
+                const authorEmail = populatedSubmission?.author?.email;
+                if (!authorEmail) return null;
+
+                return sendEmail({
+                    to: authorEmail,
+                    subject: `JAIRAM | Manuscript ${decision === "ACCEPT" ? "Accepted" : "Rejected"} - ${submission.submissionId}`,
+                    html: authorDecisionTemplate({
+                        authorName: `${populatedSubmission.author?.firstName || ""} ${populatedSubmission.author?.lastName || ""}`.trim() || "Author",
+                        submissionId: submission.submissionId,
+                        title: submission.manuscriptDetails?.title || submission.title,
+                        articleType: submission.manuscriptDetails?.articleType || submission.articleType,
+                        decision,
+                        decisionStage,
+                        remarks,
+                        decidedAt: decision === "ACCEPT" ? submission.acceptedAt : submission.rejectedAt,
+                    }),
+                });
+            })
+            .catch((mailError) => {
+                console.error(`❌ [EMAIL] Failed to send ${decision} notification email to author:`, mailError);
+            });
         await submission.populate("author", "firstName lastName email");
 
         console.log("✅ [SERVICE] updateSubmission completed successfully");
@@ -1156,6 +1229,12 @@ const submitManuscript = async (submissionId, userId, payload) => {
                 cycleId: cycle._id,
                 assignedReviewers: [],
                 reviewerFeedback: [],
+            });
+            await TechnicalEditor.create({
+                submissionId: submission._id,
+                cycleId: cycle._id,
+                assignedTechnicalEditors: [],
+                technicalEditorReview: [],
             });
             console.log("🟢 [SERVICE] Reviewer document created");
 
@@ -1328,6 +1407,8 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
         submission.tables = payload.tables || [];
         submission.supplementaryFiles = payload.supplementaryFiles || [];
         submission.isRevision = true;
+        submission.revisionStage = "INITIAL_SUBMISSION";
+        submission.$locals.isAuthorRevisionResubmit = true;
 
         submission.updateStatus("SUBMITTED");
 
@@ -1356,9 +1437,31 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
                 $set: {
                     cycleId: cycle._id,
                     assignedReviewers: [],
+                    reviewerFeedback: [],
+                },
+            },
+            { upsert: true }
+        );
+
+        const techEditorResetResult = await TechnicalEditor.updateMany(
+            { submissionId: submission._id },
+            {
+                $set: {
+                    cycleId: cycle._id,
+                    assignedTechnicalEditors: [],
+                    technicalEditorReview: [],
                 },
             }
         );
+
+        if (!techEditorResetResult.matchedCount) {
+            await TechnicalEditor.create({
+                submissionId: submission._id,
+                cycleId: cycle._id,
+                assignedTechnicalEditors: [],
+                technicalEditorReview: [],
+            });
+        }
 
         await submission.save();
 
@@ -1431,9 +1534,11 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                         status: { $in: ["PENDING", "ACCEPT"] },
                     },
                 },
-            }).select("submissionId");
+            })
+                .sort({ updatedAt: 1 })
+                .select("submissionId");
 
-            const submissionIds = techEditorDocs.map(doc => doc.submissionId);
+            const submissionIds = [...new Set(techEditorDocs.map(doc => doc.submissionId?.toString()))];
 
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
@@ -1471,6 +1576,7 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
 
             const [techEditorDocs, reviewerDocs] = await Promise.all([
                 TechnicalEditor.find({ submissionId: { $in: submissionIds } })
+                    .sort({ updatedAt: 1 })
                     .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName")
                     .select("submissionId assignedTechnicalEditors")
                     .lean(),
@@ -1528,6 +1634,7 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             const techEditorDocs = await TechnicalEditor.find({
                 submissionId: { $in: submissionIds },
             })
+                .sort({ updatedAt: 1 })
                 .select("submissionId assignedTechnicalEditors technicalEditorReview")
                 .lean();
 
@@ -1540,16 +1647,8 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 const key = sub._id?.toString();
                 const techEditorDoc = teMap[key] ?? null;
                 const assignment = findTechnicalEditorAssignment(techEditorDoc, userId);
-                const reviewUserId = techEditorDoc?.technicalEditorReview?.user?._id
-                    || techEditorDoc?.technicalEditorReview?.user
-                    || null;
-                const reviewEmail = techEditorDoc?.technicalEditorReview?.email?.toLowerCase() || null;
-                const isCurrentTechnicalEditorReview =
-                    !!techEditorDoc?.technicalEditorReview?.reviewedAt &&
-                    (
-                        (reviewUserId && reviewUserId.toString() === userId.toString()) ||
-                        (currentEmail && reviewEmail && currentEmail === reviewEmail)
-                    );
+                const matchingReview = getTechnicalEditorReviewForAssignment(techEditorDoc, assignment);
+                const isCurrentTechnicalEditorReview = !!matchingReview?.reviewedAt;
 
                 sub._technicalEditorAssignmentStatus = assignment?.status || "PENDING";
                 sub._technicalEditorRespondedAt = assignment?.respondedAt || null;
@@ -1703,13 +1802,52 @@ const buildTimelineRemark = ({ version, cycle, cycleIndex, cycles, techDocsByCyc
 
         case "TECH_EDITOR_TO_EDITOR": {
             const techDoc = techDocsByCycleId.get(getIdString(cycle?._id));
-            if (!techDoc?.technicalEditorReview) return null;
+            const rawReviews = techDoc?.technicalEditorReview;
+            const reviews = Array.isArray(rawReviews)
+                ? rawReviews
+                : rawReviews
+                    ? [rawReviews]
+                    : [];
+            if (!reviews.length) return null;
+
+            const versionUploaderId = getIdString(version.uploadedBy);
+            const versionUploaderEmail =
+                typeof version.uploadedBy === "object" ? version.uploadedBy?.email || null : null;
+
+            const directMatches = reviews.filter((review) => {
+                const reviewUserId = getIdString(review?.user);
+                const reviewEmail = review?.email || null;
+
+                if (versionUploaderId && reviewUserId && versionUploaderId === reviewUserId) {
+                    return true;
+                }
+
+                if (
+                    versionUploaderEmail &&
+                    reviewEmail &&
+                    versionUploaderEmail.toLowerCase() === reviewEmail.toLowerCase()
+                ) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            const matchingReview = directMatches.length
+                ? directMatches.reduce((latest, current) => {
+                    const latestTime = new Date(latest?.reviewedAt || 0).getTime();
+                    const currentTime = new Date(current?.reviewedAt || 0).getTime();
+                    return currentTime > latestTime ? current : latest;
+                })
+                : null;
+
+            if (!matchingReview) return null;
 
             return {
-                recommendation: techDoc.technicalEditorReview.recommendation || null,
-                remarks: techDoc.technicalEditorReview.remarks || null,
-                revisedManuscript: techDoc.technicalEditorReview.revisedManuscript || null,
-                reviewedAt: techDoc.technicalEditorReview.reviewedAt || null,
+                recommendation: matchingReview.recommendation || null,
+                remarks: matchingReview.remarks || null,
+                revisedManuscript: matchingReview.revisedManuscript || null,
+                reviewedAt: matchingReview.reviewedAt || null,
             };
         }
 
@@ -2398,15 +2536,21 @@ const submitRevision = async (userId, payload) => {
                 submission._id,
                 currentCycle._id
             );
-            const existingReview = techEditorDoc?.technicalEditorReview || null;
-            const hasRealTechnicalEditorSubmission =
-                !!existingReview &&
-                !!(existingReview.user || existingReview.email) &&
-                !!(
-                    existingReview.recommendation ||
-                    existingReview.remarks ||
-                    existingReview.revisedManuscript
+            const rawTechnicalEditorReviews = techEditorDoc?.technicalEditorReview;
+            const technicalEditorReviews = Array.isArray(rawTechnicalEditorReviews)
+                ? rawTechnicalEditorReviews
+                : rawTechnicalEditorReviews
+                    ? [rawTechnicalEditorReviews]
+                    : [];
+            const existingReview = technicalEditorReviews.find((review) => {
+                const reviewUserId = review?.user?.toString?.() || review?.user || null;
+                const reviewEmail = review?.email?.toLowerCase?.() || null;
+                return (
+                    reviewUserId?.toString() === userId.toString() ||
+                    (user.email && reviewEmail && user.email.toLowerCase() === reviewEmail)
                 );
+            }) || null;
+            const hasRealTechnicalEditorSubmission = !!existingReview;
 
             if (hasRealTechnicalEditorSubmission) {
                 throw new AppError(
@@ -2500,14 +2644,20 @@ const submitRevision = async (userId, payload) => {
 
                 const techEditorUser = await User.findById(userId);
 
-                techEditorDoc.technicalEditorReview = {
+                if (!Array.isArray(techEditorDoc.technicalEditorReview)) {
+                    techEditorDoc.technicalEditorReview = techEditorDoc.technicalEditorReview
+                        ? [techEditorDoc.technicalEditorReview]
+                        : [];
+                }
+
+                techEditorDoc.technicalEditorReview.push({
                     user: userId,
                     email: techEditorUser?.email,
                     recommendation: payload.recommendation,
                     remarks: payload.remarks,
                     revisedManuscript: payload.revisedManuscript || null,
                     reviewedAt: new Date(),
-                };
+                });
 
                 await techEditorDoc.save();
                 break;
@@ -3412,7 +3562,7 @@ const editorApproveConsentOverride = async (submissionId, editorId, resolutionNo
 // ASSIGN TECHNICAL EDITOR
 // ================================================
 
-const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, remarks, revisedManuscript, attachments) => {
+const assignTechnicalEditor = async (submissionId, editorId, technicalEditorIds, remarks, revisedManuscript, attachments) => {
     try {
         console.log("🔵 [SERVICE] assignTechnicalEditor started");
 
@@ -3431,63 +3581,75 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
             );
         }
 
-        // Verify technical editor exists and has correct role
-        const technicalEditor = await User.findById(technicalEditorId);
-        if (!technicalEditor) {
+        const uniqueTechnicalEditorIds = [...new Set(technicalEditorIds.map((id) => id.toString()))];
+        if (uniqueTechnicalEditorIds.length !== technicalEditorIds.length) {
             throw new AppError(
-                "Technical editor not found",
-                STATUS_CODES.NOT_FOUND,
-                "TECHNICAL_EDITOR_NOT_FOUND"
-            );
-        }
-
-        if (technicalEditor.role !== "TECHNICAL_EDITOR") {
-            throw new AppError(
-                "User is not a technical editor",
+                "Duplicate technical editor IDs found",
                 STATUS_CODES.BAD_REQUEST,
-                "INVALID_TECHNICAL_EDITOR_ROLE"
+                "DUPLICATE_TECHNICAL_EDITORS"
             );
         }
 
-        // Check if already assigned
-        // const alreadyAssigned = submission.assignedTechnicalEditors.some(
-        //     te => te.technicalEditor.toString() === technicalEditorId
-        // );
+        const technicalEditors = await User.find({
+            _id: { $in: uniqueTechnicalEditorIds },
+            role: "TECHNICAL_EDITOR",
+        });
 
-        // if (alreadyAssigned) {
-        //     throw new AppError(
-        //         "This technical editor is already assigned to this submission",
-        //         STATUS_CODES.BAD_REQUEST,
-        //         "TECHNICAL_EDITOR_ALREADY_ASSIGNED"
-        //     );
-        // }
-
-        // Add to assignedTechnicalEditors
-        // submission.assignedTechnicalEditors.push({
-        //     technicalEditor: technicalEditorId,
-        //     assignedDate: new Date(),
-        //     status: "PENDING",
-        // });
+        if (technicalEditors.length !== uniqueTechnicalEditorIds.length) {
+            throw new AppError(
+                "One or more technical editor IDs are invalid or users are not technical editors",
+                STATUS_CODES.BAD_REQUEST,
+                "INVALID_TECHNICAL_EDITOR_IDS"
+            );
+        }
 
         // Add internal note
+        const technicalEditorNames = technicalEditors
+            .map((technicalEditor) => `${technicalEditor.firstName} ${technicalEditor.lastName}`.trim())
+            .join(", ");
         submission.internalNotes.push({
-            note: `Technical Editor assigned: ${technicalEditor.firstName} ${technicalEditor.lastName}. Remarks: ${remarks}`,
+            note: `Technical Editor(s) assigned: ${technicalEditorNames}. Remarks: ${remarks}`,
             addedBy: editorId,
             isConfidential: true,
         });
 
         // Update current cycle with remarks and attachments
         const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
-        await TechnicalEditor.create({
-            submissionId: submission._id,
-            cycleId: currentCycle._id,
-            assignedTechnicalEditors: [{
-                technicalEditor: technicalEditorId,
-                assignedDate: new Date(),
-                assignedBy: editorId,
-                status: "PENDING",
-            }],
-        });
+        let technicalEditorDoc = await TechnicalEditor.findOne({ submissionId: submission._id })
+            .sort({ updatedAt: -1 });
+        if (!technicalEditorDoc) {
+            technicalEditorDoc = await TechnicalEditor.create({
+                submissionId: submission._id,
+                cycleId: currentCycle._id,
+                assignedTechnicalEditors: [],
+                technicalEditorReview: [],
+            });
+        }
+
+        technicalEditorDoc.cycleId = currentCycle._id;
+
+        const alreadyAssignedIds = uniqueTechnicalEditorIds.filter((technicalEditorId) =>
+            technicalEditorDoc.assignedTechnicalEditors.some(
+                (assignment) => getIdString(assignment.technicalEditor) === technicalEditorId
+            )
+        );
+
+        if (alreadyAssignedIds.length > 0) {
+            throw new AppError(
+                "One or more selected technical editors are already assigned to this submission",
+                STATUS_CODES.BAD_REQUEST,
+                "TECHNICAL_EDITORS_ALREADY_ASSIGNED",
+                { technicalEditorIds: alreadyAssignedIds }
+            );
+        }
+
+        technicalEditorDoc.assignedTechnicalEditors.push(...uniqueTechnicalEditorIds.map((technicalEditorId) => ({
+            technicalEditor: technicalEditorId,
+            assignedDate: new Date(),
+            assignedBy: editorId,
+            status: "PENDING",
+        })));
+        await technicalEditorDoc.save();
 
         currentCycle.editorRemarksForTechEditor = {
             remarks,
@@ -3517,8 +3679,9 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
 
         await submission.save();
 
-        // Send notification email without blocking the API response.
-        void sendEmail({
+        // Send notification emails without blocking the API response.
+        for (const technicalEditor of technicalEditors) {
+            void sendEmail({
             to: technicalEditor.email,
             subject: `Technical Review Assignment - ${submission.submissionNumber}`,
             html: technicalReviewAssignmentTemplate({
@@ -3553,11 +3716,12 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorId, 
             .catch((emailError) => {
                 console.error("❌ Failed to send technical editor notification:", emailError);
             });
+        }
 
         console.log("✅ [SERVICE] assignTechnicalEditor completed successfully");
 
         return {
-            message: "Technical editor assigned successfully",
+            message: `${technicalEditors.length} technical editor(s) assigned successfully`,
             submission,
             currentCycle,
             version,
