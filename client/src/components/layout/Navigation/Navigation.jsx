@@ -139,16 +139,16 @@ const DropdownMenu = React.memo(({ menu, isMobile, onClose, onNavigate }) => {
       className={`${
         isMobile
           ? "bg-white py-2"
-          : "absolute left-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden"
+          : "absolute left-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden cursor-default"
       }`}
     >
       {menu.map((menuItem, idx) => (
         <button
           key={`${menuItem.path}-${idx}`}
           onClick={() => handleClick(menuItem.path)}
-          className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors ${
-            isMobile ? "hover:bg-slate-50" : "hover:bg-blue-50"
-          }`}
+          className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors cursor-pointer ${
+  isMobile ? "hover:bg-slate-50" : "hover:bg-blue-50"
+}`}
         >
           <menuItem.icon className="w-5 h-5 text-blue-600 mt-0.5" />
           <div>
@@ -197,10 +197,13 @@ const Navigation = React.memo(() => {
     setActiveDropdown(null);
   }, [location.pathname]);
 
-  const isItemActive = useCallback(
-    (item) => location.pathname.startsWith(item.path),
-    [location.pathname],
-  );
+const isItemActive = useCallback(
+  (item) =>
+    item.path === "/"
+      ? location.pathname === "/"
+      : location.pathname.startsWith(item.path),
+  [location.pathname],
+);
 
   const handleNavigation = useCallback((path) => navigate(path), [navigate]);
 
@@ -216,11 +219,15 @@ const Navigation = React.memo(() => {
                     ? setActiveDropdown((p) => (p === item.id ? null : item.id))
                     : handleNavigation(item.path)
                 }
-                className={`px-3 py-3 text-sm font-semibold border-b-2 transition-all ${
-                  isItemActive(item) || activeDropdown === item.id
-                    ? "border-blue-600 text-blue-700"
-                    : "border-transparent text-slate-700 hover:text-blue-600 hover:border-blue-300"
-                }`}
+    className={`px-3 py-3 text-sm font-semibold rounded-md transition-all ${
+  activeDropdown === item.id
+    ? "bg-blue-100 text-blue-700"
+    : activeDropdown !== null
+    ? "text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+    : isItemActive(item)
+    ? "bg-blue-100 text-blue-700"
+    : "text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+}`}
               >
                 {item.label}
                 {item.hasDropdown && (
