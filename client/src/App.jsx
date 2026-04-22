@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-next-
 import { Toaster } from "react-hot-toast";
 import Header from "./components/layout/Header/Header";
 import Footer from "./components/layout/Footer/Footer";
+import CurrentIssue from "./components/home/CurrentIssue/CurrentIssue";
 import HomePage from "./pages/HomePage/HomePage";
 import ArticlesPage from "./pages/ArticlesPage/ArticlesPage";
 import IssuesPage from "./pages/IssuePage/IssuePage";
@@ -59,7 +60,7 @@ const PageTransition = ({ children }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.15 }}
     >
       {children}
     </motion.div>
@@ -345,7 +346,16 @@ function App() {
         />
 
         {/* Redirect old routes */}
-        <Route path="/current-issue" element={<Navigate to="/" replace />} />
+<Route
+  path="/current-issue"
+  element={
+    <Layout>
+      <PageTransition>
+        <CurrentIssue />
+      </PageTransition>
+    </Layout>
+  }
+/>
         <Route path="/all-issues" element={<Navigate to="/issues" replace />} />
 
         {/* 404 Not Found Route */}

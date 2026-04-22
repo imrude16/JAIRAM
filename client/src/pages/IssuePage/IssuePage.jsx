@@ -358,23 +358,21 @@ const IssuesPage = () => {
         {/* Quick Links */}
         <div className="mt-8 grid md:grid-cols-3 gap-6">
           <Card hover className="text-center">
-            <Download className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+            <FileText className="w-12 h-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Download Guidelines
+              View Guidelines
             </h3>
             <p className="text-gray-600 text-sm mb-4">
               Author guidelines and submission format
             </p>
-            <a
-              href="/assets/Author_Guidelines_and_Submission_Format.pdf"
-              download
-              target="_blank"
-              rel="noopener noreferrer"
+           
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/authors-guidelines")}
             >
-              <Button variant="outline" size="sm">
-                Download PDF
-              </Button>
-            </a>
+              View
+            </Button>
           </Card>
           <Card hover className="text-center">
             <Calendar className="w-12 h-12 text-blue-600 mx-auto mb-4" />

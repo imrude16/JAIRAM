@@ -1,19 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import { BookOpen, Clock } from "lucide-react";
-
-import CurrentIssue from "../../components/home/CurrentIssue/CurrentIssue";
+import HeroBanner from "../../components/home/HeroBanner/HeroBanner";
 import Announcements from "../../components/home/Announcements/Announcements";
-import { mockCurrentIssue } from "../../data/mockData";
 
-const HomePage = ({ onArticleClick, onSearch }) => {
+const HomePage = () => {
   return (
     <div className="min-h-screen bg-stone-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Current Issue */}
-        <CurrentIssue issue={mockCurrentIssue} />
 
-        {/* Coming Soon - below the current issue */}
+        {/* Hero Banner (journal cover image) */}
+        <HeroBanner />
+
+        {/* Articles Coming Soon */}
         <div className="mt-8 text-center py-16 px-8 bg-white rounded-2xl shadow-sm border border-gray-100 w-full">
           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <BookOpen className="w-10 h-10 text-blue-500" />

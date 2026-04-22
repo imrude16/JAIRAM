@@ -268,7 +268,6 @@ const AutoTextarea = ({ label, error, required, rows = 3, ...props }) => {
         }}
         className={`w-full px-4 py-3 border-2 rounded-xl transition-all outline-none text-sm ${error ? "border-red-300 bg-red-50" : "border-[#c8d5e4] focus:border-[#0f3460] focus:ring-4 focus:ring-[#e8eef6]"}`}
       />
-      <ErrorMsg msg={error} />
     </div>
   );
 };
@@ -723,7 +722,6 @@ const FileUploadBox = ({
           </div>
         </div>
       )}
-      {error && !file && <ErrorMsg msg={error} />}
     </div>
   );
 };
@@ -869,7 +867,6 @@ const MultiFileUploadBox = ({
           })}
         </div>
       )}
-      {error && files.length === 0 && <ErrorMsg msg={error} />}
     </div>
   );
 };
@@ -2057,6 +2054,18 @@ const SubmitManuscript = () => {
       // if (!formData.colorFigures) e.colorFigures = "Required";
       // if (!formData.tables) e.tables = "Required";
       if (!formData.pages) e.pages = "Required";
+      
+      // IEC Approval validation
+      if (
+        [
+          "Original Article",
+          "Case Report",
+          "Case Series",
+          "Editorial",
+        ].includes(formData.articleType) &&
+        !formData.iecNumber
+      )
+        e.iecNumber = "IEC Approval response is required.";
       if (
         [
           "Original Article",
@@ -2067,7 +2076,9 @@ const SubmitManuscript = () => {
         formData.iecNumber === "Yes" &&
         !formData.iecNumberDetails.trim()
       )
-        e.iecNumber = "Please select a response for IEC Number";
+        e.iecNumberDetails = "IEC approval number and details are required.";
+      
+      // PROSPERO Registration validation
       if (
         ["Meta-Analysis", "Review Article / Systematic Review"].includes(
           formData.articleType,
@@ -2075,12 +2086,30 @@ const SubmitManuscript = () => {
         !formData.prosperoRegistration
       )
         e.prosperoRegistration =
-          "Please select a response for PROSPERO Registration";
+          "PROSPERO Registration response is required.";
+      if (
+        ["Meta-Analysis", "Review Article / Systematic Review"].includes(
+          formData.articleType,
+        ) &&
+        formData.prosperoRegistration === "Yes" &&
+        !formData.prosperoRegistrationDetails.trim()
+      )
+        e.prosperoRegistrationDetails =
+          "PROSPERO registration number and details are required.";
+      
+      // Trial Registration validation
       if (
         formData.articleType === "Clinical Trial" &&
         !formData.trialRegistration
       )
-        e.trialRegistration = "Please select a response for Trial Registration";
+        e.trialRegistration = "Trial Registration response is required.";
+      if (
+        formData.articleType === "Clinical Trial" &&
+        formData.trialRegistration === "Yes" &&
+        !formData.trialRegistrationDetails.trim()
+      )
+        e.trialRegistrationDetails =
+          "Trial registration number and details are required.";
     } else if (step === 3) {
       if (!authors.length) e.authors = "At least one author is required";
     } else if (step === 4) {
@@ -2106,6 +2135,14 @@ const SubmitManuscript = () => {
       if (!copyrightAgreed)
         e.copyright = "Please confirm the copyright agreement checkbox.";
     }
+    
+    // Show individual toasts for each validation error
+    Object.entries(e).forEach(([field, message]) => {
+      if (message) {
+        toast.error(message, { duration: 4000 });
+      }
+    });
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -3033,10 +3070,6 @@ const SubmitManuscript = () => {
                           </span>
                         </label>
                       </div>
-
-                      {errors.submissionDeclared && (
-                        <ErrorMsg msg={errors.submissionDeclared} />
-                      )}
                     </div>
                   </div>
                 </div>
@@ -3401,7 +3434,6 @@ const SubmitManuscript = () => {
                       <option value="Editorial">Editorial</option>
                       <option value="Clinical Trial">Clinical Trial</option>
                     </select>
-                    <ErrorMsg msg={errors.articleType} />
                   </div>
                   <AutoTextarea
                     label="Article Title"
@@ -3581,7 +3613,6 @@ const SubmitManuscript = () => {
                       <span className="font-semibold">Enter</span> after each
                       word to create a tag
                     </p>
-                    <ErrorMsg msg={errors.keywords} />
                   </div>
 
                   {showIEC && (
@@ -3618,7 +3649,6 @@ const SubmitManuscript = () => {
                           </label>
                         ))}
                       </div>
-                      {errors.iecNumber && <ErrorMsg msg={errors.iecNumber} />}
                       {formData.iecNumber === "Yes" && (
                         <div>
                           <label className="block text-xs font-semibold text-gray-600 mb-2">
@@ -3674,9 +3704,6 @@ const SubmitManuscript = () => {
                           </label>
                         ))}
                       </div>
-                      {errors.prosperoRegistration && (
-                        <ErrorMsg msg={errors.prosperoRegistration} />
-                      )}
                       {formData.prosperoRegistration === "Yes" && (
                         <div>
                           <label className="block text-xs font-semibold text-gray-600 mb-2">
@@ -3733,9 +3760,6 @@ const SubmitManuscript = () => {
                           </label>
                         ))}
                       </div>
-                      {errors.trialRegistration && (
-                        <ErrorMsg msg={errors.trialRegistration} />
-                      )}
                       {formData.trialRegistration === "Yes" && (
                         <div>
                           <label className="block text-xs font-semibold text-gray-600 mb-2">
@@ -3879,8 +3903,6 @@ const SubmitManuscript = () => {
                     />
                   </div>
 
-                  {errors.authors && <ErrorMsg msg={errors.authors} />}
-
                   <div className="flex items-center gap-3 px-5 py-4 rounded-xl border border-[#c8d5e4] bg-[#f7f9fc]">
                     <input
                       type="checkbox"
@@ -4000,7 +4022,6 @@ const SubmitManuscript = () => {
                             ))}
                         </div>
                       )}
-                      {errors.reviewers && <ErrorMsg msg={errors.reviewers} />}
                     </div>
                     <button
                       type="button"
@@ -4178,7 +4199,6 @@ const SubmitManuscript = () => {
                       <span className="text-red-500 font-bold">*</span> Confirm
                       you have checked the PDF preview document.
                     </StyledCheckbox>
-                    {errors.preview && <ErrorMsg msg={errors.preview} />}
                   </div>
 
                   {/* Conflict of Interest */}
@@ -4232,7 +4252,6 @@ const SubmitManuscript = () => {
                             </label>
                           ))}
                         </div>
-                        {errors.conflict && <ErrorMsg msg={errors.conflict} />}
                       </div>
                       {conflictHasConflict === "Yes" && (
                         <div>
@@ -4257,9 +4276,6 @@ const SubmitManuscript = () => {
                             }}
                             className="w-full px-4 py-3 border-2 border-[#c8d5e4] rounded-xl outline-none text-sm focus:border-[#0f3460] focus:ring-4 focus:ring-[#e8eef6] transition-all"
                           />
-                          {errors.conflictDetails && (
-                            <ErrorMsg msg={errors.conflictDetails} />
-                          )}
                         </div>
                       )}
                     </div>
@@ -4289,9 +4305,6 @@ const SubmitManuscript = () => {
                         </span>
                         .
                       </p>
-                      {errors.copyrightForm && (
-                        <ErrorMsg msg={errors.copyrightForm} />
-                      )}
                       <StyledCheckbox
                         checked={copyrightAgreed}
                         onChange={() => {
@@ -4305,7 +4318,6 @@ const SubmitManuscript = () => {
                         agreed to the submission guidelines,policies and
                         submission declaration of the journal.
                       </StyledCheckbox>
-                      {errors.copyright && <ErrorMsg msg={errors.copyright} />}
                     </div>
                   </div>
                 </div>
