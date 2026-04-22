@@ -260,23 +260,40 @@ const isItemActive = useCallback(
           />
         </div>
 
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-slate-200 py-3 space-y-1">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                onClick={() =>
-                  item.hasDropdown
-                    ? setActiveDropdown((p) => (p === item.id ? null : item.id))
-                    : handleNavigation(item.path)
-                }
-                className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+       {mobileMenuOpen && (
+  <div className="lg:hidden bg-white border-t border-slate-200 py-3 space-y-1">
+    {NAV_ITEMS.map((item) => (
+      <div key={item.id}>
+        <button
+          onClick={() =>
+            item.hasDropdown
+              ? setActiveDropdown((p) => (p === item.id ? null : item.id))
+              : handleNavigation(item.path)
+          }
+          className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center justify-between"
+        >
+          {item.label}
+          {item.hasDropdown && (
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${
+                activeDropdown === item.id ? "rotate-180" : ""
+              }`}
+            />
+          )}
+        </button>
+
+        {item.hasDropdown && activeDropdown === item.id && (
+          <DropdownMenu
+            menu={item.menu}
+            isMobile={true}
+            onClose={() => setActiveDropdown(null)}
+            onNavigate={handleNavigation}
+          />
         )}
+      </div>
+    ))}
+  </div>
+)}
       </div>
     </nav>
   );
