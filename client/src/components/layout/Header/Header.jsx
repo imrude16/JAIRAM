@@ -24,11 +24,16 @@ import Navigation from "../Navigation/Navigation";
 import { useNavigate, useLocation } from "react-router-dom";
 
 // ============= OPTIMIZED JOURNAL TITLE =============
-const JournalTitle = React.memo(() => {
+const JournalTitle = React.memo(({ navigate }) => {   // ✅ accept navigate prop
   return (
     <div className="flex-1 min-w-0">
       <div className="flex items-start">
-        <div className="hidden sm:block shrink-0 mt-1">
+        <div
+          className="hidden sm:block shrink-0 mt-1 cursor-pointer"
+          onClick={() => navigate("/")}               // ✅ works now
+          role="link"
+          aria-label="Go to homepage"
+        >
           <div className="w-12 h-12 sm:w-30 sm:h-30 flex items-center justify-center">
             <img
               src={Logo}
@@ -43,9 +48,6 @@ const JournalTitle = React.memo(() => {
           <h1 className="text-xl sm:text-xl md:text-2xl lg:text-4xl font-serif text-stone-900 leading-tight mb-1">
             Journal of Advanced & Integrated Research in Acute Medicine (JAIRAM)
           </h1>
-          {/* <p className="text-xs sm:text-sm text-stone-600 mt-2">
-            ISSN: 2349-3806 | Online ISSN: 2950-5933
-          </p> */}
         </div>
       </div>
     </div>
@@ -73,8 +75,8 @@ const Header = () => {
       >
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-start justify-between">
-            {/* Journal Title */}
-            <JournalTitle />
+            {/* ✅ Only one JournalTitle, inside header, with navigate passed */}
+            <JournalTitle navigate={navigate} />
 
             {/* Mobile Search Toggle */}
             <button
