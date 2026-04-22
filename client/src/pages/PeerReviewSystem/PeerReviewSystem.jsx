@@ -739,7 +739,7 @@ const NODES = [
               n: 11,
               scheme: TEAL,
               title: "Recognition for reviewer contributions",
-              text: "Reviewers receive a thank you email. Forward it to reviews@webofscience.com for Web of Science recognition, or download a Certificate of Reviewing directly from the JAIRAM portal.",
+              text: "Reviewers receive a thank you email download a Certificate of Reviewing directly from the JAIRAM portal.",
             },
           ]}
         />
