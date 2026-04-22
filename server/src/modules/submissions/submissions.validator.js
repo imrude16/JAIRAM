@@ -1329,7 +1329,13 @@ export const coAuthorConsentFromDashboardSchema = {
             }),
         remark: Joi.when("decision", {
             is: "REJECT",
-            then: Joi.string().trim().max(1000).optional().allow(""),
+            then: Joi.string().trim().min(10).max(1000).required()
+                .messages({
+                    "any.required": "Reason of rejection is required",
+                    "string.empty": "Reason of rejection is required",
+                    "string.min": "Reason of rejection must be at least 10 characters",
+                    "string.max": "Reason of rejection cannot exceed 1000 characters",
+                }),
             otherwise: Joi.optional().allow(""),
         }),
     }),

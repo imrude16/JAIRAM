@@ -1,16 +1,34 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle, XCircle, Loader, AlertCircle, Users } from "lucide-react";
+import { CheckCircle, XCircle, Loader, AlertCircle, Users, Home } from "lucide-react";
 import api from "../../services/api";
+
+const HomeCta = () => (
+  <div className="flex flex-col items-center gap-3 pt-4">
+    <button
+      onClick={() => { window.location.href = "/"; }}
+      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white shadow-md transition hover:opacity-90"
+      style={{ background: "linear-gradient(135deg, #0e7490, #0891b2)" }}
+    >
+      <Home className="w-4 h-4" />
+      Go back to Homepage
+    </button>
+    <p className="text-xs text-gray-400 text-center">
+      To Register / Login and view more details.
+    </p>
+  </div>
+);
 
 const ReviewerInvitationPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
+  const action = (searchParams.get("action") || "").toLowerCase();
 
   const [phase, setPhase] = useState("loading");
   const [submissionInfo, setSubmissionInfo] = useState(null);
   const [resultMessage, setResultMessage] = useState("");
   const [decision, setDecision] = useState(null);
+  const autoProcessed = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -18,16 +36,28 @@ const ReviewerInvitationPage = () => {
       setResultMessage("No token found in URL. Please use the link from your email.");
       return;
     }
+
+    if (!["accept", "reject"].includes(action)) {
+      setPhase("error");
+      setResultMessage("No valid action found in the link. Please use the action button from your email.");
+      return;
+    }
+
     fetchInfo();
-  }, [token]);
+  }, [token, action]);
 
   const fetchInfo = async () => {
     try {
       const { data } = await api.get("/submissions/token-info", {
         params: { token, type: "reviewer-invitation" },
       });
+
       setSubmissionInfo(data.data.info);
-      setPhase("info");
+
+      if (!autoProcessed.current) {
+        autoProcessed.current = true;
+        await handleSubmit(action === "accept" ? "ACCEPT" : "DECLINE");
+      }
     } catch (err) {
       setPhase("error");
       setResultMessage(
@@ -45,7 +75,12 @@ const ReviewerInvitationPage = () => {
         token,
         response: choice,
       });
-      setResultMessage(data.message || (choice === "ACCEPT" ? "Thank you for accepting." : "You have declined the invitation."));
+
+      setResultMessage(
+        data.message || (choice === "ACCEPT"
+          ? "Invitation has been accepted successfully."
+          : "Invitation has been rejected successfully.")
+      );
       setPhase("success");
     } catch (err) {
       setPhase("error");
@@ -56,12 +91,11 @@ const ReviewerInvitationPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12"
-      style={{ background: "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)" }}>
-
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-12"
+      style={{ background: "linear-gradient(160deg, #eef4fb 0%, #f7f9fc 45%, #e8f6fb 100%)" }}
+    >
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-[#c8d5e4] overflow-hidden">
-
-        {/* Header */}
         <div className="px-8 py-6" style={{ background: "linear-gradient(135deg, #0e7490, #0891b2)" }}>
           <div className="flex items-center gap-3">
             <Users className="w-6 h-6 text-white shrink-0" />
@@ -73,8 +107,6 @@ const ReviewerInvitationPage = () => {
         </div>
 
         <div className="px-8 py-8">
-
-          {/* Loading */}
           {phase === "loading" && (
             <div className="flex flex-col items-center py-8 gap-4">
               <Loader className="w-10 h-10 text-[#0e7490] animate-spin" />
@@ -82,59 +114,23 @@ const ReviewerInvitationPage = () => {
             </div>
           )}
 
-          {/* Info + Action */}
-          {phase === "info" && submissionInfo && (
-            <div className="space-y-6">
-              <div>
-                <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                  You have been suggested as a peer reviewer for the following manuscript. Please indicate whether you accept or decline this invitation.
-                </p>
-                <div className="bg-[#f7f9fc] border border-[#c8d5e4] rounded-xl px-5 py-4 space-y-2">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Submission Number</p>
-                    <p className="text-sm font-bold text-[#0e7490] mt-0.5">{submissionInfo.submissionNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Title</p>
-                    <p className="text-sm text-gray-800 mt-0.5 leading-relaxed">{submissionInfo.title}</p>
-                  </div>
+          {phase === "submitting" && submissionInfo && (
+            <div className="flex flex-col items-center py-8 gap-4 text-center">
+              <div className="bg-[#f7f9fc] border border-[#c8d5e4] rounded-xl px-5 py-4 space-y-2 w-full">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Submission Number</p>
+                  <p className="text-sm font-bold text-[#0e7490] mt-0.5">{submissionInfo.submissionNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Title</p>
+                  <p className="text-sm text-gray-800 mt-0.5 leading-relaxed">{submissionInfo.title}</p>
                 </div>
               </div>
-
-              <div className="bg-[#e0f2fe] border border-[#a0d4e8] rounded-xl px-5 py-4">
-                <p className="text-xs text-[#0c4a6e] leading-relaxed">
-                  By accepting this invitation, you agree to provide an objective and timely peer review in accordance with JAIRAM's review guidelines and COPE standards.
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => handleSubmit("ACCEPT")}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition hover:opacity-90 shadow-md"
-                  style={{ background: "linear-gradient(135deg, #0e7490, #0891b2)" }}
-                >
-                  <CheckCircle className="w-4 h-4" /> Accept
-                </button>
-                <button
-                  onClick={() => handleSubmit("DECLINE")}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm border-2 border-red-400 text-red-500 bg-white hover:bg-red-50 transition"
-                >
-                  <XCircle className="w-4 h-4" /> Decline
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Submitting */}
-          {phase === "submitting" && (
-            <div className="flex flex-col items-center py-8 gap-4">
               <Loader className="w-10 h-10 text-[#0e7490] animate-spin" />
               <p className="text-sm text-gray-500">Submitting your response...</p>
             </div>
           )}
 
-          {/* Success */}
           {phase === "success" && (
             <div className="flex flex-col items-center py-8 gap-4 text-center">
               {decision === "ACCEPT" ? (
@@ -144,15 +140,16 @@ const ReviewerInvitationPage = () => {
               )}
               <div>
                 <h2 className="text-lg font-bold text-gray-900 mb-2">
-                  {decision === "ACCEPT" ? "Invitation Accepted" : "Invitation Declined"}
+                  {decision === "ACCEPT"
+                    ? "Invitation has been accepted successfully ✅"
+                    : "Invitation has been rejected ❌"}
                 </h2>
                 <p className="text-sm text-gray-500 leading-relaxed">{resultMessage}</p>
               </div>
-              <p className="text-xs text-gray-400 mt-2">You may close this window.</p>
+              <HomeCta />
             </div>
           )}
 
-          {/* Error */}
           {phase === "error" && (
             <div className="flex flex-col items-center py-8 gap-4 text-center">
               <AlertCircle className="w-14 h-14 text-red-400" />
@@ -160,10 +157,9 @@ const ReviewerInvitationPage = () => {
                 <h2 className="text-lg font-bold text-gray-900 mb-2">Something Went Wrong</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">{resultMessage}</p>
               </div>
-              <p className="text-xs text-gray-400 mt-2">Please contact the editorial office for assistance.</p>
+              <HomeCta />
             </div>
           )}
-
         </div>
       </div>
     </div>

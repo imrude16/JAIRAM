@@ -598,7 +598,8 @@ const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
         const email = reviewer.email;
         const name = `${reviewer.firstName} ${reviewer.lastName}`;
 
-        const invitationUrl = `${process.env.FRONTEND_URL}/reviewer-invitation?token=${token}`;
+        const acceptUrl = `${process.env.FRONTEND_URL}/reviewer-invitation?token=${token}&action=accept`;
+        const rejectUrl = `${process.env.FRONTEND_URL}/reviewer-invitation?token=${token}&action=reject`;
 
         await sendEmail({
             to: email,
@@ -608,7 +609,8 @@ const sendReviewerInvitationEmail = async (submission, reviewer, token) => {
                 submissionTitle: submission.title,
                 submissionNumber: submission.submissionNumber,
                 articleType: submission.articleType,
-                invitationUrl,
+                acceptUrl,
+                rejectUrl,
             }),
         });
 

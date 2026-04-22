@@ -59,7 +59,8 @@ const sendConsentEmail = async (submission, coAuthorData, token) => {
     try {
         const email = coAuthorData.email;
         const name = `${coAuthorData.firstName} ${coAuthorData.lastName}`.trim();
-        const consentUrl = `${process.env.FRONTEND_URL}/coauthor-consent?token=${token}`;
+        const acceptUrl = `${process.env.FRONTEND_URL}/coauthor-consent?token=${token}&action=accept`;
+        const rejectUrl = `${process.env.FRONTEND_URL}/coauthor-consent?token=${token}&action=reject`;
 
         await sendEmail({
             to: email,
@@ -68,7 +69,8 @@ const sendConsentEmail = async (submission, coAuthorData, token) => {
                 name,
                 submissionTitle: submission.title,
                 submissionNumber: submission.submissionNumber || "Draft",
-                consentUrl,
+                acceptUrl,
+                rejectUrl,
             }),
         });
 

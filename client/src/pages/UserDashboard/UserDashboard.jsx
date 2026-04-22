@@ -919,6 +919,18 @@ const CoAuthorTable = ({ subs, consentLoading, onAccept, onRejectClick }) => (
 
 const RejectionModal = ({ submissionTitle, onSubmit, onSkip, isLoading }) => {
   const [remark, setRemark] = useState("");
+  const [remarkError, setRemarkError] = useState("");
+
+  const handleSubmit = () => {
+    if (remark.trim().length < 10) {
+      setRemarkError("Reason of rejection must be at least 10 characters.");
+      return;
+    }
+
+    setRemarkError("");
+    onSubmit(remark.trim());
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && onSkip()}>
       <div style={{ background: "#fff", borderRadius: 12, padding: "28px 32px", maxWidth: 420, width: "100%", boxShadow: "0 20px 25px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -927,13 +939,37 @@ const RejectionModal = ({ submissionTitle, onSubmit, onSkip, isLoading }) => {
           <div style={{ fontSize: "0.8rem", color: "#64748b", lineHeight: 1.5 }}>You are about to reject the co-author consent for: <strong>{submissionTitle}</strong></div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Remark (Optional)</label>
-          <textarea value={remark} onChange={e => setRemark(e.target.value)} maxLength={1000} placeholder="Provide a reason for rejection (optional)..." style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem", fontFamily: "system-ui", minHeight: 80, resize: "none", color: "#1e293b", outline: "none" }} />
-          <div style={{ fontSize: "0.7rem", color: "#cbd5e1", textAlign: "right" }}>{remark.length}/1000</div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Reason of Rejection <span style={{ color: "#dc2626" }}>*</span>
+          </label>
+          <textarea
+            value={remark}
+            onChange={e => {
+              setRemark(e.target.value);
+              if (remarkError) setRemarkError("");
+            }}
+            maxLength={1000}
+            placeholder="Please provide the reason for rejection..."
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: `1px solid ${remarkError ? "#fca5a5" : "#e2e8f0"}`,
+              fontSize: "0.8rem",
+              fontFamily: "system-ui",
+              minHeight: 96,
+              resize: "none",
+              color: "#1e293b",
+              outline: "none",
+            }}
+          />
+          {remarkError && (
+            <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 500 }}>{remarkError}</div>
+          )}
+          <div style={{ fontSize: "0.7rem", color: "#94a3b8", textAlign: "right" }}>{remark.length}/1000</div>
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onSkip} disabled={isLoading} style={{ padding: "9px 20px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: "0.8rem", cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.5 : 1 }}>Cancel</button>
-          <button onClick={() => onSubmit(remark)} disabled={isLoading} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: isLoading ? "#cbd5e1" : "#dc2626", color: "#fff", fontWeight: 600, fontSize: "0.8rem", cursor: isLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={handleSubmit} disabled={isLoading} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: isLoading ? "#cbd5e1" : "#dc2626", color: "#fff", fontWeight: 600, fontSize: "0.8rem", cursor: isLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             {isLoading && <Loader style={{ width: 13, height: 13, animation: "spin 0.8s linear infinite" }} />}
             {isLoading ? "Processing..." : "Confirm Rejection"}
           </button>

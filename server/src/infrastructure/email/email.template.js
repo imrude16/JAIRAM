@@ -194,6 +194,54 @@ const renderEmailLayout = ({
     </html>
 `;
 
+const renderDualActionButtons = ({
+    acceptLabel = "Accept",
+    acceptHref,
+    rejectLabel = "Reject",
+    rejectHref,
+}) => `
+    <div style="margin: 26px 0 10px 0; text-align: center;">
+        <a
+            href="${escapeHtml(acceptHref)}"
+            style="
+                display: inline-block;
+                min-width: 150px;
+                margin: 0 8px 12px 8px;
+                padding: 14px 24px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #17834f 0%, #11653c 100%);
+                color: #ffffff;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+                box-shadow: 0 10px 24px rgba(17, 101, 60, 0.16);
+            "
+        >
+            ${escapeHtml(acceptLabel)}
+        </a>
+        <a
+            href="${escapeHtml(rejectHref)}"
+            style="
+                display: inline-block;
+                min-width: 150px;
+                margin: 0 8px 12px 8px;
+                padding: 14px 24px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #c83f34 0%, #a92c21 100%);
+                color: #ffffff;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+                box-shadow: 0 10px 24px rgba(169, 44, 33, 0.16);
+            "
+        >
+            ${escapeHtml(rejectLabel)}
+        </a>
+    </div>
+`;
+
 const authorDecisionTemplate = ({
     authorName,
     submissionId,
@@ -457,7 +505,8 @@ const coAuthorConsentTemplate = ({
     name,
     submissionTitle,
     submissionNumber,
-    consentUrl,
+    acceptUrl,
+    rejectUrl,
 }) =>
     renderEmailLayout({
         preheader: `Consent requested for submission ${submissionNumber || "Draft"}.`,
@@ -479,7 +528,12 @@ const coAuthorConsentTemplate = ({
                 `,
             }),
         ],
-        action: renderButton("Review & Provide Consent", consentUrl, "primary"),
+        action: renderDualActionButtons({
+            acceptLabel: "Accept",
+            acceptHref: acceptUrl,
+            rejectLabel: "Reject",
+            rejectHref: rejectUrl,
+        }),
         outro: "If you were not expecting this request, you may safely ignore the email. The consent link expires automatically after the response window closes.",
         footnote: "This email was generated as part of the manuscript co-author consent workflow.",
     });
@@ -489,7 +543,8 @@ const suggestedReviewerInvitationTemplate = ({
     submissionTitle,
     submissionNumber,
     articleType,
-    invitationUrl,
+    acceptUrl,
+    rejectUrl,
 }) =>
     renderEmailLayout({
         preheader: `You have been invited to respond to a review invitation for submission ${submissionNumber}.`,
@@ -512,7 +567,12 @@ const suggestedReviewerInvitationTemplate = ({
                 `,
             }),
         ],
-        action: renderButton("Respond to Invitation", invitationUrl, "success"),
+        action: renderDualActionButtons({
+            acceptLabel: "Accept",
+            acceptHref: acceptUrl,
+            rejectLabel: "Reject",
+            rejectHref: rejectUrl,
+        }),
         outro: "Your response helps us move the manuscript forward without unnecessary delay. Thank you for your time and consideration.",
         footnote: "This invitation email is part of the suggested reviewer workflow for a manuscript submission.",
     });
