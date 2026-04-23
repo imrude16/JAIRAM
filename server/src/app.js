@@ -6,24 +6,9 @@ import { fileURLToPath } from "url";
 import routes from "./routes/index.js";    // check here - a inconsistency in import style 
 import { globalErrorHandler } from "./common/errors/errorHandler.js";
 import { optionalAuth } from "./common/middlewares/optionalAuth.js";
-import { FRONTEND_URL } from "./config/env.js";
 
 const app = express();
-const allowedOrigins = [FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"];
-
-app.use(
-    cors({
-        origin(origin, callback) {
-            if (!origin || allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
-
-            return callback(new Error("Not allowed by CORS"));
-        },
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-    })
-);
+app.use(cors());
 
 /* -------- Global Middlewares -------- */
 app.use(json());
@@ -31,6 +16,7 @@ app.use(urlencoded({ extended: true }));
 
 app.use(optionalAuth);    // attaches req.user if exists (for every request)
 
+/* -------- HEALTH CHECK -------- */
 app.get("/api/health", (_req, res) => {
     res.status(200).json({
         success: true,
