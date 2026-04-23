@@ -6,15 +6,29 @@ import { fileURLToPath } from "url";
 import routes from "./routes/index.js";    // check here - a inconsistency in import style 
 import { globalErrorHandler } from "./common/errors/errorHandler.js";
 import { optionalAuth } from "./common/middlewares/optionalAuth.js";
+import { FRONTEND_URL } from "./config/env.js";
 
 const app = express();
-app.use(cors());
+app.use(
+    cors({
+        origin: FRONTEND_URL,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
+);
 
 /* -------- Global Middlewares -------- */
 app.use(json());
 app.use(urlencoded({ extended: true }));
 
 app.use(optionalAuth);    // attaches req.user if exists (for every request)
+
+app.get("/api/health", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "Server is healthy",
+    });
+});
 
 // Routes
 app.use("/api", routes);
