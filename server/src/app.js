@@ -11,8 +11,8 @@ const app = express();
 app.use(cors());
 
 /* -------- Global Middlewares -------- */
-app.use(json());
-app.use(urlencoded({ extended: true }));
+app.use(json({ limit: "10mb" }));
+app.use(urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(optionalAuth);    // attaches req.user if exists (for every request)
 
