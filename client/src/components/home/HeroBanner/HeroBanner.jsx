@@ -2,8 +2,8 @@ import React from "react";
 
 const home =
   process.env.NODE_ENV === "production"
-    ? "/assets/home.jpeg"
-    : "/assets/home.jpeg";
+    ? "/assets/home.png"
+    : "/assets/home.png";
 
 const HeroBanner = () => {
   return (
@@ -55,10 +55,10 @@ const HeroBanner = () => {
               <img src={home} alt="cover" className="w-40 rounded-lg shadow-lg" />
               <div>
                 <h3 className="text-lg font-semibold mb-3">
-                  Jan–Jun 2026 | Volume 1 | Issue 1
+                  April-May 2026 | Volume 1 | Issue 1
                 </h3>
-                <p className="text-sm text-white/90 mb-2">
-                  <span className="font-semibold">Editor-in-Chief:</span> Dr.
+                <p className="text-sm text-white/90 mb-2 text-left">
+                  <span className="font-semibold ">Editor-in-Chief:</span> Dr.
                   Rajiv Ratan Singh Yadav
                 </p>
                 <p className="text-sm text-white/90 text-left">

@@ -14,8 +14,8 @@ import { useNavigate } from "react-router-dom";
 
 const home =
   process.env.NODE_ENV === "production"
-    ? "/assets/home.jpeg"
-    : "/assets/home.jpeg";
+    ? "/assets/home.png"
+    : "/assets/home.png";
 
 // Constants
 const FOOTER_SECTIONS = [
