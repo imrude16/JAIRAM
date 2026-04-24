@@ -29,6 +29,7 @@ import {
   Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { openFilePreview } from "../../../utils/filePreview";
 
 const THEME = {
   primary: "#0f3460",
@@ -689,7 +690,7 @@ const FileUploadBox = ({
                 type="button"
                 onClick={() => {
                   if (file.fileUrl) {
-                    window.open(file.fileUrl, "_blank");
+                    openFilePreview(file);
                   }
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#b8cfe0] text-[#0f3460] text-xs font-semibold rounded-lg hover:bg-[#e8eef6] transition"
@@ -830,7 +831,7 @@ const MultiFileUploadBox = ({
                   type="button"
                   onClick={() => {
                     if (f.fileUrl) {
-                      window.open(f.fileUrl, "_blank");
+                      openFilePreview(f);
                     }
                   }}
                   className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#b8cfe0] text-[#0f3460] text-xs font-semibold rounded-lg hover:bg-[#e8eef6] transition"

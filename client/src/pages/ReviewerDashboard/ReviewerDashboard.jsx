@@ -16,6 +16,7 @@ import {
   fetchReviewerSubmissions,
   respondToReviewerAssignment,
 } from "../../services/dashboardService";
+import { openFilePreview } from "../../utils/filePreview";
 
 const TH = (last = false) => ({
   padding: "11px 14px",
@@ -159,14 +160,13 @@ const AssignedFilesModal = ({ submission, remarks, onClose }) => {
           {formatFileSize(file?.fileSize)}{file?.mimeType ? ` • ${file.mimeType}` : ""}
         </div>
       </div>
-      <a
-        href={file?.fileUrl}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
+        onClick={() => openFilePreview(file)}
         style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid #0f346040", background: "#e8eef6", color: "#0f3460", fontSize: "0.74rem", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}
       >
         Open
-      </a>
+      </button>
     </div>
   );
 

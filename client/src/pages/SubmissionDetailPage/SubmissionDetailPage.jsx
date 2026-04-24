@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import useAuthStore from "../../store/authStore";
+import { openFilePreview } from "../../utils/filePreview";
 
 const STATUS_CFG = {
   DRAFT: { label: "Draft", color: "#4b5563", bg: "#f3f4f6", border: "#e5e7eb" },
@@ -682,16 +683,15 @@ const SubmissionDetailPage = () => {
                                   </div>
                                 </div>
                               </div>
-                              <a
-                                href={file.fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => openFilePreview(file)}
                                 style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, color: "#0f3460", textDecoration: "none", transition: "all 0.2s", flexShrink: 0 }}
                                 onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
                                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
                               >
                                 View
-                              </a>
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1294,10 +1294,9 @@ const SubmissionDetailPage = () => {
                             </div>
                           </div>
 
-                          <a
-                            href={file.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => openFilePreview(file)}
                             style={{
                               padding: "8px 12px",
                               borderRadius: 8,
@@ -1306,12 +1305,13 @@ const SubmissionDetailPage = () => {
                               color: "#0f3460",
                               fontSize: "0.82rem",
                               fontWeight: 700,
-                              textDecoration: "none",
+                              cursor: "pointer",
+                              fontFamily: "inherit",
                               flexShrink: 0,
                             }}
                           >
                             Open
-                          </a>
+                          </button>
                         </div>
                       ))}
                     </div>
