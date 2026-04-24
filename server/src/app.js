@@ -16,6 +16,13 @@ app.use(urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(optionalAuth);    // attaches req.user if exists (for every request)
 
+app.get("/", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "JAIRAM backend is running",
+    });
+});
+
 /* -------- HEALTH CHECK -------- */
 app.get("/api/health", (_req, res) => {
     res.status(200).json({
