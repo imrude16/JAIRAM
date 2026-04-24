@@ -57,7 +57,7 @@ const HeroBanner = () => {
                 <h3 className="text-lg font-semibold mb-3">
                   April–May 2026 | Volume 1 | Issue 1
                 </h3>
-                <p className="text-sm text-white/90 mb-2">
+                <p className="text-sm text-white/90 mb-2 text-left ">
                   <span className="font-semibold">Editor-in-Chief:</span> Dr.
                   Rajiv Ratan Singh Yadav
                 </p>
