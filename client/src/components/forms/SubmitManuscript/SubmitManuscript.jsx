@@ -2676,7 +2676,16 @@ const SubmitManuscript = () => {
   useEffect(() => {
     if (draftLoading || currentStep !== 4) return;
 
-    const hasReviewerInput = reviewers.some((r) => r.firstName || r.email);
+    const hasReviewerInput = reviewers.some(
+      (r) =>
+        r.title &&
+        r.firstName?.trim() &&
+        r.lastName?.trim() &&
+        r.email?.trim() &&
+        r.specialization?.trim() &&
+        r.institution?.trim() &&
+        r.country?.trim(),
+    );
     const hasConflictInput =
       conflictHasConflict !== null ||
       (typeof conflictDetails === "string" &&
@@ -2787,9 +2796,27 @@ const SubmitManuscript = () => {
 
   const buildSuggestedReviewersPayload = useCallback(
     () =>
-      reviewers.filter((r) => r.firstName || r.email).length > 0
+      reviewers.filter(
+        (r) =>
+          r.title &&
+          r.firstName?.trim() &&
+          r.lastName?.trim() &&
+          r.email?.trim() &&
+          r.specialization?.trim() &&
+          r.institution?.trim() &&
+          r.country?.trim(),
+      ).length > 0
         ? reviewers
-            .filter((r) => r.firstName || r.email)
+            .filter(
+              (r) =>
+                r.title &&
+                r.firstName?.trim() &&
+                r.lastName?.trim() &&
+                r.email?.trim() &&
+                r.specialization?.trim() &&
+                r.institution?.trim() &&
+                r.country?.trim(),
+            )
             .map((r) => ({
               title: r.title,
               firstName: r.firstName,
