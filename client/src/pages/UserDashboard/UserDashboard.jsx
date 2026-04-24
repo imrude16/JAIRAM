@@ -27,6 +27,7 @@ import EditorDashboard from "../EditorDashboard/EditorDashboard";   // ← NEW i
 import TechnicalEditorDashboard from "../TechnicalEditorDashboard/TechnicalEditorDashboard";
 import ReviewerDashboard from "../ReviewerDashboard/ReviewerDashboard";
 import AdminDashboard from "../AdminDashboard/AdminDashboard";
+import { openFilePreview } from "../../utils/filePreview";
 
 // ─── STATUS / CONSENT CONFIG ──────────────────────────────────────────────────
 
@@ -502,10 +503,9 @@ const FileListBlock = ({ files = [], emptyText = "No files uploaded." }) => {
             </div>
           </div>
           {file.fileUrl && (
-            <a
-              href={file.fileUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => openFilePreview(file)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -517,13 +517,14 @@ const FileListBlock = ({ files = [], emptyText = "No files uploaded." }) => {
                 color: "#0f3460",
                 fontSize: "0.72rem",
                 fontWeight: 700,
-                textDecoration: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
                 whiteSpace: "nowrap",
               }}
             >
               <Eye style={{ width: 12, height: 12 }} />
               Open
-            </a>
+            </button>
           )}
         </div>
       ))}

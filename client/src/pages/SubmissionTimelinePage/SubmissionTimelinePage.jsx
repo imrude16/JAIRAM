@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { fetchSubmissionTimeline } from "../../services/dashboardService";
+import { openFilePreview } from "../../utils/filePreview";
 
 const STATUS_CFG = {
   DRAFT: { label: "Draft", color: "#4b5563", bg: "#f3f4f6", border: "#e5e7eb" },
@@ -176,14 +177,13 @@ const FileList = ({ files, title = "Files" }) => {
                 </div>
               </div>
               {fileUrl && (
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #dbe5f0", background: "#fff", color: "#0f3460", textDecoration: "none", fontSize: "0.76rem", fontWeight: 700, flexShrink: 0 }}
+                <button
+                  type="button"
+                  onClick={() => openFilePreview(file)}
+                  style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #dbe5f0", background: "#fff", color: "#0f3460", textDecoration: "none", fontSize: "0.76rem", fontWeight: 700, flexShrink: 0, cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Open
-                </a>
+                </button>
               )}
             </div>
           );

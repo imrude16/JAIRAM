@@ -23,6 +23,7 @@ import {
   submitReviewerReview,
   uploadDashboardFile,
 } from "../../services/dashboardService";
+import { openFilePreview } from "../../utils/filePreview";
 
 const THEME = {
   primary: "#0f3460",
@@ -223,14 +224,13 @@ const FileUploadBox = ({
           </div>
           <div className="flex items-center gap-2">
             {fileMeta.fileUrl && (
-              <a
-                href={fileMeta.fileUrl}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => openFilePreview(fileMeta)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#b8cfe0] text-[#0f3460] text-xs font-bold rounded-lg hover:bg-[#e8eef6] transition"
               >
                 <Eye className="w-3.5 h-3.5" /> Preview
-              </a>
+              </button>
             )}
             <button
               type="button"
