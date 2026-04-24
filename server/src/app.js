@@ -9,6 +9,12 @@ import { optionalAuth } from "./common/middlewares/optionalAuth.js";
 
 const app = express();
 app.use(cors());
+/* 
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true,
+}));
+*/
 
 /* -------- Global Middlewares -------- */
 app.use(json({ limit: "10mb" }));
