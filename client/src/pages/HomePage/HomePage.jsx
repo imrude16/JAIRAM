@@ -25,7 +25,7 @@ const HomePage = () => {
           </p>
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-medium px-4 py-2 rounded-full">
             <Clock className="w-3.5 h-3.5" />
-            Jan–Jun 2026 · Volume 1 · Issue 1
+            April–May 2026 · Volume 1 · Issue 1
           </div>
         </div>
 
