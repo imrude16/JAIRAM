@@ -1036,31 +1036,6 @@ const updateSubmission = async (submissionId, userId, updates) => {
 
         await submission.save();
 
-        Submission.findById(submission._id)
-            .populate("author", "firstName lastName email")
-            .lean()
-            .then((populatedSubmission) => {
-                const authorEmail = populatedSubmission?.author?.email;
-                if (!authorEmail) return null;
-
-                return sendEmail({
-                    to: authorEmail,
-                    subject: `JAIRAM | Manuscript ${decision === "ACCEPT" ? "Accepted" : "Rejected"} - ${submission.submissionId}`,
-                    html: authorDecisionTemplate({
-                        authorName: `${populatedSubmission.author?.firstName || ""} ${populatedSubmission.author?.lastName || ""}`.trim() || "Author",
-                        submissionId: submission.submissionId,
-                        title: submission.manuscriptDetails?.title || submission.title,
-                        articleType: submission.manuscriptDetails?.articleType || submission.articleType,
-                        decision,
-                        decisionStage,
-                        remarks,
-                        decidedAt: decision === "ACCEPT" ? submission.acceptedAt : submission.rejectedAt,
-                    }),
-                });
-            })
-            .catch((mailError) => {
-                console.error(`❌ [EMAIL] Failed to send ${decision} notification email to author:`, mailError);
-            });
         await submission.populate("author", "firstName lastName email");
 
         console.log("✅ [SERVICE] updateSubmission completed successfully");
@@ -2836,6 +2811,32 @@ const makeEditorDecision = async (submissionId, editorId, decision, decisionStag
 
         await currentCycle.save();
         await submission.save();
+        Submission.findById(submission._id)
+            .populate("author", "firstName lastName email")
+            .lean()
+            .then((populatedSubmission) => {
+                const authorEmail = populatedSubmission?.author?.email;
+                if (!authorEmail) return null;
+
+                return sendEmail({
+                    to: authorEmail,
+                    subject: `JAIRAM | Manuscript ${decision === "ACCEPT" ? "Accepted" : "Rejected"} - ${submission.submissionId}`,
+                    html: authorDecisionTemplate({
+                        authorName: `${populatedSubmission.author?.firstName || ""} ${populatedSubmission.author?.lastName || ""}`.trim() || "Author",
+                        submissionId: submission.submissionId,
+                        title: submission.manuscriptDetails?.title || submission.title,
+                        articleType: submission.manuscriptDetails?.articleType || submission.articleType,
+                        decision,
+                        decisionStage,
+                        remarks,
+                        decidedAt: decision === "ACCEPT" ? submission.acceptedAt : submission.rejectedAt,
+                    }),
+                });
+            })
+            .catch((mailError) => {
+                console.error(`? [EMAIL] Failed to send ${decision} notification email to author:`, mailError);
+            });
+
 
         console.log("✅ [SERVICE] makeEditorDecision completed successfully");
 
