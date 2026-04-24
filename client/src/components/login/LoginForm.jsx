@@ -228,7 +228,7 @@ const LoginForm = () => {
             display: "flex", alignItems: "center",
           }}>
             <img
-              src="/assets/home.jpeg"
+              src="/assets/home.png"
               alt="Journal cover"
               style={{ width: "220px", maxWidth: "100%", display: "block", objectFit: "cover" }}
             />
