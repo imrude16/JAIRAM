@@ -326,6 +326,9 @@ const generateUploadUrl = async (userId, payload) => {
             {
                 timestamp,
                 public_id: publicId,
+                type: 'upload',
+                access_mode: 'public',
+                resource_type: 'auto',
             },
             process.env.CLOUDINARY_API_SECRET
         );
@@ -334,11 +337,14 @@ const generateUploadUrl = async (userId, payload) => {
 
         return {
             message: "Upload URL generated successfully",
-            uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/upload`,
+            // CHANGE THIS LINE TOO
+            uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto`,
             signature,
             timestamp,
             publicId,
             apiKey: process.env.CLOUDINARY_API_KEY,
+            type: 'upload',
+            accessMode: 'public',
         };
 
     } catch (error) {
@@ -3685,40 +3691,40 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorIds,
         // Send notification emails without blocking the API response.
         for (const technicalEditor of technicalEditors) {
             void sendEmail({
-            to: technicalEditor.email,
-            subject: `Technical Review Assignment - ${submission.submissionNumber}`,
-            html: technicalReviewAssignmentTemplate({
-                name: `${technicalEditor.firstName} ${technicalEditor.lastName}`,
-                submissionNumber: submission.submissionNumber,
-                title: submission.title,
-                articleType: submission.articleType,
-                remarks,
-                revisedManuscriptName: revisedManuscript?.fileName || "Provided",
-                attachmentCount: attachments?.length || 0,
-            }),
-            /*
-                <h2>Technical Review Assignment</h2>
-                <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
-                <p>You have been assigned to review the technical aspects of a manuscript:</p>
-                <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
-                <p><strong>Title:</strong> ${submission.title}</p>
-                <p><strong>Article Type:</strong> ${submission.articleType}</p>
-                <hr>
-                <p><strong>Editor's Remarks:</strong></p>
-                <p>${remarks}</p>
-                <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
-                ${attachments && attachments.length > 0 ? `
-                    <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
-                ` : ''}
-                <p>Please log in to the platform to review the manuscript and submit your decision.</p>
-            */
-        })
-            .then(() => {
-                console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
+                to: technicalEditor.email,
+                subject: `Technical Review Assignment - ${submission.submissionNumber}`,
+                html: technicalReviewAssignmentTemplate({
+                    name: `${technicalEditor.firstName} ${technicalEditor.lastName}`,
+                    submissionNumber: submission.submissionNumber,
+                    title: submission.title,
+                    articleType: submission.articleType,
+                    remarks,
+                    revisedManuscriptName: revisedManuscript?.fileName || "Provided",
+                    attachmentCount: attachments?.length || 0,
+                }),
+                /*
+                    <h2>Technical Review Assignment</h2>
+                    <p>Dear ${technicalEditor.firstName} ${technicalEditor.lastName},</p>
+                    <p>You have been assigned to review the technical aspects of a manuscript:</p>
+                    <p><strong>Submission ID:</strong> ${submission.submissionNumber}</p>
+                    <p><strong>Title:</strong> ${submission.title}</p>
+                    <p><strong>Article Type:</strong> ${submission.articleType}</p>
+                    <hr>
+                    <p><strong>Editor's Remarks:</strong></p>
+                    <p>${remarks}</p>
+                    <p><strong>Revised Manuscript:</strong> ${revisedManuscript?.fileName || "Provided"}</p>
+                    ${attachments && attachments.length > 0 ? `
+                        <p><strong>Attachments:</strong> ${attachments.length} file(s)</p>
+                    ` : ''}
+                    <p>Please log in to the platform to review the manuscript and submit your decision.</p>
+                */
             })
-            .catch((emailError) => {
-                console.error("❌ Failed to send technical editor notification:", emailError);
-            });
+                .then(() => {
+                    console.log(`📧 Technical editor notification sent to ${technicalEditor.email}`);
+                })
+                .catch((emailError) => {
+                    console.error("❌ Failed to send technical editor notification:", emailError);
+                });
         }
 
         console.log("✅ [SERVICE] assignTechnicalEditor completed successfully");
