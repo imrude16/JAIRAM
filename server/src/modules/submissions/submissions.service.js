@@ -1110,6 +1110,19 @@ const submitManuscript = async (submissionId, userId, payload) => {
             throw new AppError("Blind manuscript file is required", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_FILE_REQUIRED");
         }
 
+        if (!isDocxFile(submission.coverLetter)) {
+            throw new AppError("Cover letter must be a DOCX file", STATUS_CODES.BAD_REQUEST, "COVER_LETTER_DOCX_REQUIRED");
+        }
+
+        if (!isDocxFile(submission.blindManuscriptFile)) {
+            throw new AppError("Blind manuscript file must be a DOCX file", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_DOCX_REQUIRED");
+        }
+
+        const invalidSupplementaryFile = (submission.supplementaryFiles || []).find((file) => !isDocxFile(file));
+        if (invalidSupplementaryFile) {
+            throw new AppError("Supplementary files must be DOCX files", STATUS_CODES.BAD_REQUEST, "SUPPLEMENTARY_DOCX_REQUIRED");
+        }
+
         // ═══════════════════════════════════════════════════════════
         // STEP 1: SET SUBMISSION FIELDS
         // ═══════════════════════════════════════════════════════════

@@ -322,8 +322,12 @@ export const updateSubmissionSchema = {
 
 
         // File uploads
-        coverLetter: fileSchema.optional(),
-        blindManuscriptFile: fileSchema.optional(),
+        coverLetter: docxFileSchema.optional().messages({
+            "file.docxOnly": "Cover letter must be a DOCX file",
+        }),
+        blindManuscriptFile: docxFileSchema.optional().messages({
+            "file.docxOnly": "Blind manuscript file must be a DOCX file",
+        }),
         figures: Joi.array().items(fileSchema).max(3).optional()
             .messages({
                 "array.max": "Maximum 3 figure uploads allowed",
@@ -332,7 +336,11 @@ export const updateSubmissionSchema = {
             .messages({
                 "array.max": "Maximum 6 table uploads allowed",
             }),
-        supplementaryFiles: Joi.array().items(fileSchema).optional(),
+        supplementaryFiles: Joi.array().items(
+            docxFileSchema.messages({
+                "file.docxOnly": "Supplementary files must be DOCX files",
+            })
+        ).optional(),
 
         // Suggested Reviewers
         suggestedReviewers: Joi.array()
