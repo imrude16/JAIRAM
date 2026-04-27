@@ -119,10 +119,10 @@ const isAssignedReviewer = async (submissionId, userId) => {
             ? await Reviewer.isAssignedReviewer(submissionId, submission.currentCycleId, userId)
             : false;
 
-        console.log(`[REVIEWER-SERVICE] isAssignedReviewer: ${result}`);
+        console.log(`✅ [REVIEWER-SERVICE] isAssignedReviewer: ${result}`);
         return result;
     } catch (error) {
-        console.error("[REVIEWER-SERVICE] Error in isAssignedReviewer:", error);
+        console.error("❌ [REVIEWER-SERVICE] Error in isAssignedReviewer:", error);
         return false;
     }
 };
