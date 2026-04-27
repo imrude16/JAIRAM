@@ -237,7 +237,7 @@ const ChecklistSummary = ({ checklist }) => {
   );
 };
 
-const TimelineRemarkPanel = ({ stage, remark, showReviewerIdentity, version }) => {
+const TimelineRemarkPanel = ({ stage, remark, showReviewerIdentity, showConfidentialToEditor, version }) => {
   if (!remark) {
     return (
       <div style={{ fontSize: "0.82rem", color: "#94a3b8", fontStyle: "italic" }}>
@@ -257,6 +257,12 @@ const TimelineRemarkPanel = ({ stage, remark, showReviewerIdentity, version }) =
   if (remark.recommendation) {
     blocks.push(
       <Field key="recommendation" label="Recommendation" value={remark.recommendation.replaceAll("_", " ")} />
+    );
+  }
+
+  if (showConfidentialToEditor && stage === "REVIEWER_TO_EDITOR" && remark.confidentialToEditor) {
+    blocks.push(
+      <Field key="confidentialToEditor" label="Confidential Letter to Editor" value={remark.confidentialToEditor} fullWidth />
     );
   }
 
@@ -300,6 +306,7 @@ const SubmissionTimelinePage = () => {
   const [openVersions, setOpenVersions] = useState({});
 
   const isPrivileged = user?.role === "EDITOR" || user?.role === "ADMIN";
+  const canViewConfidentialToEditor = user?.role === "EDITOR";
 
   useEffect(() => {
     if (!user) return;
@@ -568,6 +575,7 @@ const SubmissionTimelinePage = () => {
                                       stage={version.currentStage}
                                       remark={version.timelineRemark}
                                       showReviewerIdentity={isPrivileged}
+                                      showConfidentialToEditor={canViewConfidentialToEditor}
                                       version={version}
                                     />
                                   </div>

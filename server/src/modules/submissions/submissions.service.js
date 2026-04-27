@@ -1836,7 +1836,7 @@ const getReviewerFeedbackForAssignment = (reviewerDoc, assignment) => {
     });
 };
 
-const buildTimelineRemark = ({ version, cycle, techDocsByCycleId, reviewerDocsByCycleId }) => {
+const buildTimelineRemark = ({ version, cycle, techDocsByCycleId, reviewerDocsByCycleId, userRole }) => {
     switch (version.currentStage) {
         case "INITIAL_SUBMISSION":
             return null;
@@ -1939,6 +1939,7 @@ const buildTimelineRemark = ({ version, cycle, techDocsByCycleId, reviewerDocsBy
             return {
                 recommendation: matchedFeedback.recommendation || null,
                 remarks: matchedFeedback.remarks || null,
+                confidentialToEditor: userRole === "EDITOR" ? matchedFeedback.confidentialToEditor || null : null,
                 reviewerChecklist: matchedFeedback.reviewerChecklist || null,
                 revisedManuscript: matchedFeedback.revisedManuscript || null,
                 responseToEditorComments: matchedFeedback.responseToEditorComments || null,
@@ -2016,6 +2017,7 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
                     cycle,
                     techDocsByCycleId,
                     reviewerDocsByCycleId,
+                    userRole,
                 }),
             };
         });
