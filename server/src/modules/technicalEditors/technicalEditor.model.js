@@ -116,4 +116,4 @@ technicalEditorSchema.statics.getCurrentCycleDocLean = function (submissionId, c
 
 export const TechnicalEditor = mongoose.model("TechnicalEditor", technicalEditorSchema);
 
-console.log("[TECHNICAL-EDITOR-MODEL] TechnicalEditor model created and exported");
+console.log("📦 [TECHNICAL-EDITOR-MODEL] TechnicalEditor model created and exported");

@@ -199,6 +199,6 @@ reviewerSchema.statics.isAssignedReviewer = async function (submissionId, cycleI
 
 const Reviewer = model("Reviewer", reviewerSchema);
 
-console.log("[REVIEWER-MODEL] Reviewer model created and exported");
+console.log("📦 [REVIEWER-MODEL] Reviewer model created and exported");
 
 export { Reviewer };
