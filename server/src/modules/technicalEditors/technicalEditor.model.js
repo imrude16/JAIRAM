@@ -90,6 +90,8 @@ const technicalEditorSchema = new Schema(
     }
 );
 
+technicalEditorSchema.index({ submissionId: 1, cycleId: 1 }, { unique: true });
+
 technicalEditorSchema.statics.findBySubmission = function (submissionId) {
     return this.find({ submissionId })
         .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")

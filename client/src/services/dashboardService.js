@@ -176,8 +176,8 @@ export const uploadDashboardFile = async (file, uploadType = "supplementary", on
   formData.append("timestamp", data.timestamp);
   formData.append("api_key", data.apiKey);
   formData.append("public_id", data.publicId);
-  formData.append("type", data.type || "upload");
-  formData.append("access_mode", data.accessMode || "public");
+  formData.append("type", data.type);
+  formData.append("access_mode", data.accessMode);
 
   const uploadResponse = await externalApi.post(data.uploadUrl, formData, {
     onUploadProgress: (progressEvent) => {

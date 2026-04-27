@@ -203,6 +203,8 @@ const handleCloudinaryUpload = async (file, uploadType, onProgress) => {
     formData.append("timestamp", data.timestamp);
     formData.append("api_key", data.apiKey);
     formData.append("public_id", data.publicId);
+    formData.append("type", data.type);
+    formData.append("access_mode", data.accessMode);
 
     // STEP 3: Upload to Cloudinary
     const uploadResponse = await externalApi.post(data.uploadUrl, formData, {

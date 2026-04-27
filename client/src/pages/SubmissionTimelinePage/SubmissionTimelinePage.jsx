@@ -523,6 +523,8 @@ const SubmissionTimelinePage = () => {
                       ) : (
                         cycleVersions.map((version) => {
                           const isVersionOpen = !!openVersions[version._id];
+                          const shouldHideReviewerIdentity =
+                            !isPrivileged && version.currentStage === "REVIEWER_TO_EDITOR";
                           const uploaderName = `${version.uploadedBy?.firstName || ""} ${version.uploadedBy?.lastName || ""}`.trim();
                           return (
                             <AccordionCard
@@ -541,9 +543,11 @@ const SubmissionTimelinePage = () => {
                                   <Field label="Current Stage" value={STAGE_LABELS[version.currentStage] || version.currentStage} />
                                   <Field label="Created At" value={fmtDate(version.createdAt)} />
                                   <Field label="Updated At" value={fmtDate(version.updatedAt)} />
-                                  <Field label="Uploaded By" value={uploaderName || "—"} />
+                                  <Field label="Uploaded By" value={shouldHideReviewerIdentity ? "Anonymous Reviewer" : (uploaderName || "—")} />
                                   <Field label="Uploader Role" value={version.uploaderRole || "—"} />
-                                  <Field label="Uploader Email" value={version.uploadedBy?.email || "—"} fullWidth />
+                                  {!shouldHideReviewerIdentity && (
+                                    <Field label="Uploader Email" value={version.uploadedBy?.email || "—"} fullWidth />
+                                  )}
                                 </div>
 
                                 {version.fileRefs?.length > 0 && <FileList files={version.fileRefs} title="Version Files" />}

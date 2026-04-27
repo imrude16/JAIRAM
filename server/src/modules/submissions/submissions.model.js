@@ -997,8 +997,9 @@ submissionSchema.methods.hasTechnicalEditorDecided = async function () {
 
     const techEditorDoc = await TechnicalEditor.findOne({
         submissionId: this._id,
+        cycleId: this.currentCycleId,
         "technicalEditorReview.0": { $exists: true },
-    }).sort({ updatedAt: -1 });
+    });
     const rawReviews = techEditorDoc?.technicalEditorReview;
     const reviews = Array.isArray(rawReviews)
         ? rawReviews
@@ -1024,6 +1025,7 @@ submissionSchema.methods.hasTechnicalEditorDecided = async function () {
 submissionSchema.methods.getDecisionHistory = async function () {
     const SubmissionCycle = mongoose.model("SubmissionCycle");
     const TechnicalEditor = mongoose.model("TechnicalEditor");
+    const Reviewer = mongoose.model("Reviewer");
 
     const cycles = await SubmissionCycle.find({ submissionId: this._id })
         .sort({ cycleNumber: 1 })
@@ -1031,6 +1033,9 @@ submissionSchema.methods.getDecisionHistory = async function () {
 
     const technicalEditorDocs = await TechnicalEditor.find({ submissionId: this._id })
         .populate("technicalEditorReview.user", "firstName lastName email")
+        .lean();
+    const reviewerDocs = await Reviewer.find({ submissionId: this._id })
+        .populate("reviewerFeedback.user", "firstName lastName email")
         .lean();
 
     const techReviewsByCycleId = new Map(
@@ -1044,14 +1049,16 @@ submissionSchema.methods.getDecisionHistory = async function () {
             return [doc.cycleId?.toString(), reviews];
         })
     );
+    const reviewerFeedbackByCycleId = new Map(
+        reviewerDocs.map((doc) => [doc.cycleId?.toString(), doc.reviewerFeedback || []])
+    );
 
     return cycles.map(cycle => ({
         cycleNumber: cycle.cycleNumber,
         editorDecision: cycle.editorDecision,
         technicalEditorReview: techReviewsByCycleId.get(cycle._id?.toString()) || [],
+        reviewerFeedback: reviewerFeedbackByCycleId.get(cycle._id?.toString()) || [],
         status: cycle.status,
-        // NOTE: reviewerFeedback now lives in Reviewer collection
-        // Use Reviewer.findBySubmission(submissionId) to get reviewer feedback
     }));
 };
 // Check co-author consent status

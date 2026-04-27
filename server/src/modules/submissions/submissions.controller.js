@@ -531,6 +531,8 @@ const generateUploadUrl = async (req, res) => {
             timestamp: result.timestamp,
             publicId: result.publicId,
             apiKey: result.apiKey,
+            type: result.type,
+            accessMode: result.accessMode,
         },
         null,
         STATUS_CODES.OK

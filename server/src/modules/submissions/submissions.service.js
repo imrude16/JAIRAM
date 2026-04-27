@@ -222,6 +222,26 @@ const findReviewerAssignment = (reviewerDoc, reviewerId) => {
     }) || null;
 };
 
+const getReviewerDocKey = (submissionId, cycleId) => {
+    const toIdString = (value) => {
+        if (!value) return null;
+        if (typeof value === "string") return value;
+        if (typeof value === "object" && value._id) return value._id.toString();
+        if (typeof value.toString === "function") return value.toString();
+        return null;
+    };
+
+    const submissionKey = toIdString(submissionId);
+    const cycleKey = toIdString(cycleId);
+    return submissionKey && cycleKey ? `${submissionKey}:${cycleKey}` : null;
+};
+
+const getCurrentReviewerDoc = (submissionId, cycleId) =>
+    Reviewer.getCurrentCycleDoc(submissionId, cycleId);
+
+const getCurrentReviewerDocLean = (submissionId, cycleId) =>
+    Reviewer.getCurrentCycleDocLean(submissionId, cycleId);
+
 const trackRejectedConsentIssue = (submission, consent) => {
     const coAuthorName = [
         consent.coAuthorFirstName,
@@ -326,9 +346,8 @@ const generateUploadUrl = async (userId, payload) => {
             {
                 timestamp,
                 public_id: publicId,
-                type: 'upload',
-                access_mode: 'public',
-                resource_type: 'auto',
+                type: "upload",
+                access_mode: "public",
             },
             process.env.CLOUDINARY_API_SECRET
         );
@@ -337,14 +356,13 @@ const generateUploadUrl = async (userId, payload) => {
 
         return {
             message: "Upload URL generated successfully",
-            // CHANGE THIS LINE TOO
-            uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto`,
+            uploadUrl: `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto/upload`,
             signature,
             timestamp,
             publicId,
             apiKey: process.env.CLOUDINARY_API_KEY,
-            type: 'upload',
-            accessMode: 'public',
+            type: "upload",
+            accessMode: "public",
         };
 
     } catch (error) {
@@ -715,10 +733,10 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
 
         let isAssignedReviewer = false;
         if (userRole === "REVIEWER") {
-            const reviewerDoc = await Reviewer.findOne({
-                submissionId: submissionId,
-                "assignedReviewers.reviewer": userId,
-            });
+            const reviewerDoc = await getCurrentReviewerDoc(
+                submissionId,
+                submission.currentCycleId
+            );
             const assignment = findReviewerAssignment(reviewerDoc, userId);
             isAssignedReviewer = !!assignment && assignment.status !== "REJECT";
         }
@@ -749,7 +767,7 @@ const getSubmissionById = async (submissionId, userId, userRole) => {
                     .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName email")
                     .select("assignedTechnicalEditors technicalEditorReview")
                     .lean(),
-                Reviewer.findOne({ submissionId: submission._id })
+                Reviewer.findOne({ submissionId: submission._id, cycleId: submission.currentCycleId })
                     .populate("assignedReviewers.reviewer", "firstName lastName email")
                     .select("assignedReviewers reviewerFeedback")
                     .lean(),
@@ -1413,38 +1431,19 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
             "INITIAL_SUBMISSION"
         );
 
-        const { Reviewer } = await import("../reviewers/reviewer.model.js");
-        await Reviewer.findOneAndUpdate(
-            { submissionId: submission._id },
-            {
-                $set: {
-                    cycleId: cycle._id,
-                    assignedReviewers: [],
-                    reviewerFeedback: [],
-                },
-            },
-            { upsert: true }
-        );
+        await Reviewer.create({
+            submissionId: submission._id,
+            cycleId: cycle._id,
+            assignedReviewers: [],
+            reviewerFeedback: [],
+        });
 
-        const techEditorResetResult = await TechnicalEditor.updateMany(
-            { submissionId: submission._id },
-            {
-                $set: {
-                    cycleId: cycle._id,
-                    assignedTechnicalEditors: [],
-                    technicalEditorReview: [],
-                },
-            }
-        );
-
-        if (!techEditorResetResult.matchedCount) {
-            await TechnicalEditor.create({
-                submissionId: submission._id,
-                cycleId: cycle._id,
-                assignedTechnicalEditors: [],
-                technicalEditorReview: [],
-            });
-        }
+        await TechnicalEditor.create({
+            submissionId: submission._id,
+            cycleId: cycle._id,
+            assignedTechnicalEditors: [],
+            technicalEditorReview: [],
+        });
 
         await submission.save();
 
@@ -1474,11 +1473,13 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
 
 const listSubmissions = async (userId, userRole, filters = {}) => {
     try {
-        console.log("🔵 [SERVICE] listSubmissions started");
+        console.log("[SERVICE] listSubmissions started");
 
         const { status, articleType, page = 1, limit = 20, sortBy = "submittedAt", sortOrder = "desc", search } = filters;
 
         let query = {};
+        let activeReviewerDocs = [];
+        let activeTechnicalEditorDocs = [];
 
         if (userRole === "USER") {
             const currentUser = await User.findById(userId).select("email");
@@ -1498,19 +1499,22 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                 },
             ];
         } else if (userRole === "REVIEWER") {
-            const reviewerDocs = await Reviewer.find({
+            activeReviewerDocs = await Reviewer.find({
                 assignedReviewers: {
                     $elemMatch: {
                         reviewer: userId,
                         status: { $in: ["PENDING", "ACCEPT"] },
                     },
                 },
-            }).select("submissionId");
-            const submissionIds = reviewerDocs.map(r => r.submissionId);
+            })
+                .select("submissionId cycleId assignedReviewers reviewerFeedback")
+                .lean();
+
+            const submissionIds = [...new Set(activeReviewerDocs.map((doc) => doc.submissionId?.toString()))];
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
         } else if (userRole === "TECHNICAL_EDITOR") {
-            const techEditorDocs = await TechnicalEditor.find({
+            activeTechnicalEditorDocs = await TechnicalEditor.find({
                 assignedTechnicalEditors: {
                     $elemMatch: {
                         technicalEditor: userId,
@@ -1518,11 +1522,10 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
                     },
                 },
             })
-                .sort({ updatedAt: 1 })
-                .select("submissionId");
+                .select("submissionId cycleId assignedTechnicalEditors technicalEditorReview")
+                .lean();
 
-            const submissionIds = [...new Set(techEditorDocs.map(doc => doc.submissionId?.toString()))];
-
+            const submissionIds = [...new Set(activeTechnicalEditorDocs.map((doc) => doc.submissionId?.toString()))];
             query._id = { $in: submissionIds };
             query.status = { $ne: "DRAFT" };
         } else if (userRole === "EDITOR" || userRole === "ADMIN") {
@@ -1539,51 +1542,79 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
         const skip = (page - 1) * limit;
         const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
-        const [submissions, total] = await Promise.all([
-            Submission.find(query)
-                .populate("author", "firstName lastName email")
-                .populate("assignedEditor", "firstName lastName")
-                .populate("currentCycleId")
-                .sort(sort)
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Submission.countDocuments(query),
-        ]);
+        const submissionQuery = Submission.find(query)
+            .populate("author", "firstName lastName email")
+            .populate("assignedEditor", "firstName lastName")
+            .populate("currentCycleId")
+            .sort(sort);
 
-        // ── EDITOR role: enrich with assignment info from TechnicalEditor + Reviewer collections ──
+        let submissions = [];
+        let total = 0;
+
+        if (userRole === "REVIEWER" || userRole === "TECHNICAL_EDITOR") {
+            const candidateDocs = userRole === "REVIEWER" ? activeReviewerDocs : activeTechnicalEditorDocs;
+            const activeDocKeys = new Set(
+                candidateDocs
+                    .map((doc) => getReviewerDocKey(doc.submissionId, doc.cycleId))
+                    .filter(Boolean)
+            );
+
+            const matchedSubmissions = await submissionQuery.lean();
+            const activeSubmissions = matchedSubmissions.filter((submission) => {
+                const currentCycleId = submission.currentCycleId?._id || submission.currentCycleId;
+                const key = getReviewerDocKey(submission._id, currentCycleId);
+                return activeDocKeys.has(key);
+            });
+
+            total = activeSubmissions.length;
+            submissions = activeSubmissions.slice(skip, skip + limit);
+        } else {
+            [submissions, total] = await Promise.all([
+                submissionQuery
+                    .skip(skip)
+                    .limit(limit)
+                    .lean(),
+                Submission.countDocuments(query),
+            ]);
+        }
+
         if (userRole === "EDITOR" || userRole === "ADMIN") {
-            const submissionIds = submissions.map(s => s._id);
-
-            const { Reviewer } = await import("../reviewers/reviewer.model.js");
+            const submissionIds = submissions.map((sub) => sub._id);
+            const currentCycleIds = submissions
+                .map((sub) => sub.currentCycleId?._id || sub.currentCycleId)
+                .filter(Boolean);
 
             const [techEditorDocs, reviewerDocs] = await Promise.all([
-                TechnicalEditor.find({ submissionId: { $in: submissionIds } })
-                    .sort({ updatedAt: 1 })
+                TechnicalEditor.find({
+                    submissionId: { $in: submissionIds },
+                    cycleId: { $in: currentCycleIds },
+                })
                     .populate("assignedTechnicalEditors.technicalEditor", "firstName lastName")
-                    .select("submissionId assignedTechnicalEditors")
+                    .select("submissionId cycleId assignedTechnicalEditors")
                     .lean(),
-                Reviewer.find({ submissionId: { $in: submissionIds } })
+                Reviewer.find({
+                    submissionId: { $in: submissionIds },
+                    cycleId: { $in: currentCycleIds },
+                })
                     .populate("assignedReviewers.reviewer", "firstName lastName")
-                    .select("submissionId assignedReviewers")
+                    .select("submissionId cycleId assignedReviewers")
                     .lean(),
             ]);
 
-            // Build maps: submissionId → doc
-            const teMap = {};
+            const technicalEditorMap = {};
             for (const doc of techEditorDocs) {
-                teMap[doc.submissionId?.toString()] = doc;
-            }
-            const rvMap = {};
-            for (const doc of reviewerDocs) {
-                rvMap[doc.submissionId?.toString()] = doc;
+                technicalEditorMap[getReviewerDocKey(doc.submissionId, doc.cycleId)] = doc;
             }
 
-            // Merge into each submission
+            const reviewerMap = {};
+            for (const doc of reviewerDocs) {
+                reviewerMap[getReviewerDocKey(doc.submissionId, doc.cycleId)] = doc;
+            }
+
             for (const sub of submissions) {
-                const key = sub._id?.toString();
-                sub._assignedTechEditor = teMap[key] ?? null;
-                sub._assignedReviewers = rvMap[key] ?? null;
+                const key = getReviewerDocKey(sub._id, sub.currentCycleId?._id || sub.currentCycleId);
+                sub._assignedTechEditor = technicalEditorMap[key] ?? null;
+                sub._assignedReviewers = reviewerMap[key] ?? null;
             }
         }
 
@@ -1592,10 +1623,10 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             const currentEmail = currentUser?.email?.toLowerCase() || null;
 
             for (const sub of submissions) {
-                const myCoAuthorEntry = sub.coAuthors?.find((ca) => {
-                    const linkedId = ca.user?._id || ca.user;
+                const myCoAuthorEntry = sub.coAuthors?.find((coAuthor) => {
+                    const linkedId = coAuthor.user?._id || coAuthor.user;
                     const linkedMatch = linkedId && linkedId.toString() === userId.toString();
-                    const emailMatch = ca.email && currentEmail && ca.email.toLowerCase() === currentEmail;
+                    const emailMatch = coAuthor.email && currentEmail && coAuthor.email.toLowerCase() === currentEmail;
                     return linkedMatch || emailMatch;
                 }) || null;
 
@@ -1608,58 +1639,60 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             }
         }
 
-        // ── TECHNICAL_EDITOR role: enrich with assignment status + editor remarks ──
         if (userRole === "TECHNICAL_EDITOR") {
-            const submissionIds = submissions.map(s => s._id);
-            const currentUser = await User.findById(userId).select("email").lean();
-            const currentEmail = currentUser?.email?.toLowerCase() || null;
+            const submissionIds = submissions.map((sub) => sub._id);
+            const currentCycleIds = submissions
+                .map((sub) => sub.currentCycleId?._id || sub.currentCycleId)
+                .filter(Boolean);
 
             const techEditorDocs = await TechnicalEditor.find({
                 submissionId: { $in: submissionIds },
+                cycleId: { $in: currentCycleIds },
             })
-                .sort({ updatedAt: 1 })
-                .select("submissionId assignedTechnicalEditors technicalEditorReview")
+                .select("submissionId cycleId assignedTechnicalEditors technicalEditorReview")
                 .lean();
 
-            const teMap = {};
+            const technicalEditorMap = {};
             for (const doc of techEditorDocs) {
-                teMap[doc.submissionId?.toString()] = doc;
+                technicalEditorMap[getReviewerDocKey(doc.submissionId, doc.cycleId)] = doc;
             }
 
             for (const sub of submissions) {
-                const key = sub._id?.toString();
-                const techEditorDoc = teMap[key] ?? null;
+                const key = getReviewerDocKey(sub._id, sub.currentCycleId?._id || sub.currentCycleId);
+                const techEditorDoc = technicalEditorMap[key] ?? null;
                 const assignment = findTechnicalEditorAssignment(techEditorDoc, userId);
                 const matchingReview = getTechnicalEditorReviewForAssignment(techEditorDoc, assignment);
-                const isCurrentTechnicalEditorReview = !!matchingReview?.reviewedAt;
 
                 sub._technicalEditorAssignmentStatus = assignment?.status || "PENDING";
                 sub._technicalEditorRespondedAt = assignment?.respondedAt || null;
                 sub._technicalEditorRejectionReason = assignment?.rejectionReason || null;
-                sub._technicalEditorReviewSubmitted = isCurrentTechnicalEditorReview;
+                sub._technicalEditorReviewSubmitted = !!matchingReview?.reviewedAt;
                 sub._editorRemarksForTechEditor = sub.currentCycleId?.editorRemarksForTechEditor || null;
             }
         }
 
-        // ── REVIEWER role: enrich with assignment status + editor remarks ──
         if (userRole === "REVIEWER") {
-            const submissionIds = submissions.map(s => s._id);
+            const submissionIds = submissions.map((sub) => sub._id);
+            const currentCycleIds = submissions
+                .map((sub) => sub.currentCycleId?._id || sub.currentCycleId)
+                .filter(Boolean);
             const currentUser = await User.findById(userId).select("email").lean();
             const currentEmail = currentUser?.email?.toLowerCase() || null;
 
             const reviewerDocs = await Reviewer.find({
                 submissionId: { $in: submissionIds },
+                cycleId: { $in: currentCycleIds },
             })
-                .select("submissionId assignedReviewers reviewerFeedback")
+                .select("submissionId cycleId assignedReviewers reviewerFeedback")
                 .lean();
 
             const reviewerMap = {};
             for (const doc of reviewerDocs) {
-                reviewerMap[doc.submissionId?.toString()] = doc;
+                reviewerMap[getReviewerDocKey(doc.submissionId, doc.cycleId)] = doc;
             }
 
             for (const sub of submissions) {
-                const key = sub._id?.toString();
+                const key = getReviewerDocKey(sub._id, sub.currentCycleId?._id || sub.currentCycleId);
                 const reviewerDoc = reviewerMap[key] ?? null;
                 const assignment = findReviewerAssignment(reviewerDoc, userId);
 
@@ -1678,7 +1711,7 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
             }
         }
 
-        console.log("✅ [SERVICE] listSubmissions completed successfully");
+        console.log("[SERVICE] listSubmissions completed successfully");
 
         return {
             message: "Submissions retrieved successfully",
@@ -1692,11 +1725,10 @@ const listSubmissions = async (userId, userRole, filters = {}) => {
         };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("❌ [SERVICE] Unexpected error in listSubmissions:", error);
+        console.error("[SERVICE] Unexpected error in listSubmissions:", error);
         throw new AppError("Failed to retrieve submissions", STATUS_CODES.INTERNAL_SERVER_ERROR, "LIST_SUBMISSIONS_ERROR", { originalError: error.message });
     }
 };
-
 // ================================================
 // GET SUBMISSION TIMELINE (Cycles)
 // ================================================
@@ -1775,7 +1807,7 @@ const getReviewerFeedbackForAssignment = (reviewerDoc, assignment) => {
     });
 };
 
-const buildTimelineRemark = ({ version, cycle, cycleIndex, cycles, techDocsByCycleId, reviewerDoc }) => {
+const buildTimelineRemark = ({ version, cycle, techDocsByCycleId, reviewerDocsByCycleId }) => {
     switch (version.currentStage) {
         case "INITIAL_SUBMISSION":
             return null;
@@ -1841,15 +1873,12 @@ const buildTimelineRemark = ({ version, cycle, cycleIndex, cycles, techDocsByCyc
             return cycle?.editorRemarksForAuthor || null;
 
         case "REVIEWER_TO_EDITOR": {
-            const { start, end } = getCycleWindow(cycles, cycleIndex);
-
+            const reviewerDoc = reviewerDocsByCycleId.get(getIdString(cycle?._id)) || null;
             const versionUploaderId = getIdString(version.uploadedBy);
             const versionUploaderEmail =
                 typeof version.uploadedBy === "object" ? version.uploadedBy?.email || null : null;
 
-            const feedbackInCycle = (reviewerDoc?.reviewerFeedback || []).filter((feedback) =>
-                isWithinCycleWindow(feedback.reviewedAt, start, end)
-            );
+            const feedbackInCycle = reviewerDoc?.reviewerFeedback || [];
 
             const directMatches = feedbackInCycle.filter((feedback) => {
                 const feedbackUserId = getIdString(feedback.user);
@@ -1918,12 +1947,15 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
         const cycles = await SubmissionCycle.findBySubmission(submissionId);
         const versions = await manuscriptVersionService.getVersionsBySubmission(submissionId);
         const techDocs = await TechnicalEditor.find({ submissionId }).lean();
-        const reviewerDoc = await Reviewer.findOne({ submissionId })
+        const reviewerDocs = await Reviewer.find({ submissionId })
             .populate("reviewerFeedback.user", "firstName lastName email role")
             .lean();
 
         const techDocsByCycleId = new Map(
             techDocs.map((doc) => [getIdString(doc.cycleId), doc])
+        );
+        const reviewerDocsByCycleId = new Map(
+            reviewerDocs.map((doc) => [getIdString(doc.cycleId), doc])
         );
 
         const cyclesById = new Map(
@@ -1934,18 +1966,27 @@ const getSubmissionTimeline = async (submissionId, userId, userRole) => {
             const version = versionDoc.toObject();
             const cycleId = getIdString(version.cycleId);
             const cycle = cyclesById.get(cycleId) || null;
-            const cycleIndex = cycles.findIndex((c) => getIdString(c._id) === cycleId);
+            const shouldMaskReviewerIdentity =
+                !isPrivilegedUser && version.currentStage === "REVIEWER_TO_EDITOR";
+
+            const sanitizedUploadedBy = shouldMaskReviewerIdentity
+                ? {
+                    firstName: "Anonymous",
+                    lastName: "Reviewer",
+                    email: null,
+                    role: "REVIEWER",
+                }
+                : version.uploadedBy;
 
             return {
                 ...version,
+                uploadedBy: sanitizedUploadedBy,
                 cycleId,
                 timelineRemark: buildTimelineRemark({
                     version,
                     cycle,
-                    cycleIndex,
-                    cycles,
                     techDocsByCycleId,
-                    reviewerDoc,
+                    reviewerDocsByCycleId,
                 }),
             };
         });
@@ -2478,9 +2519,10 @@ const submitRevision = async (userId, payload) => {
             }
         }
         else if (payload.submitterRoleType === "Reviewer") {
-            const reviewerDoc = await Reviewer.findOne({
-                submissionId: submission._id,
-            });
+            const reviewerDoc = await getCurrentReviewerDoc(
+                submission._id,
+                currentCycle._id
+            );
             const assignment = findReviewerAssignment(reviewerDoc, userId);
             if (!assignment) {
                 throw new AppError(
@@ -2545,8 +2587,10 @@ const submitRevision = async (userId, payload) => {
         }
 
         if (payload.revisionStage === "REVIEWER_TO_EDITOR") {
-            const { Reviewer } = await import("../reviewers/reviewer.model.js");
-            const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
+            const reviewerDoc = await getCurrentReviewerDoc(
+                submission._id,
+                currentCycle._id
+            );
             const alreadySubmitted = reviewerDoc?.reviewerFeedback.some(
                 f => f.email === user.email || (f.user && f.user.toString() === userId)
             );
@@ -2655,7 +2699,10 @@ const submitRevision = async (userId, payload) => {
                 break;
 
             case "REVIEWER_TO_EDITOR":
-                const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
+                const reviewerDoc = await getCurrentReviewerDoc(
+                    submission._id,
+                    currentCycle._id
+                );
                 if (!reviewerDoc) {
                     throw new AppError("Reviewer document not found", STATUS_CODES.NOT_FOUND, "REVIEWER_DOC_NOT_FOUND");
                 }
@@ -3624,8 +3671,10 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorIds,
 
         // Update current cycle with remarks and attachments
         const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
-        let technicalEditorDoc = await TechnicalEditor.findOne({ submissionId: submission._id })
-            .sort({ updatedAt: -1 });
+        let technicalEditorDoc = await TechnicalEditor.getCurrentCycleDoc(
+            submission._id,
+            currentCycle._id
+        );
         if (!technicalEditorDoc) {
             technicalEditorDoc = await TechnicalEditor.create({
                 submissionId: submission._id,
@@ -3634,8 +3683,6 @@ const assignTechnicalEditor = async (submissionId, editorId, technicalEditorIds,
                 technicalEditorReview: [],
             });
         }
-
-        technicalEditorDoc.cycleId = currentCycle._id;
 
         const alreadyAssignedIds = uniqueTechnicalEditorIds.filter((technicalEditorId) =>
             technicalEditorDoc.assignedTechnicalEditors.some(
@@ -3843,7 +3890,19 @@ const respondToReviewerAssignment = async (submissionId, reviewerId, decision, r
             );
         }
 
-        const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
+        const currentCycle = await SubmissionCycle.getCurrentCycle(submission._id);
+        if (!currentCycle) {
+            throw new AppError(
+                "Active submission cycle not found",
+                STATUS_CODES.NOT_FOUND,
+                "CYCLE_NOT_FOUND"
+            );
+        }
+
+        const reviewerDoc = await getCurrentReviewerDoc(
+            submission._id,
+            currentCycle._id
+        );
         if (!reviewerDoc) {
             throw new AppError(
                 "Reviewer assignment record not found",
@@ -3957,24 +4016,34 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
         //     }
         // }
         // Update Reviewer document with assigned reviewers
-        const { Reviewer } = await import("../reviewers/reviewer.model.js");
-        const reviewerDoc = await Reviewer.findOne({ submissionId: submission._id });
-        if (reviewerDoc) {
-            for (const reviewerId of reviewerIds) {
-                const alreadyAssigned = reviewerDoc.assignedReviewers.some(
-                    r => r.reviewer.toString() === reviewerId
-                );
-                if (!alreadyAssigned) {
-                    reviewerDoc.assignedReviewers.push({
-                        reviewer: reviewerId,
-                        assignedDate: new Date(),
-                        status: "PENDING",
-                        isAnonymous: true,
-                    });
-                }
-            }
-            await reviewerDoc.save();
+        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
+        let reviewerDoc = await getCurrentReviewerDoc(
+            submission._id,
+            currentCycle?._id
+        );
+        if (!reviewerDoc) {
+            reviewerDoc = await Reviewer.create({
+                submissionId: submission._id,
+                cycleId: currentCycle._id,
+                assignedReviewers: [],
+                reviewerFeedback: [],
+            });
         }
+
+        for (const reviewerId of reviewerIds) {
+            const alreadyAssigned = reviewerDoc.assignedReviewers.some(
+                (reviewer) => reviewer.reviewer.toString() === reviewerId
+            );
+            if (!alreadyAssigned) {
+                reviewerDoc.assignedReviewers.push({
+                    reviewer: reviewerId,
+                    assignedDate: new Date(),
+                    status: "PENDING",
+                    isAnonymous: true,
+                });
+            }
+        }
+        await reviewerDoc.save();
 
         // Add internal note
         submission.internalNotes.push({
@@ -3984,7 +4053,6 @@ const assignReviewers = async (submissionId, editorId, reviewerIds, remarks, rev
         });
 
         // Update current cycle
-        const currentCycle = await SubmissionCycle.findById(submission.currentCycleId);
         let version = null;
 
         if (currentCycle) {
@@ -4393,3 +4461,4 @@ export default {
     getMyConsentInvitations,
     getCoAuthorConsentsForSubmission,
 };
+
