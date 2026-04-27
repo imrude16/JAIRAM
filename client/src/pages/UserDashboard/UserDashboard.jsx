@@ -536,6 +536,7 @@ const RevisionUploadField = ({
   label,
   helperText,
   files,
+  accept,
   multiple = false,
   onPick,
   onRemove,
@@ -550,6 +551,7 @@ const RevisionUploadField = ({
     <input
       type="file"
       multiple={multiple}
+      accept={accept}
       onChange={onPick}
       disabled={uploading}
       style={{
@@ -605,7 +607,7 @@ const RevisionUploadField = ({
   </div>
 );
 
-const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose, onSubmit }) => {
+const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose, onSubmit, onNotify }) => {
   const MAX_REVISION_FIGURES = 3;
   const MAX_REVISION_TABLES = 6;
   const [coverLetter, setCoverLetter] = useState([]);
@@ -617,10 +619,29 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
 
   const editorBlock = submission?._editorRemarksForAuthor || null;
   const canSubmit = coverLetter.length > 0 && blindManuscriptFile.length > 0 && !uploadingKey && !detailLoading && !submitting;
+  const notify = (message, type = "error") => {
+    if (onNotify) onNotify(message, type);
+    else alert(message);
+  };
 
-  const uploadFiles = async (fileList, setter, multiple = false, maxFiles = Infinity, label = "files") => {
+  const uploadFiles = async (
+    fileList,
+    setter,
+    multiple = false,
+    maxFiles = Infinity,
+    label = "files",
+    allowedExtension = null
+  ) => {
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
+
+    if (allowedExtension) {
+      const invalidFile = selected.find((file) => !file.name.toLowerCase().endsWith(`.${allowedExtension}`));
+      if (invalidFile) {
+        notify(`${label} must be ${allowedExtension.toUpperCase()} files only.`);
+        return;
+      }
+    }
 
     const existingCount = multiple ? setter === setFigures
       ? figures.length
@@ -632,7 +653,7 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
       : 0;
 
     if (multiple && existingCount >= maxFiles) {
-      alert(`Maximum ${maxFiles} ${label} allowed.`);
+      notify(`Maximum ${maxFiles} ${label} allowed.`);
       return;
     }
 
@@ -649,7 +670,7 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
       }
       setter((prev) => (multiple ? [...prev, ...uploaded] : uploaded.slice(0, 1)));
     } catch (err) {
-      alert(err.response?.data?.message || err.message || "Failed to upload file.");
+      notify(err.response?.data?.message || err.message || "Failed to upload file.");
     } finally {
       setUploadingKey("");
     }
@@ -729,9 +750,10 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
 
                   <RevisionUploadField
                     label="Cover Letter"
-                    helperText="Required"
+                    helperText="Required, DOCX only"
                     files={coverLetter}
-                    onPick={(e) => uploadFiles(e.target.files, setCoverLetter, false)}
+                    accept=".docx"
+                    onPick={(e) => uploadFiles(e.target.files, setCoverLetter, false, Infinity, "Cover Letter", "docx")}
                     onRemove={(index) => setCoverLetter((prev) => prev.filter((_, i) => i !== index))}
                     uploading={uploadingKey === "active"}
                     required
@@ -739,9 +761,10 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
 
                   <RevisionUploadField
                     label="Blind Manuscript"
-                    helperText="Required"
+                    helperText="Required, DOCX only"
                     files={blindManuscriptFile}
-                    onPick={(e) => uploadFiles(e.target.files, setBlindManuscriptFile, false)}
+                    accept=".docx"
+                    onPick={(e) => uploadFiles(e.target.files, setBlindManuscriptFile, false, Infinity, "Blind Manuscript", "docx")}
                     onRemove={(index) => setBlindManuscriptFile((prev) => prev.filter((_, i) => i !== index))}
                     uploading={uploadingKey === "active"}
                     required
@@ -785,10 +808,11 @@ const RevisionResubmitModal = ({ submission, detailLoading, submitting, onClose,
 
                   <RevisionUploadField
                     label="Supplementary Files"
-                    helperText="Optional, multiple allowed"
+                    helperText="Optional, multiple allowed, DOCX only"
                     files={supplementaryFiles}
                     multiple
-                    onPick={(e) => uploadFiles(e.target.files, setSupplementaryFiles, true)}
+                    accept=".docx"
+                    onPick={(e) => uploadFiles(e.target.files, setSupplementaryFiles, true, Infinity, "Supplementary Files", "docx")}
                     onRemove={(index) => setSupplementaryFiles((prev) => prev.filter((_, i) => i !== index))}
                     uploading={uploadingKey === "active"}
                   />
@@ -1072,7 +1096,7 @@ const UserDashboard = () => {
       const detail = await fetchSubmissionById(submission.id);
       setRevisionDetail(detail);
     } catch (err) {
-      alert("Error: " + (err.response?.data?.message || err.message));
+      showToast(err.response?.data?.message || err.message || "Failed to load revision details.", "error");
       setRevisionModal(null);
     } finally {
       setRevisionDetailLoading(false);
@@ -1085,12 +1109,12 @@ const UserDashboard = () => {
     setRevisionSubmitting(true);
     try {
       await resubmitAuthorRevision(revisionModal.submissionId, payload);
-      alert("✓ Revised manuscript submitted successfully!");
+      showToast("Revised manuscript submitted successfully.");
       setRevisionModal(null);
       setRevisionDetail(null);
       refetch();
     } catch (err) {
-      alert("Error: " + (err.response?.data?.message || err.message));
+      showToast(err.response?.data?.message || err.message || "Failed to submit revised manuscript.", "error");
     } finally {
       setRevisionSubmitting(false);
     }
@@ -1315,6 +1339,7 @@ const UserDashboard = () => {
             setRevisionDetail(null);
           }}
           onSubmit={handleSubmitRevision}
+          onNotify={showToast}
         />
       )}
 

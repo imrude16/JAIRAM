@@ -242,6 +242,9 @@ const getCurrentReviewerDoc = (submissionId, cycleId) =>
 const getCurrentReviewerDocLean = (submissionId, cycleId) =>
     Reviewer.getCurrentCycleDocLean(submissionId, cycleId);
 
+const isDocxFile = (file) =>
+    typeof file?.fileName === "string" && file.fileName.toLowerCase().endsWith(".docx");
+
 const trackRejectedConsentIssue = (submission, consent) => {
     const coAuthorName = [
         consent.coAuthorFirstName,
@@ -1400,6 +1403,19 @@ const resubmitAuthorRevision = async (submissionId, userId, payload) => {
 
         if (!payload.blindManuscriptFile?.fileUrl) {
             throw new AppError("Blind manuscript file is required", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_FILE_REQUIRED");
+        }
+
+        if (!isDocxFile(payload.coverLetter)) {
+            throw new AppError("Cover letter must be a DOCX file", STATUS_CODES.BAD_REQUEST, "COVER_LETTER_DOCX_REQUIRED");
+        }
+
+        if (!isDocxFile(payload.blindManuscriptFile)) {
+            throw new AppError("Blind manuscript file must be a DOCX file", STATUS_CODES.BAD_REQUEST, "MANUSCRIPT_DOCX_REQUIRED");
+        }
+
+        const invalidSupplementaryFile = (payload.supplementaryFiles || []).find((file) => !isDocxFile(file));
+        if (invalidSupplementaryFile) {
+            throw new AppError("Supplementary files must be DOCX files", STATUS_CODES.BAD_REQUEST, "SUPPLEMENTARY_DOCX_REQUIRED");
         }
 
         submission.coverLetter = payload.coverLetter;

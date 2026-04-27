@@ -77,6 +77,15 @@ const fileSchema = Joi.object({
     description: Joi.string().trim().max(500).optional().allow(""),
 });
 
+const docxFileSchema = fileSchema.custom((file, helpers) => {
+    if (!file.fileName?.toLowerCase().endsWith(".docx")) {
+        return helpers.error("file.docxOnly");
+    }
+    return file;
+}, "DOCX file validation").messages({
+    "file.docxOnly": "Only DOCX files are allowed",
+});
+
 // ================================================
 // CREATE SUBMISSION (DRAFT) SCHEMA
 // ================================================
@@ -441,11 +450,13 @@ export const resubmitAuthorRevisionSchema = {
     }),
 
     body: Joi.object({
-        coverLetter: fileSchema.required().messages({
+        coverLetter: docxFileSchema.required().messages({
             "any.required": "Cover letter is required",
+            "file.docxOnly": "Cover letter must be a DOCX file",
         }),
-        blindManuscriptFile: fileSchema.required().messages({
+        blindManuscriptFile: docxFileSchema.required().messages({
             "any.required": "Blind manuscript file is required",
+            "file.docxOnly": "Blind manuscript file must be a DOCX file",
         }),
         figures: Joi.array().items(fileSchema).max(3).optional()
             .messages({
@@ -455,7 +466,11 @@ export const resubmitAuthorRevisionSchema = {
             .messages({
                 "array.max": "Maximum 6 table uploads allowed",
             }),
-        supplementaryFiles: Joi.array().items(fileSchema).optional(),
+        supplementaryFiles: Joi.array().items(
+            docxFileSchema.messages({
+                "file.docxOnly": "Supplementary files must be DOCX files",
+            })
+        ).optional(),
     }),
 };
 
