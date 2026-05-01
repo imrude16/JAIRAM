@@ -340,6 +340,7 @@ const ReviewerTable = ({ subs, onAction }) => {
                 const pending = sub._reviewerAssignmentStatus === "PENDING";
                 const accepted = sub._reviewerAssignmentStatus === "ACCEPT";
                 const reviewSubmitted = !!sub._reviewerReviewSubmitted;
+                const hasCurrentAssignment = sub._reviewerHasCurrentAssignment !== false;
                 const remarks = sub._editorRemarksForReviewer;
 
                 return (
@@ -422,9 +423,9 @@ const ReviewerTable = ({ subs, onAction }) => {
                     <td style={{ ...TD(true), textAlign: "left" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                         <EBtn icon={Eye} label="View" color="#0e7490" onClick={() => onAction("view", sub)} />
-                        <EBtn icon={CheckCircle} label="Accept" color="#15803d" onClick={() => onAction("accept", sub)} disabled={!pending} />
-                        <EBtn icon={XCircle} label="Reject" color="#dc2626" onClick={() => onAction("reject", sub)} disabled={!pending} />
-                        <EBtn icon={ClipboardCheck} label="Submit Review" color="#0f3460" onClick={() => onAction("review", sub)} disabled={!accepted || reviewSubmitted} />
+                        <EBtn icon={CheckCircle} label="Accept" color="#15803d" onClick={() => onAction("accept", sub)} disabled={!pending || !hasCurrentAssignment} />
+                        <EBtn icon={XCircle} label="Reject" color="#dc2626" onClick={() => onAction("reject", sub)} disabled={!pending || !hasCurrentAssignment} />
+                        <EBtn icon={ClipboardCheck} label="Submit Review" color="#0f3460" onClick={() => onAction("review", sub)} disabled={!accepted || reviewSubmitted || !hasCurrentAssignment} />
                       </div>
                     </td>
                   </tr>

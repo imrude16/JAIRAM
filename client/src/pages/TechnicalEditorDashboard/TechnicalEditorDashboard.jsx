@@ -763,6 +763,7 @@ const TechnicalEditorTable = ({ subs, onAction }) => {
                 const pending = sub._technicalEditorAssignmentStatus === "PENDING";
                 const accepted = sub._technicalEditorAssignmentStatus === "ACCEPT";
                 const reviewSubmitted = !!sub._technicalEditorReviewSubmitted;
+                const hasCurrentAssignment = sub._technicalEditorHasCurrentAssignment !== false;
                 const remarks = sub._editorRemarksForTechEditor;
 
                 return (
@@ -867,21 +868,21 @@ const TechnicalEditorTable = ({ subs, onAction }) => {
                           label="Accept"
                           color="#15803d"
                           onClick={() => onAction("accept", sub)}
-                          disabled={!pending}
+                          disabled={!pending || !hasCurrentAssignment}
                         />
                         <EBtn
                           icon={XCircle}
                           label="Reject"
                           color="#dc2626"
                           onClick={() => onAction("reject", sub)}
-                          disabled={!pending}
+                          disabled={!pending || !hasCurrentAssignment}
                         />
                         <EBtn
                           icon={Upload}
                           label="Submit Review"
                           color="#0f3460"
                           onClick={() => onAction("review", sub)}
-                          disabled={!accepted || reviewSubmitted}
+                          disabled={!accepted || reviewSubmitted || !hasCurrentAssignment}
                         />
                       </div>
                     </td>
