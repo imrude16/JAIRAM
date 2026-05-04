@@ -147,6 +147,16 @@ const SECTIONS = [
           "Tuberculosis and other infectious lung diseases, Airway Disorders (Asthma & COPD), Interstitial Lung Diseases, Lung Cancer & Immunology, Pulmonary Rehabilitation & Yoga, Sleep & Metabolic Disorders",
       },
       {
+        name: "Dr. Ganesh Seth",
+        role: "Interventional Cardiology",
+        degree: "M.B.B.S., M.D., D.M., FSCAI, FAPSIC",
+        designation: "Associate Director",
+        department: "Interventional Cardiology",
+        institution: "Medanta Heart Institute, Lucknow, Uttar Pradesh, India",
+        email: "ganeshseth2003@gmail.com",
+        expertise: "Revascularization, CTO, Intravascular, Structural, Valvular,Interventional Cardiology",
+      },
+      {
         name: "Dr. Durga Prasad Singh",
         role: "Internal Medicine",
         degree: "MBBS, MD (Internal Medicine)",
@@ -204,7 +214,7 @@ const SECTIONS = [
         role: "Dentistry & Oral Health",
         degree: "BDS",
         designation: "Medical Officer, Dental",
-        department: "Department",
+        department: "Department of Dentistry",
         institution:
           "Community Health Center, Mallawan Hardoi, Uttar Pradesh, India",
         email: "deepanjaliyadav.9@gmail.com",
@@ -342,11 +352,11 @@ const SECTIONS = [
     members: [
       {
         name: "Dr. Ravindra Singh Thakur",
-        degree: "PhD, Post-Doctoral Fellow",
-        designation: "designation",
+        degree: "PhD, Post-Doctoral",
+        designation: "Assistant Staff Scientist",
         department: "Public Health",
         institution:
-          "Public Health College of Public Health, The Ohio State University, Columbus, OH, 43210",
+          "College Of Pharmacy,University of Arkansas for Medical Sciences, Little Rock, Arkansas, USA",
         email: "ravindrast29@gmail.com",
         expertise:
           "Analytical Chemistry, Toxicology, Environmental Science, Food Chemistry, Exposure & Risk Assessment",
@@ -473,6 +483,14 @@ const SECTIONS = [
           "Forensic Toxicology, DNA Profiling, Forensic Biology, Medico-Legal Research, Evidence-Based Forensic Analysis",
       },
       {
+        name: "Dr. Sakshi Singh",
+        role: "Language & Copy Editor",
+        degree: "PhD (Anthropology)",
+        institution: "University of Lucknow, Lucknow, India",
+        expertise:
+          "Scientific language editing, academic writing support, preparation of PMC-compliant PDF and XML files",
+      },
+      {
         name: "Dr. Prabha Shristha",
         degree: "BDS, MDS (Conservative Dentistry)",
         designation: "Resident Doctor",
@@ -503,15 +521,6 @@ const SECTIONS = [
           "Medicinal & Aromatic Plants, Intellectual Property Rights, Patent Examination, Technology Transfer, Innovation Policy",
       },
       {
-        name: "Miss Shalini Jaiswal",
-        degree: "PhD (Biostatics)",
-        designation: "Statistical Expert (JAIRAM Journal)",
-        institution: "Institute",
-        email: "E-Mail",
-        expertise:
-          "Biostatistics, Advanced Statistical Modeling, Medical Data Analysis, Research Methodology, Clinical Trial Statistics, Epidemiology",
-      },
-      {
         name: "Miss. Shambhawi Sandilya",
         designation: "PhD Scholar and Teaching Assistant",
         department: "School of Computer Science and Engineering (CSE)",
@@ -534,19 +543,18 @@ const SECTIONS = [
       {
         name: "Mr. Krishn Praddhumn",
         role: "Technical Editor",
-        degree: "Research Associate",
-        institution: "Research Associate CSIR-IITR Lucknow",
+        degree: "Research Scholar",
+        institution:
+          "Dr. Ram Manohar Lohia Institute of Medical Sciences, Lucknow, India",
         expertise:
           "Manuscript formatting, XML (JATS) preparation, reference checking; production workflow coordination.",
       },
       {
-        name: "Dr. Sakshi Singh",
-        role: "Language & Copy Editor",
-        degree: "PhD (Behavioral Science)",
-        institution: "University of Lucknow, Lucknow, India",
-        expertise:
-          "Scientific language editing, academic writing support, preparation of PMC-compliant PDF and XML files",
+        name: "Mr. Sidharth Verma",
+        degree: "Ph.D Scholar",
+        institution: "Banaras Hindu University, Varanasi, Uttar Pradesh ,India",
       },
+
       {
         name: "Mr. Pranay Chaturvedi",
         role: "Publishing & Administration",
@@ -565,10 +573,16 @@ const SECTIONS = [
       {
         name: "Ms. Dipti Chaurasia",
         role: "Ethics & Research Integrity Committee",
-        degree: "Master's in Forensic Science",
-        institution: "University of Lucknow, India",
+        degree: "Ph.D Scholar",
+        institution: "Dr. Ram Manohar Lohia Institute of Medical Sciences, Lucknow, India",
         expertise:
           "Plagiarism screening, publication ethics oversight, compliance with COPE guidelines, research integrity review",
+      },
+      {
+        name:"Ms.Himani Agrawal",
+        role:"Research & Editorial Support",
+        degree:"Ph.D Scholar",
+        institution:"Mahatma Jyotiba Phule Rohilkhand University,Bareilly India",
       },
       {
         name: "Ms. Gargi Mishra",
